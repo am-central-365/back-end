@@ -7,8 +7,11 @@
 
     <properties>
         <kotlin.version>1.2.21</kotlin.version>
+        <junit.version>4.12</junit.version>
+
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
         <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
+
         <main.class>com.alderprogs.amcentral.MainKt</main.class>
     </properties>
 
@@ -20,11 +23,24 @@
         <version>${kotlin.version}</version>
       </dependency>
 
+      <!-- https://mvnrepository.com/artifact/junit/junit -->
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>${junit.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.jetbrains.kotlin</groupId>
+        <artifactId>kotlin-test-junit</artifactId>
+        <version>${kotlin.version}</version>
+        <scope>test</scope>
+      </dependency>
+
     </dependencies>
 
     <build>
-      <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
-      <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
 
       <plugins>
 
@@ -37,14 +53,73 @@
             <execution>
               <id>compile</id>
               <goals> <goal>compile</goal> </goals>
+              <configuration>
+                <sourceDirs>
+                  <sourceDir>${project.basedir}/src/main/kotlin</sourceDir>
+                  <sourceDir>${project.basedir}/src/main/java</sourceDir>
+                </sourceDirs>
+              </configuration>
             </execution>
 
             <execution>
               <id>test-compile</id>
               <goals> <goal>test-compile</goal> </goals>
+              <configuration>
+                <sourceDirs>
+                  <sourceDir>${project.basedir}/src/test/kotlin</sourceDir>
+                  <sourceDir>${project.basedir}/src/test/java</sourceDir>
+                </sourceDirs>
+              </configuration>
             </execution>
+
           </executions>
         </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.5.1</version>
+          <executions>
+            <!-- Replacing default-compile as it is treated specially by maven -->
+            <execution>
+              <id>default-compile</id>
+              <phase>none</phase>
+            </execution>
+            <!-- Replacing default-testCompile as it is treated specially by maven -->
+            <execution>
+              <id>default-testCompile</id>
+              <phase>none</phase>
+            </execution>
+
+            <execution>
+              <id>java-compile</id>
+              <phase>compile</phase>
+              <goals> <goal>compile</goal> </goals>
+            </execution>
+
+            <execution>
+              <id>java-test-compile</id>
+              <phase>test-compile</phase>
+              <goals> <goal>testCompile</goal> </goals>
+            </execution>
+
+          </executions>
+        </plugin>
+
+        <!-- Don't know why we need this. It has no effect. -->
+        <!--plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>2.6</version>
+          <configuration>
+            <archive>
+              <manifest>
+                <addClasspath>true</addClasspath>
+                <mainClass>${main.class}</mainClass>
+              </manifest>
+            </archive>
+          </configuration>
+        </plugin-->
 
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -64,8 +139,8 @@
                 <descriptorRefs>
                   <descriptorRef>jar-with-dependencies</descriptorRef>
                 </descriptorRefs>
-                <!--finalName>amcentral</finalName-->
-                <!--appendAssemblyId>false</appendAssemblyId-->
+                <finalName>am-central</finalName>
+                <appendAssemblyId>false</appendAssemblyId>
               </configuration>
             </execution>
           </executions>
