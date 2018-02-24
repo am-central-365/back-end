@@ -1,4 +1,4 @@
-package com.alderprogs.amcentral;
+package com.amcentral.tbd;
 
 import org.junit.Test;
 

@@ -1,4 +1,4 @@
-package com.alderprogs.amcentral;
+package com.amcentral.tbd;
 
 public class SomeJavaClass {
     static public int m1(int p1, String p2) {

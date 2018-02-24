@@ -1,8 +1,8 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <name>AutoMationCentral</name>
-    <groupId>com.alderprogs</groupId>
-    <artifactId>amcentral</artifactId>
+    <groupId>com.amcentral</groupId>
+    <artifactId>tbd</artifactId>
     <version>0.0.1-SNAPSHOT</version>
 
     <properties>
@@ -12,7 +12,7 @@
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
         <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
 
-        <main.class>com.alderprogs.amcentral.MainKt</main.class>
+        <main.class>com.amcentral.tbd.MainKt</main.class>
     </properties>
 
     <dependencies>
@@ -139,7 +139,7 @@
                 <descriptorRefs>
                   <descriptorRef>jar-with-dependencies</descriptorRef>
                 </descriptorRefs>
-                <finalName>am-central</finalName>
+                <finalName>am-central-tbd</finalName>
                 <appendAssemblyId>false</appendAssemblyId>
               </configuration>
             </execution>
