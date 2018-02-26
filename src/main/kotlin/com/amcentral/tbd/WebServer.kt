@@ -4,8 +4,11 @@ import spark.Request
 import spark.Response
 
 import com.google.common.io.Resources
+import mu.KLogging
 
 class WebServer {
+    companion object: KLogging()
+
     private val DEFAULT_PORT = 16717 // 0x414D
     private val API_BASE = "/v0.1"   // must match servers.url in src/main/resources/swagger/amcentral365.yaml
 
@@ -17,7 +20,7 @@ class WebServer {
         handleCORS()
 
       //spark.Spark.get(API_BASE+"/publicKey-java",  fun(_,_) = SomeJavaClass.getPublicKey())
-        spark.Spark.get(API_BASE+"/publicKey",   fun(_, rsp) = this.getPublicKey(rsp))
+        spark.Spark.get(API_BASE+"/publicKey",   fun(req, rsp) = this.getPublicKey(req, rsp))
     }
 
     private fun handleCORS() {
@@ -36,7 +39,8 @@ class WebServer {
         })
     }
 
-    internal fun getPublicKey(rsp: Response): String {
+    internal fun getPublicKey(req: Request, rsp: Response): String {
+        logger.info { "getPublicKey from ${req.ip()}" }
         rsp.type("text/plain")
         return Resources.toString(Resources.getResource("ssh-key.pub"), Charsets.US_ASCII)
     }
