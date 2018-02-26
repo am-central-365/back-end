@@ -38,6 +38,20 @@
         <scope>test</scope>
       </dependency>
 
+      <!-- Google Guava -->
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>24.0-jre</version>
+      </dependency>
+
+      <!-- Spark framework: the Web server http://sparkjava.com/ -->
+      <dependency>
+        <groupId>com.sparkjava</groupId>
+        <artifactId>spark-core</artifactId>
+        <version>2.7.1</version>
+      </dependency>
+
     </dependencies>
 
     <build>

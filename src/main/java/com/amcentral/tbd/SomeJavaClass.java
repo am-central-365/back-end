@@ -12,4 +12,8 @@ public class SomeJavaClass {
         System.out.printf("I am SomeJavaClass::callingKotlin(%d), and my return value is %d\n", p, ret);
         return ret;
     }
+
+    public static String getPublicKey() {
+        return "Public key served by SomeJavaClass.getPublicKey";
+    }
 }
