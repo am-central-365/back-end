@@ -4,6 +4,8 @@ import org.junit.Test
 import org.junit.Assert.assertEquals
 import io.mockk.mockk
 import io.mockk.every
+import io.mockk.just
+import io.mockk.Runs
 
 import com.google.common.io.Resources
 import spark.Response
@@ -14,7 +16,7 @@ class WebServerTest {
     fun `getPublicKey$production_sources_for_module_amcentral`() {
         val expectedKey = Resources.toString(Resources.getResource("ssh-key.pub"), Charsets.US_ASCII)
         val rspMock = mockk<Response>()
-        every { rspMock.type("text/plain") } answers { nothing }
+        every { rspMock.type("text/plain") } just Runs
 
         val actualKey = WebServer().getPublicKey(rspMock)
         assertEquals(expectedKey, actualKey)
