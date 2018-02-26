@@ -1,0 +1,18 @@
+openapi: 3.0.0
+info:
+  title: AM-Central-365 API
+  description: Automation Central 365 API
+  version: 0.0.1
+
+servers:
+  - url: /v0.1  # must match API_BASE in src/main/kotlin/com/amcentral/tbd/WebServer.kt
+
+paths:
+  /publicKey:
+   get:
+     summary: Get amcentral365 public key as plain text
+     description: Append this key to ~/.ssh/authorized_keys on all managed machines
+     tags: [Other]
+     produces:  [text/plain]
+     responses:
+       200: { description: "the key contents" }
