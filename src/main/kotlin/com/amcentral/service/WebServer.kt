@@ -1,4 +1,4 @@
-package com.amcentral.tbd
+package com.amcentral.service
 
 import spark.Request
 import spark.Response
@@ -24,7 +24,7 @@ class WebServer {
     }
 
     private fun handleCORS() {
-        spark.Spark.after("*", fun(req: Request, rsp: Response) = rsp.header("Access-Control-Allow-Origin", "*"))
+        spark.Spark.after("*", fun(_: Request, rsp: Response) = rsp.header("Access-Control-Allow-Origin", "*"))
 
         // preflight
         spark.Spark.options("*", fun(req: Request, rsp: Response) {
@@ -43,5 +43,9 @@ class WebServer {
         logger.info { "getPublicKey from ${req.ip()}" }
         rsp.type("text/plain")
         return Resources.toString(Resources.getResource("ssh-key.pub"), Charsets.US_ASCII)
+    }
+
+    fun xx() {
+
     }
 }

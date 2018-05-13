@@ -1,9 +1,12 @@
-AM Central 365 back-end
-===
+AM Central 365 back-end service
+===============================
 
 Build
----
-`mvn package`
+-----
+```
+mvn package
+gradle build
+```
 
 Note:
 when building for the first time or running with "clean" option, the
@@ -16,4 +19,4 @@ Subsequent builds (w/o "clean") run fine.
 
 Run
 ---
-`java -jar target/am-central-tbd.jar`
+`java -jar target/am-central-service.jar`

@@ -6,13 +6,13 @@
     <version>0.0.1-SNAPSHOT</version>
 
     <properties>
-        <kotlin.version>1.2.21</kotlin.version>
-        <junit.version>4.12</junit.version>
+        <kotlin.version>1.2.41</kotlin.version>
+        <junit.version>5.2.0</junit.version>
 
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
         <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
 
-        <main.class>com.amcentral.tbd.MainKt</main.class>
+        <main.class>com.amcentral.service.MainKt</main.class>
     </properties>
 
     <dependencies>
@@ -41,7 +41,7 @@
       <dependency>
         <groupId>io.github.microutils</groupId>
         <artifactId>kotlin-logging</artifactId>
-        <version>1.4.9</version>
+        <version>1.5.4</version>
       </dependency>
 
       <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-jdk14 -->
@@ -51,12 +51,31 @@
         <version>1.7.25</version>
       </dependency>
 
+      <dependency>  <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+        <groupId>mysql</groupId>
+        <artifactId>mysql-connector-java</artifactId>
+        <version>5.1.46</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.amcentral365</groupId>
+        <artifactId>pl4kotlin</artifactId>
+        <version>0.1.0</version>
+      </dependency>
+
       <!-- ======================= Test dependencies ======================= -->
 
       <!-- https://mvnrepository.com/artifact/junit/junit -->
-      <dependency>
-        <groupId>junit</groupId>
-        <artifactId>junit</artifactId>
+      <dependency>  <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-engine -->
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-engine</artifactId>
+        <version>${junit.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>  <!-- https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api -->
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter-api</artifactId>
         <version>${junit.version}</version>
         <scope>test</scope>
       </dependency>

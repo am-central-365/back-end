@@ -1,7 +1,8 @@
-package com.amcentral.tbd
+package com.amcentral.service
 
-import org.junit.Test
-import org.junit.Assert.assertEquals
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+
 import io.mockk.mockk
 import io.mockk.every
 import io.mockk.just

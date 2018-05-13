@@ -1,4 +1,4 @@
-package com.amcentral.tbd;
+package com.amcentral.service;
 
 public class SomeJavaClass {
     static public int m1(int p1, String p2) {

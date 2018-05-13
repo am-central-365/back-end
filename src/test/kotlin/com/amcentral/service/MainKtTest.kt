@@ -1,7 +1,7 @@
-package com.amcentral.tbd
+package com.amcentral.service
 
-import org.junit.Assert.assertTrue
-import org.junit.Assert.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertFalse
 
 internal class MainKtTest {
 
