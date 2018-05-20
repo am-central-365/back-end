@@ -2,29 +2,39 @@ buildscript {
     ext.kotlin_version = '1.2.41'
     repositories {
         mavenCentral()
+        jcenter()
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:0.9.16"
     }
 }
 
 apply plugin: "kotlin"
 apply plugin: 'java'
 apply plugin: 'maven'   // enables gradle install
+apply plugin: 'org.jetbrains.dokka'
 
-group = 'com.amcentral'
-version = '0.0.1-SNAPSHOT'
+group   = GROUP_NAME
+version = VERSION_NAME
+archivesBaseName = ARTIFACT_BASE_NAME
 
-description = "AutoMationCentral"
+description = "AutomationCentral"
 
 sourceCompatibility = 1.8
 targetCompatibility = sourceCompatibility
 
 def junit5Version = '5.2.0'
+def mainClass = "com.amcentral365.service.MainKt"
 
 repositories {
     mavenLocal()
     maven { url "http://repo.maven.apache.org/maven2" }
+}
+
+dokka {
+    outputFormat = 'javadoc'
+    outputDirectory = "$buildDir/javadoc"
 }
 
 sourceSets {
@@ -73,6 +83,17 @@ test {
     }
 }
 
+// uber jar
+jar {
+    manifest {
+        attributes "Main-Class": mainClass
+    }
+
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
 
 dependencies {
     compile group: 'org.jetbrains.kotlin',  name: 'kotlin-stdlib-jdk8'
@@ -82,6 +103,8 @@ dependencies {
     compile group: 'com.amcentral365',      name: 'pl4kotlin',            version: '0.1.0'
     compile group: 'io.github.microutils',  name: 'kotlin-logging',       version: '1.5.4'
     compile group: 'org.slf4j',             name: 'slf4j-log4j12',        version: '1.7.25'
+    compile group: 'com.google.code.gson',  name: 'gson',                 version: '2.8.4'
+    compile group: 'com.github.ajalt',      name: 'clikt',                version: '1.2.0'
 
     testCompile group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit'
     testCompile group: 'org.junit.jupiter',    name: 'junit-jupiter-engine', version: junit5Version

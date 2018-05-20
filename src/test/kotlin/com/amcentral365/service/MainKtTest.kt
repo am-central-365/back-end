@@ -1,4 +1,4 @@
-package com.amcentral.service
+package com.amcentral365.service
 
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertFalse

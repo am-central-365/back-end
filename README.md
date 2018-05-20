@@ -9,7 +9,7 @@ gradle build
 ```
 
 Note:
-when building for the first time or running with "clean" option, the
+when building for the first time or running with `clean` option, the
 build fails on tests, complaining it can't find ssh-key.pub. Skip the
 tests for the first time:
 
@@ -19,4 +19,7 @@ Subsequent builds (w/o "clean") run fine.
 
 Run
 ---
-`java -jar target/am-central-service.jar`
+The command takes various commdn-line options. Run it with `--help`
+for the list:
+
+`java -jar target/am-central-service.jar --help`

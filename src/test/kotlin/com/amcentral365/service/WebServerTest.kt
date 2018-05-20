@@ -1,4 +1,4 @@
-package com.amcentral.service
+package com.amcentral365.service
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals

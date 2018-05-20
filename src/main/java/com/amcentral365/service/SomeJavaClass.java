@@ -1,4 +1,4 @@
-package com.amcentral.service;
+package com.amcentral365.service;
 
 public class SomeJavaClass {
     static public int m1(int p1, String p2) {

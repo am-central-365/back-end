@@ -1,16 +1,21 @@
-package com.amcentral.service
+package com.amcentral365.service
 
 import mu.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
+lateinit internal var config: Configuration
+
 fun main(args: Array<String>) {
 
     logger.info { "AM-Central-365 version 0.0.1 is starting" }
 
-    parseParams(args)
+    logger.info { "parsing arguments" }
+    config = Configuration(args)
+
+
     val webServer = WebServer()
-    webServer.start()
+    webServer.start(config.bindPort)
 
     Thread.sleep(500)  // give the web server some breath time
     logger.info { "AM-Central-365 is ready to serve requests" }
