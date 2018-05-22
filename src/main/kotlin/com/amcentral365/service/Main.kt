@@ -18,7 +18,7 @@ fun main(args: Array<String>) {
     webServer.start(config.bindPort)
 
     Thread.sleep(500)  // give the web server some breath time
-    logger.info { "AM-Central-365 is ready to serve requests" }
+    logger.info { "AM-Central-365 is ready to serve requests at http://${config.clusterFQDN}:${config.bindPort}" }
 }
 
 
