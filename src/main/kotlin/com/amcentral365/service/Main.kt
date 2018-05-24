@@ -22,8 +22,4 @@ fun main(args: Array<String>) {
 }
 
 
-fun parseParams(args: Array<String>): Boolean {
-    return args.isNotEmpty()
-}
-
 fun callMeFromJavaForHighFive(p1: Int) = p1 + 5

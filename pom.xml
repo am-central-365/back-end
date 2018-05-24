@@ -93,13 +93,6 @@
         <scope>test</scope>
       </dependency>
 
-      <dependency>
-        <groupId>org.jetbrains.kotlin</groupId>
-        <artifactId>kotlin-test-junit</artifactId>
-        <version>${kotlin.version}</version>
-        <scope>test</scope>
-      </dependency>
-
       <!-- http://mockk.io/ Simplifies mocking objects for Kotlin unit tests -->
       <dependency>
         <groupId>io.mockk</groupId>

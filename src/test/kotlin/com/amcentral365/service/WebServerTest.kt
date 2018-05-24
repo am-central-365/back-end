@@ -12,7 +12,7 @@ import com.google.common.io.Resources
 import spark.Request
 import spark.Response
 
-class WebServerTest {
+internal class WebServerTest {
 
     @Test
     fun `getPublicKey$production_sources_for_module_amcentral`() {

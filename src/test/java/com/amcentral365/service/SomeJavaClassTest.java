@@ -2,7 +2,7 @@ package com.amcentral365.service;
 
 import org.junit.jupiter.api.Test;
 
-class SomeJavaClassTest {
+public class SomeJavaClassTest {
 
     @Test
     void m1() {
