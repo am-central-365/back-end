@@ -7,6 +7,27 @@ info:
 servers:
   - url: /v0.1  # must match API_BASE in src/main/kotlin/com/amcentral365/service/WebServer.kt
 
+definitions:
+ GenericResponse:
+   type: object
+   properties:
+     code:    { type: integer, description: The response code. In most cases on of HTTP codes, but sometimes a cusimt value. 200 meanss ok }
+     message: { type: string,  descriprion: The message. When code is 200 (success), the message is OK }
+     cause:   { type: object,  description: The inner error, if any. Has the same structure as ErrorResponse }
+   required:  [code, message]
+
+ SQLErrorResponse:
+   type: object
+   properties:
+     code:     { type: integer, description: The response code. In most cases on of HTTP codes, but sometimes a cusimt value. 200 meanss ok }
+     message:  { type: string,  descriprion: The message. When code is 200 (success), the message is OK }
+     SQLState: { type: string,  descriprion: "ANSI SQL and/or ODBC error code. Code HY000 indicates general error" }
+     SQLError: { type: integer, description: "MySQL-specific error code" }
+     sql:      { type: string,  descriprion: "The problem statement. Bind placeholders are replaced with actual values, truncated if needed"  }
+     cause:    { type: GenericResponse, description: The inner error, if any. Has the same structure as ErrorResponse }
+   required:  [code, message, SQLState, SQLError, sql]
+
+
 paths:
   /publicKey:
    get:
@@ -16,3 +37,22 @@ paths:
      produces:  [text/plain]
      responses:
        200: { description: "the key contents" }
+
+  /admin/data/scriptStores:
+   get:
+     summary: Get list of script stores
+     description: Defines where script scan be downloaded from
+     tags: [Admin-Data]
+     produces: [application/json]
+     parameters:
+       - { in: query, name: scriptStoreId, maximum: 64, description: "record ID. Must conform to UUID format" }
+       - in: query
+         name: storeType
+         schema:
+           type: string
+           enum: [LocalFile, GitHub, Nexus]
+         description: "Script store type"
+     responses:
+       200: { description: "List of script stores matching criteria" }
+       default: { schema: { $ref: "#/definitions/GenericResponse"  }, description: "The generic response" }
+
