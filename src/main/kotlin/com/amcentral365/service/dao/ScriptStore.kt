@@ -15,13 +15,10 @@ class ScriptStore: Entity() {
     @Column("script_store_id", pkPos = 1, onInsert = Generated.OnTheClientAlways)
     var scriptStoreId: UUID? = null
 
-    @Column("store_type ") var storeType:  StoreType = StoreType.GitHub
+    @Column("store_type")  var storeType:  StoreType = StoreType.GitHub
     @Column("created_by")  var createdBy:  String = authUser.userId
     @Column("modified_by") var modifiedBy: String = authUser.userId
 
-    @Column("created_ts", onInsert = Generated.OnTheDbAlways)
-    var createdTs: Timestamp? = null
-
-    @Column("modified_ts", onInsert = Generated.OnTheDbAlways)
-    var modifiedTs: Timestamp? = null
+    @Column("created_ts",  onInsert = Generated.OnTheDbAlways)  var createdTs:  Timestamp? = null
+    @Column("modified_ts", onInsert = Generated.OnTheDbAlways)  var modifiedTs: Timestamp? = null
 }

@@ -9,6 +9,8 @@ import mu.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
 class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-service") {
+    val DBSTORE_RECONNECT_DELAY_SEC: Int = 2
+
 
     val verbosity: Int by option("-v", "--verbosity").int().default(2).validate {
         if( it < 0 || it > 4 )
@@ -25,7 +27,7 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
     val dbUrl: String by option("-c", "--conn",
             help = "JDBC connection string for the back-end MySql database. Format: [jdbc:mysql://]host[:port=3306]/database")
             .convert { if( it.matches(Regex("^jdbc:[^/@]+(//|@).+")) ) it else "jdbc:mysql://" + it }
-            .default("127.0.0.1/amcentral365")
+            .default("jdbc:mysql://127.0.0.1/amcentral365")
 
     val clusterNodeNames: MutableList<String> = mutableListOf()
     private val rawClusterNodeNames: List<String> by option("-n", "--node", "--nodes",

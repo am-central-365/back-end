@@ -7,6 +7,10 @@ private val logger = KotlinLogging.logger {}
 lateinit internal var config: Configuration
 internal var authUser: AuthenticatedUser = AuthenticatedUser("amcentral365", "none@amcentral365.com", "Internal User")
 
+var keepRunning = true  /** Global 'lights out' flag */
+
+val databaseStore = DatabaseStore()
+
 fun main(args: Array<String>) {
 
     logger.info { "AM-Central-365 version 0.0.1 is starting" }

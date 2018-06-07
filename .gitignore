@@ -2,4 +2,5 @@
 \.gradle
 target
 build
+out
 

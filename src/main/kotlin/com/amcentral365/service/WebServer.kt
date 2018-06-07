@@ -7,6 +7,11 @@ import spark.Response
 import com.google.common.io.Resources
 import mu.KLogging
 
+import com.amcentral365.service.dao.ScriptStore
+import com.google.common.annotations.VisibleForTesting
+import kotlin.reflect.KClass
+import kotlin.reflect.full.primaryConstructor
+
 
 class WebServer {
     companion object: KLogging()
@@ -22,6 +27,8 @@ class WebServer {
 
       //spark.Spark.get(API_BASE+"/publicKey-java",  fun(_,_) = SomeJavaClass.getPublicKey())
         spark.Spark.get(API_BASE+"/publicKey",   fun(req, rsp) = this.getPublicKey(req, rsp))
+
+        spark.Spark.get(API_BASE+"/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
     }
 
     private fun handleCORS() {
@@ -40,41 +47,38 @@ class WebServer {
         })
     }
 
+    @VisibleForTesting
     internal fun getPublicKey(req: Request, rsp: Response): String {
         logger.info { "getPublicKey from ${req.ip()}" }
         rsp.type("text/plain")
         return Resources.toString(Resources.getResource("ssh-key.pub"), Charsets.US_ASCII)
     }
 
-    private fun requestMethod(caller: String, req: Request): String {
-        var method = req.requestMethod()
-        logger.debug { "$caller: http request method is $method" }
-
-        val m2 = req.queryParams("_method")
-        if( m2 != null ) {
-            method = m2
-            logger.debug( "$caller: the real http request method is $method")
-        }
-
-        return method
-    }
-
-    private fun formatResponse(rsp: Response, code: Int, message: String): String {
-        rsp.status(code)
-        if( code == StatusMessage.OK.code )
-            logger.debug { "code: $code, messsae: $message" }
-        else
-            logger.error { "$code: $message" }
-        return "{\"code\": $code, \"message\": \"$message\"}"
-    }
-
-
-    fun restCallForAPersistentObject(req: Request, rsp: Response, entity: Entity): String {
+    @VisibleForTesting
+    internal fun restCallForPersistentObject(req: Request, rsp: Response, entityClass: KClass<out Entity>): String {
         rsp.type("application/json")
-        val method = this.requestMethod("restCallForAPersistentObject", req)
+        val method = requestMethod("restCallForPersistentObject", req)
         if (method.isEmpty())
             return formatResponse(rsp, 400, "no HTTP request method")
 
-        return ""
+        try {
+            val paramMap = combineRequestParams(req)
+            val filterInstance: Entity = entityClass.primaryConstructor!!.call()
+            filterInstance.assignFrom(paramMap)
+
+            when(method) {
+                "GET" -> {
+                    val defs = databaseStore.fetchRowsAsObjects(filterInstance)
+                    logger.info { "get[${filterInstance.tableName}]: returning ${defs.size} items" }
+                    val jsonStr = toJsonStr(defs)
+                }
+            }
+
+
+            return "FIXME"
+
+        } catch(x: Exception) {
+            return formatResponse(rsp, x)
+        }
     }
 }
