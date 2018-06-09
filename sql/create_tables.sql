@@ -80,11 +80,11 @@ drop table if exists tags;
 
 create table tags(
   tag_id          binary(16) not null
-  ,   constraint tags_pk primary key(tag_id)
+  ,   constraint  tags_pk primary key(tag_id)
   , parent_tag_id binary(16)
-  ,   constraint tags_fk1 foreign key(parent_tag_id) references tags(tag_id)
-  , name          varchar(255) not null
-  ,   constraint tags_uk1 unique(name)
+  ,   constraint  tags_fk1 foreign key(parent_tag_id) references tags(tag_id)
+  , tag_name      varchar(255) not null
+  ,   constraint  tags_uk1 unique(tag_name)
   , description   varchar(2000)
   /* --- standard fields */
   , created_by  varchar(100)
@@ -96,8 +96,11 @@ create table tags(
 
 create table script_stores(
   script_store_id binary(16)
-  ,   constraint script_stores_pk primary key(script_store_id)
-  , store_type  enum('LocalFile', 'GitHub', 'Nexus') not null
+  ,   constraint  script_stores_pk primary key(script_store_id)
+  , store_name    varchar(255) not null
+  ,   constraint  script_stores_uk1 unique(store_name)
+  , store_type    enum('LocalFile', 'GitHub', 'Nexus') not null
+  , description   varchar(2000)
   /* --- standard fields */
   , created_by  varchar(100)
   , created_ts  timestamp default current_timestamp not null
@@ -109,8 +112,8 @@ create table script_stores(
 create table scripts(
   script_id      binary(16)
   ,   constraint script_pk primary key(script_id)
-  , name         varchar(255) not null
-  ,   constraint script_uk1 unique(name)
+  , script_name  varchar(255) not null
+  ,   constraint script_uk1 unique(script_name)
   , description  text
   , store_id binary(16) not null
   ,   constraint scripts_fk1 foreign key(store_id) references script_stores(script_store_id)

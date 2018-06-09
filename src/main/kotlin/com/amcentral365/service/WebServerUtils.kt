@@ -1,11 +1,31 @@
 package com.amcentral365.service
 
+import com.amcentral365.pl4kotlin.Entity
 import com.google.gson.GsonBuilder
 import spark.Request
 import spark.Response
 import java.util.TreeMap
+import com.google.gson.FieldAttributes
+import com.google.gson.ExclusionStrategy
 
-private val gson = GsonBuilder().setDateFormat("yyyy-MM-dd HH:mm:ss").create()  // thread-safe
+
+class DAOExclusionStrategy constructor(private val baseTypeToSkip: Class<*>) : ExclusionStrategy {
+    override fun shouldSkipClass(clazz: Class<*>): Boolean = clazz == baseTypeToSkip
+
+    override fun shouldSkipField(f: FieldAttributes?): Boolean {
+        // The most accurate method would be to check if the field has Column annotation.
+        // But somehow annotations get lost on the way and always empty.
+        //return f?.getAnnotation(Column::class.java) != null
+
+        // Less accurate: field belongs to a class derived from Entity
+        return f?.declaringClass?.superclass != baseTypeToSkip
+    }
+}
+
+private val gson = GsonBuilder()
+        .setDateFormat("yyyy-MM-dd HH:mm:ss")
+        .setExclusionStrategies(DAOExclusionStrategy(Entity::class.java))
+        .create()  // thread-safe
 
 internal fun requestMethod(caller: String, req: Request): String {
     var method = req.requestMethod()
@@ -53,7 +73,6 @@ internal fun combineRequestParams(req: Request): TreeMap<String, String> {
             p[qpn.toLowerCase()] = vals[0]
     }
 
-    //req.queryParams().forEach(key, value -> p.put(key, value));
     return p
 }
 

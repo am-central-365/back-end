@@ -26,9 +26,9 @@ class WebServer {
         handleCORS()
 
       //spark.Spark.get(API_BASE+"/publicKey-java",  fun(_,_) = SomeJavaClass.getPublicKey())
-        spark.Spark.get(API_BASE+"/publicKey",   fun(req, rsp) = this.getPublicKey(req, rsp))
+        spark.Spark.get("$API_BASE/publicKey",   fun(req, rsp) = this.getPublicKey(req, rsp))
 
-        spark.Spark.get(API_BASE+"/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
+        spark.Spark.get("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
     }
 
     private fun handleCORS() {
@@ -65,17 +65,21 @@ class WebServer {
             val paramMap = combineRequestParams(req)
             val filterInstance: Entity = entityClass.primaryConstructor!!.call()
             filterInstance.assignFrom(paramMap)
+            var jsonStr = "FIXME"
 
             when(method) {
                 "GET" -> {
                     val defs = databaseStore.fetchRowsAsObjects(filterInstance)
                     logger.info { "get[${filterInstance.tableName}]: returning ${defs.size} items" }
-                    val jsonStr = toJsonStr(defs)
+                    jsonStr = toJsonStr(defs)
+                }
+
+                "PUT" -> {
+
                 }
             }
 
-
-            return "FIXME"
+            return jsonStr
 
         } catch(x: Exception) {
             return formatResponse(rsp, x)
