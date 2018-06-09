@@ -16,11 +16,11 @@ class ScriptStore: Entity() {
     var scriptStoreId: UUID? = null
 
     @Column("store_name")  var storeName:   String = ""
-    @Column("store_type")  var storeType:   StoreType = StoreType.GitHub
+    @Column("store_type")  var storeType:   StoreType? = null
     @Column("description") var description: String? = null
 
-    @Column("created_by")  var createdBy:  String = authUser.userId
-    @Column("modified_by") var modifiedBy: String = authUser.userId
+    @Column("created_by")  var createdBy:  String = ""
+    @Column("modified_by") var modifiedBy: String = ""
     @Column("created_ts",  onInsert = Generated.OnTheDbAlways)  var createdTs:  Timestamp? = null
     @Column("modified_ts", onInsert = Generated.OnTheDbAlways)  var modifiedTs: Timestamp? = null
 }
