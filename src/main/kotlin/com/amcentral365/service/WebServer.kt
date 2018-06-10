@@ -28,7 +28,10 @@ class WebServer {
       //spark.Spark.get(API_BASE+"/publicKey-java",  fun(_,_) = SomeJavaClass.getPublicKey())
         spark.Spark.get("$API_BASE/publicKey",   fun(req, rsp) = this.getPublicKey(req, rsp))
 
-        spark.Spark.get("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
+        spark.Spark.get   ("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
+        spark.Spark.post  ("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
+        spark.Spark.put   ("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
+        spark.Spark.delete("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
     }
 
     private fun handleCORS() {
@@ -69,7 +72,8 @@ class WebServer {
             val msg: StatusMessage?
             when(method) {
                 "GET" -> {
-                    val defs = databaseStore.fetchRowsAsObjects(inputInstance)
+                    val limit = paramMap.getOrDefault("limit", "0").toInt()
+                    val defs = databaseStore.fetchRowsAsObjects(inputInstance, limit = limit)
                     logger.info { "get[${inputInstance.tableName}]: returning ${defs.size} items" }
                     return toJsonStr(defs)
                 }
@@ -84,7 +88,7 @@ class WebServer {
                     return formatResponse(rsp, 405, "request method $method is unsupported, valid methods are GET, PUT, POST, and DELETE")
             }
 
-            return formatResponse(rsp, msg)
+            return formatJsonResponse(rsp, msg)
 
         } catch(x: Exception) {
             return formatResponse(rsp, x)

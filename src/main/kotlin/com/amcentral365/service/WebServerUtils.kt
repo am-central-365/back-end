@@ -40,9 +40,9 @@ internal fun requestMethod(caller: String, req: Request): String {
     return method
 }
 
+internal fun quoteJsonChars(s: String) = s.replace("""["']""", "\\$1")
 
 internal fun formatResponse(rsp: Response, msg: StatusMessage): String = formatResponse(rsp, msg.code, msg.msg)
-
 
 internal fun formatResponse(rsp: Response, code: Int, message: String): String {
     rsp.status(code)
@@ -50,7 +50,7 @@ internal fun formatResponse(rsp: Response, code: Int, message: String): String {
         WebServer.logger.debug { "code: $code, messsage: $message" }
     else
         WebServer.logger.error { "$code: $message" }
-    return "{\"code\": $code, \"message\": \"$message\"}"
+    return "{\"code\": $code, \"message\": \"${quoteJsonChars(message)}\"}"
 }
 
 
@@ -62,17 +62,28 @@ internal fun formatResponse(rsp: Response, x: Throwable): String {
 }
 
 
+internal fun formatJsonResponse(rsp: Response, msg: StatusMessage): String = formatJsonResponse(rsp, msg.code, msg.msg)
+
+internal fun formatJsonResponse(rsp: Response, code: Int, message: String): String {
+    rsp.status(code)
+    if( code == StatusMessage.OK.code )
+        WebServer.logger.debug { "code: $code, messsage: $message" }
+    else
+        WebServer.logger.error { "$code: $message" }
+    return "{\"code\": $code, \"message\": $message}"
+}
+
 internal fun combineRequestParams(req: Request): TreeMap<String, String> {
     // API converts parameter names to lowercase, we prefer mixed
     val p = TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER)
     req.params().forEach { key, value ->
-        if( "*" != value )
+        if( value.isNotBlank() && "*" != value )
             p[(if (key.length > 1 && key[0] == ':') key.substring(1) else key).toLowerCase()] = value
     }
 
     req.queryParams().forEach { qpn ->
         val vals = req.queryParamsValues(qpn)
-        if( vals.isNotEmpty() )
+        if( vals.isNotEmpty() && vals[0].isNotBlank() )
             p[qpn.toLowerCase()] = vals[0]
     }
 

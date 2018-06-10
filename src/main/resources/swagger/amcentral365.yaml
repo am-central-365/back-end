@@ -45,10 +45,11 @@ paths:
      tags: [Admin-Data]
      produces: [application/json]
      parameters:
-       - { in: query, name: script_store_id, maximum: 64, description: "record ID. Must conform to UUID format" }
-       - { in: query, name: store_name, maximum: 255}
+       - { in: query, name: script_store_id, schema: {type: string, format: uuid}, description: "UUID. c0a71a05-6ade-11e8-9244-0242ac110002" }
+       - { in: query, name: store_name, schema: {type: string, maximum: 255}}
        - { in: query, name: store_type, schema: {type: string, enum: [LocalFile, GitHub, Nexus]}, description: "Script store type" }
-       - { in: query, name: description, maximum: 2000}
+       - { in: query, name: description, schema: {type: string, maximum: 2000}}
+       - { in: query, name: limit, schema: {type: integer, default: 20}, description: "Limit the number of records returned. 0 for no limit."}
      responses:
        200: { description: "List of script stores matching criteria" }
        default: { schema: { $ref: "#/definitions/GenericResponse"  }, description: "The generic response" }
@@ -57,11 +58,21 @@ paths:
      summary: Create or Update a script store record
      description: script stores define sources of the scripts
      tags: [Admin-Data]
-     parameters:
-       - { in: formData, name: script_store_id, maximum: 64, description: "PK, UUID" }
-       - { in: formData, name: store_name, maximum: 255}
-       - { in: formData, name: store_type, schema: {type: string, enum: [LocalFile, GitHub, Nexus]} }
-       - { in: formData, name: description, maximum: 2000}
+     requestBody:
+       required: true
+       content:
+         application/x-www-form-urlencoded:
+           schema:
+             type: object
+             properties:
+               script_store_id: {type: string, format: uuid, description: "PK, UUID"}
+               store_name:      {type: string, maximum: 255}
+               store_type:      {type: string, enum: [LocalFile, GitHub, Nexus]}
+               description:     {type: string, maximum: 2000}
+#       - { in: form, name: script_store_id, schema: {type: string, format: uuid}, description: "PK, UUID" }
+#       - { in: form, name: store_name,  schema: {type: string, maximum: 255}}
+#       - { in: form, name: store_type,  schema: {type: string, enum: [LocalFile, GitHub, Nexus]} }
+#       - { in: form, name: description, schema: {type: string, maximum: 2000}}
      produces: application/json]
      responses:
        200: { description: "List of script stores matching criteria" }
@@ -74,8 +85,8 @@ paths:
      description: script stores define sources of the scripts
      tags: [Admin-Data]
      parameters:
-       - { in: formData, name: script_store_id, maximum: 64, description: "PK, UUID" }
-       - { in: formData, name: modified_ts, description: "record modification timestamp, servers as the OptLock. yyyy-MM-dd HH:mm:ss.f"}
+       - { in: query, name: script_store_id, schema: {type: string, format: uuid}, description: "PK, UUID" }
+       - { in: query, name: modified_ts, description: "record modification timestamp, servers as the OptLock. yyyy-MM-dd HH:mm:ss.f"}
      produces: application/json]
      responses:
        200: { description: "List of script stores matching criteria" }

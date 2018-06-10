@@ -62,11 +62,12 @@ class DatabaseStore {
     internal fun mergeObjectAsRow(entity: Entity): StatusMessage {
         val inserting = entity.pkCols.all { it.getValue() == null }
         val identityStr: String?
+        val conn = this.getGoodConnection()
 
         try {
             if( inserting ) {
                 logger.info { "inserting into ${entity.tableName}" }
-                val cnt = InsertStatement(entity).run()
+                val cnt = InsertStatement(entity).run(conn)
                 if( cnt == 0 )
                     return StatusMessage(500, "There was no error, but the record was not inserted")
                 identityStr = entity.getIdentityAsJsonStr()
@@ -80,18 +81,23 @@ class DatabaseStore {
                 if( entity.optLockCol != null )
                     stmt.fetchBack(entity.optLockCol!!)
 
-                val cnt = stmt.run()
+                val cnt = stmt.run(conn)
                 if( cnt == 0 )
                     return StatusMessage(410, "No row was updated: either it does not exist, or its OptLock was modified")
 
                 identityStr = entity.getIdentityAsJsonStr()
             }
-        } catch(x: SQLException) {
-            return StatusMessage(x)
-        }
 
-        logger.info { "${if( inserting ) "insert" else "update"} ok, returning $identityStr" }
-        return StatusMessage(200, identityStr)
+            conn.commit()
+            logger.info { "${if( inserting ) "insert" else "update"} ok, returning $identityStr" }
+            return StatusMessage(200, identityStr)
+
+        } catch(x: SQLException) {
+            conn.rollback()
+            return StatusMessage(x)
+        } finally {
+            closeIfCan(conn)
+        }
     }
 
     /**
