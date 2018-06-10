@@ -41,18 +41,43 @@ paths:
   /admin/data/scriptStores:
    get:
      summary: Get list of script stores
-     description: Defines where script scan be downloaded from
+     description: Defines where scripts can be downloaded from
      tags: [Admin-Data]
      produces: [application/json]
      parameters:
-       - { in: query, name: scriptStoreId, maximum: 64, description: "record ID. Must conform to UUID format" }
-       - in: query
-         name: storeType
-         schema:
-           type: string
-           enum: [LocalFile, GitHub, Nexus]
-         description: "Script store type"
+       - { in: query, name: script_store_id, maximum: 64, description: "record ID. Must conform to UUID format" }
+       - { in: query, name: store_name, maximum: 255}
+       - { in: query, name: store_type, schema: {type: string, enum: [LocalFile, GitHub, Nexus]}, description: "Script store type" }
+       - { in: query, name: description, maximum: 2000}
      responses:
        200: { description: "List of script stores matching criteria" }
        default: { schema: { $ref: "#/definitions/GenericResponse"  }, description: "The generic response" }
 
+   post:
+     summary: Create or Update a script store record
+     description: script stores define sources of the scripts
+     tags: [Admin-Data]
+     parameters:
+       - { in: formData, name: script_store_id, maximum: 64, description: "PK, UUID" }
+       - { in: formData, name: store_name, maximum: 255}
+       - { in: formData, name: store_type, schema: {type: string, enum: [LocalFile, GitHub, Nexus]} }
+       - { in: formData, name: description, maximum: 2000}
+     produces: application/json]
+     responses:
+       200: { description: "List of script stores matching criteria" }
+       400: { description: "Something is wrong with the input data, see the message" }
+       410: { description: "Gone. Optimistic lock update failed because the record was modified or PK dies not exist. Re-read the record" }
+       500: { description: "Generic error, see the message" }
+
+   delete:
+     summary: Delete a script store record
+     description: script stores define sources of the scripts
+     tags: [Admin-Data]
+     parameters:
+       - { in: formData, name: script_store_id, maximum: 64, description: "PK, UUID" }
+       - { in: formData, name: modified_ts, description: "record modification timestamp, servers as the OptLock. yyyy-MM-dd HH:mm:ss.f"}
+     produces: application/json]
+     responses:
+       200: { description: "List of script stores matching criteria" }
+       410: { description: "Gone. Optimistic lock delete failed because the record was modified or PK dies not exist. Re-read the record" }
+       500: { description: "Generic error, see the message" }

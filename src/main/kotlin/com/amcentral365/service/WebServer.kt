@@ -63,23 +63,28 @@ class WebServer {
 
         try {
             val paramMap = combineRequestParams(req)
-            val filterInstance: Entity = entityClass.primaryConstructor!!.call()
-            filterInstance.assignFrom(paramMap)
-            var jsonStr = "FIXME"
+            val inputInstance: Entity = entityClass.primaryConstructor!!.call()
+            inputInstance.assignFrom(paramMap)
 
+            val msg: StatusMessage?
             when(method) {
                 "GET" -> {
-                    val defs = databaseStore.fetchRowsAsObjects(filterInstance)
-                    logger.info { "get[${filterInstance.tableName}]: returning ${defs.size} items" }
-                    jsonStr = toJsonStr(defs)
+                    val defs = databaseStore.fetchRowsAsObjects(inputInstance)
+                    logger.info { "get[${inputInstance.tableName}]: returning ${defs.size} items" }
+                    return toJsonStr(defs)
                 }
 
-                "PUT" -> {
+                "PUT", "POST" ->
+                    msg = databaseStore.mergeObjectAsRow(inputInstance)
 
-                }
+                "DELETE" ->
+                    msg = databaseStore.deleteObjectRow(inputInstance)
+
+                else ->
+                    return formatResponse(rsp, 405, "request method $method is unsupported, valid methods are GET, PUT, POST, and DELETE")
             }
 
-            return jsonStr
+            return formatResponse(rsp, msg)
 
         } catch(x: Exception) {
             return formatResponse(rsp, x)

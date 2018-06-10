@@ -1,7 +1,6 @@
 package com.amcentral365.service
 
-import com.amcentral365.pl4kotlin.Entity
-import com.amcentral365.pl4kotlin.SelectStatement
+import com.amcentral365.pl4kotlin.*
 
 import mu.KLogging
 import java.sql.Connection
@@ -31,6 +30,14 @@ class DatabaseStore {
     }
 
 
+    /**
+     * Fetch rows from a single table as list of objects, matching present properties of the [entity] filter.
+     *
+     * @param entity the search filter. Fields with non-null non-empty values are used as "=" filter
+     *               to the WHERE clause. They are joined with ANDs.
+     * @param orderBy the SQL order by clause. <code>ORDER BY column_list</code>
+     * @return List of fetched objects. On error, stops and returns whatever gotten so far.
+     */
     fun fetchRowsAsObjects(entity: Entity, orderByExpr: String? = null, limit: Int = 0): List<Entity> {
         val selStmt = SelectStatement(entity).select(entity.allCols).byPresentValues()
         if( orderByExpr != null && orderByExpr.isNotBlank() )
@@ -39,5 +46,74 @@ class DatabaseStore {
         val fetchLimit = if( limit > 0 ) limit else Int.MAX_VALUE
         val conn = this.getGoodConnection()
         return selStmt.iterate(conn).asSequence().take(fetchLimit).toList()
+    }
+
+    /**
+     * Insert or update a row in a database table, as defined by the [entity] instance.
+     *
+     * When [entity] PK is null, performs an INSERT, otherwise UPDATE.
+     * This isn't generic, but suits our database setup.
+     * All updates are performed with optimistic lock. It is an error to run UPDATE
+     * with a null/empty OptLock column value.
+     *
+     * @return HTTP code and the corresponding message, to return to the user.
+     * @throws The function doesn't throw exceptions explicitly
+     */
+    internal fun mergeObjectAsRow(entity: Entity): StatusMessage {
+        val inserting = entity.pkCols.all { it.getValue() == null }
+        val identityStr: String?
+
+        try {
+            if( inserting ) {
+                logger.info { "inserting into ${entity.tableName}" }
+                val cnt = InsertStatement(entity).run()
+                if( cnt == 0 )
+                    return StatusMessage(500, "There was no error, but the record was not inserted")
+                identityStr = entity.getIdentityAsJsonStr()
+            } else {
+                logger.info { "updating ${entity.tableName}" }
+                if( entity.optLockCol != null && entity.optLockCol?.getValue() == null )
+                    return StatusMessage(400, "Updates require an optimistic lock which was not provided or is null")
+
+                val stmt = UpdateStatement(entity).byPkAndOptLock()
+                stmt.update(entity.allColsButPkAndOptLock!!.filter { it.getValue() != null })
+                if( entity.optLockCol != null )
+                    stmt.fetchBack(entity.optLockCol!!)
+
+                val cnt = stmt.run()
+                if( cnt == 0 )
+                    return StatusMessage(410, "No row was updated: either it does not exist, or its OptLock was modified")
+
+                identityStr = entity.getIdentityAsJsonStr()
+            }
+        } catch(x: SQLException) {
+            return StatusMessage(x)
+        }
+
+        logger.info { "${if( inserting ) "insert" else "update"} ok, returning $identityStr" }
+        return StatusMessage(200, identityStr)
+    }
+
+    /**
+     * Delete a database row, corresponding to the supplied object
+     *
+     * The operation requires all PL values and the OptLock column to be present.
+     * It doesn'r work w/o OptLock.
+     */
+    internal fun deleteObjectRow(entity: Entity): StatusMessage {
+        logger.info { "deleting from ${entity.tableName} by ${entity.getIdentityAsJsonStr()}" }
+
+        try {
+            if (entity.optLockCol?.getValue() == null || entity.pkCols.any { it.getValue() == null })
+                return StatusMessage(400, "all PK columns and OptLock column must be supplied to Delete")
+
+            val cnt = DeleteStatement(entity).byPkAndOptLock().run()
+            if (cnt == 0)
+                return StatusMessage(410, "either the record does not exist, or it's been modified")
+        } catch(x: SQLException) {
+            return StatusMessage(x)
+        }
+
+        return StatusMessage.OK
     }
 }

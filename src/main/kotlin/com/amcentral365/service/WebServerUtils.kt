@@ -41,6 +41,9 @@ internal fun requestMethod(caller: String, req: Request): String {
 }
 
 
+internal fun formatResponse(rsp: Response, msg: StatusMessage): String = formatResponse(rsp, msg.code, msg.msg)
+
+
 internal fun formatResponse(rsp: Response, code: Int, message: String): String {
     rsp.status(code)
     if( code == StatusMessage.OK.code )

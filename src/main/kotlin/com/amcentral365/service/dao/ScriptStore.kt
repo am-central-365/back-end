@@ -22,5 +22,7 @@ class ScriptStore: Entity() {
     @Column("created_by")  var createdBy:  String = ""
     @Column("modified_by") var modifiedBy: String = ""
     @Column("created_ts",  onInsert = Generated.OnTheDbAlways)  var createdTs:  Timestamp? = null
-    @Column("modified_ts", onInsert = Generated.OnTheDbAlways)  var modifiedTs: Timestamp? = null
+
+    @Column("modified_ts", onInsert = Generated.OnTheDbAlways, isOptimisticLock = true)
+    var modifiedTs: Timestamp? = null
 }

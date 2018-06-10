@@ -1,8 +1,5 @@
 package com.amcentral365.service
 
-import com.google.common.collect.ImmutableMap
-import java.util.HashMap
-
 import com.google.gson.JsonObject
 
 
@@ -24,35 +21,34 @@ internal class StatusMessage(val code: Int, val msg: String) {
 
 class StatusException : Exception {
     internal var code: Int = 0
-    private  var attr: ImmutableMap<String, String>? = null
+    private  var attr: Map<String, String>? = null
 
     private fun getCode(x: Exception) = (x as? StatusException)?.code ?: 500
     private fun setCause(x: Exception) { if( this.cause == null ) this.initCause(x) }
 
-
     internal constructor(x: Exception) : super(x) { this.code = this.getCode(x);  this.setCause(x) }
-    internal constructor(x: Exception, attr: ImmutableMap<String, String>) : this(x) { this.attr = attr }
+    internal constructor(x: Exception, attr: Map<String, String>) : this(x) { this.attr = attr }
 
     internal constructor(code: Int, msg: String) : super(msg) { this.code = code }
-    internal constructor(code: Int, attr: ImmutableMap<String, String>, msg: String): this(code, msg) { this.attr = attr }
+    internal constructor(code: Int, attr: Map<String, String>, msg: String): this(code, msg) { this.attr = attr }
 
 
-    private fun merge(otherAttr: ImmutableMap<String, String>): StatusException {
+    private fun merge(otherAttr: Map<String, String>): StatusException {
         if( this.attr == null )
             this.attr = otherAttr
         else {
             val m = HashMap(this.attr)
             m.putAll(otherAttr)
-            this.attr = ImmutableMap.copyOf(m)
+            this.attr = HashMap<String, String>(m)
         }
         return this
     }
 
     companion object {
         internal fun from(code: Int, msg: String) = StatusException(code, msg)
-        internal fun from(code: Int, attr: ImmutableMap<String, String>, msg: String) = StatusException(code, attr, msg)
+        internal fun from(code: Int, attr: Map<String, String>, msg: String) = StatusException(code, attr, msg)
         internal fun from(x: Exception) = x as? StatusException ?: StatusException(x)
-        internal fun from(x: Exception, attr: ImmutableMap<String, String>) =
+        internal fun from(x: Exception, attr: Map<String, String>) =
             (x as? StatusException)?.merge(attr)
                 ?: StatusException(x, attr)  // Side effect: modifies x. But we don't care.
 
