@@ -76,12 +76,12 @@ class DatabaseStore {
                 if( entity.optLockCol != null && entity.optLockCol?.getValue() == null )
                     return StatusMessage(400, "Updates require an optimistic lock which was not provided or is null")
 
-                val stmt = UpdateStatement(entity).byPkAndOptLock()
-                stmt.update(entity.allColsButPkAndOptLock!!.filter { it.getValue() != null })
-                if( entity.optLockCol != null )
-                    stmt.fetchBack(entity.optLockCol!!)
-
-                val cnt = stmt.run(conn)
+                val cnt = UpdateStatement(entity)
+                            .update(entity.allColsButPkAndOptLock!!
+                                          .filter { it.getValue() != null && it.getValue().toString().isNotBlank() })
+                            .withOptLock()
+                            .byPkAndOptLock()
+                            .run(conn)
                 if( cnt == 0 )
                     return StatusMessage(410, "No row was updated: either it does not exist, or its OptLock was modified")
 

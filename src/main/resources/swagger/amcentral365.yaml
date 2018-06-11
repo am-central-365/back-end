@@ -65,14 +65,11 @@ paths:
            schema:
              type: object
              properties:
-               script_store_id: {type: string, format: uuid, description: "PK, UUID"}
+               script_store_id: {type: string, format: uuid} #, description: "PK, UUID"
                store_name:      {type: string, maximum: 255}
                store_type:      {type: string, enum: [LocalFile, GitHub, Nexus]}
                description:     {type: string, maximum: 2000}
-#       - { in: form, name: script_store_id, schema: {type: string, format: uuid}, description: "PK, UUID" }
-#       - { in: form, name: store_name,  schema: {type: string, maximum: 255}}
-#       - { in: form, name: store_type,  schema: {type: string, enum: [LocalFile, GitHub, Nexus]} }
-#       - { in: form, name: description, schema: {type: string, maximum: 2000}}
+               modified_ts:     {type: string} #, description: "OptLock value, gets overwritten by the database"
      produces: application/json]
      responses:
        200: { description: "List of script stores matching criteria" }
