@@ -69,7 +69,6 @@ class WebServer {
             val inputInstance: Entity = entityClass.primaryConstructor!!.call()
             inputInstance.assignFrom(paramMap)
 
-            val msg: StatusMessage?
             when(method) {
                 "GET" -> {
                     val limit = paramMap.getOrDefault("limit", "0").toInt()
@@ -78,17 +77,19 @@ class WebServer {
                     return toJsonStr(defs)
                 }
 
-                "PUT", "POST" ->
-                    msg = databaseStore.mergeObjectAsRow(inputInstance)
+                "PUT", "POST" -> {
+                    val msg = databaseStore.mergeObjectAsRow(inputInstance)
+                    return if( msg.isOk ) formatJsonResponse(rsp, msg) else formatResponse(rsp, msg)
+                }
 
-                "DELETE" ->
-                    msg = databaseStore.deleteObjectRow(inputInstance)
+                "DELETE" -> {
+                    val msg = databaseStore.deleteObjectRow(inputInstance)
+                    return formatResponse(rsp, msg)
+                }
 
                 else ->
                     return formatResponse(rsp, 405, "request method $method is unsupported, valid methods are GET, PUT, POST, and DELETE")
             }
-
-            return formatJsonResponse(rsp, msg)
 
         } catch(x: Exception) {
             return formatResponse(rsp, x)

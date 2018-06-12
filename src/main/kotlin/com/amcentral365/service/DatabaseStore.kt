@@ -30,6 +30,13 @@ class DatabaseStore {
     }
 
 
+    private fun isNullOrBlank(colDef: Entity.ColDef?): Boolean {
+        if( colDef == null )
+            return true
+        val v = colDef.getValue()
+        return v == null || v.toString().isBlank()
+    }
+
     /**
      * Fetch rows from a single table as list of objects, matching present properties of the [entity] filter.
      *
@@ -73,7 +80,7 @@ class DatabaseStore {
                 identityStr = entity.getIdentityAsJsonStr()
             } else {
                 logger.info { "updating ${entity.tableName}" }
-                if( entity.optLockCol != null && entity.optLockCol?.getValue() == null )
+                if( this.isNullOrBlank(entity.optLockCol) )
                     return StatusMessage(400, "Updates require an optimistic lock which was not provided or is null")
 
                 val cnt = UpdateStatement(entity)
@@ -110,10 +117,10 @@ class DatabaseStore {
         logger.info { "deleting from ${entity.tableName} by ${entity.getIdentityAsJsonStr()}" }
 
         try {
-            if (entity.optLockCol?.getValue() == null || entity.pkCols.any { it.getValue() == null })
+            if( this.isNullOrBlank(entity.optLockCol) || entity.pkCols.any { this.isNullOrBlank(it) } )
                 return StatusMessage(400, "all PK columns and OptLock column must be supplied to Delete")
 
-            val cnt = DeleteStatement(entity).byPkAndOptLock().run()
+            val cnt = DeleteStatement(entity, ::getGoodConnection).byPkAndOptLock().run()
             if (cnt == 0)
                 return StatusMessage(410, "either the record does not exist, or it's been modified")
         } catch(x: SQLException) {

@@ -83,7 +83,7 @@ paths:
      tags: [Admin-Data]
      parameters:
        - { in: query, name: script_store_id, schema: {type: string, format: uuid}, description: "PK, UUID" }
-       - { in: query, name: modified_ts, description: "record modification timestamp, servers as the OptLock. yyyy-MM-dd HH:mm:ss.f"}
+       - { in: query, name: modified_ts,     schema: {type: string, format: timestamp}, description: "record modification timestamp, servers as the OptLock. yyyy-MM-dd HH:mm:ss.f"}
      produces: application/json]
      responses:
        200: { description: "List of script stores matching criteria" }
