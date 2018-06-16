@@ -3,5 +3,5 @@
 target
 build
 out
-build.gradle-integrationTest
+*.pyc
 

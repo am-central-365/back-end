@@ -1,5 +1,7 @@
 import mysql.connector
 
+import logger
+
 def connect(cfg):
     db_config = { "user": cfg.db_usr, "password": cfg.db_pwd }
     u = cfg.db_url
@@ -14,7 +16,7 @@ def connect(cfg):
         u, db_config["port"] = u[0], u[1]
 
     db_config["host"] = u[0]
-    print "++ db_config:", db_config
+    logger.log("++ db_config: %s", db_config)
 
     return mysql.connector.connect(**db_config)
 
