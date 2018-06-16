@@ -8,7 +8,7 @@
           <option name="destination" value="$MODULE_DIR$/build/classes/kotlin/main" />
           <option name="noStdlib" value="true" />
           <option name="noReflect" value="true" />
-          <option name="moduleName" value="amcentral365-service" />
+          <option name="moduleName" value="am-central365-service" />
           <option name="jvmTarget" value="1.8" />
           <option name="addCompilerBuiltIns" value="true" />
           <option name="loadBuiltInsFromDependencies" value="true" />
@@ -22,6 +22,9 @@
           </option>
         </compilerArguments>
       </configuration>
+    </facet>
+    <facet type="Python" name="Python">
+      <configuration sdkName="Python 2.7" />
     </facet>
   </component>
 </module>

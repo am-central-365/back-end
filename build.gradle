@@ -1,12 +1,12 @@
 buildscript {
-    ext.kotlin_version = '1.2.41'
+    ext.kotlin_version = '1.2.50'
     repositories {
         mavenCentral()
         jcenter()
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "org.jetbrains.dokka:dokka-gradle-plugin:0.9.16"
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:0.9.16"   // TODO: try LATEST for the version
     }
 }
 
@@ -19,7 +19,7 @@ group   = GROUP_NAME
 version = VERSION_NAME
 archivesBaseName = ARTIFACT_BASE_NAME
 
-description = "AutomationCentral"
+description = "AutomationCentral-365"
 
 sourceCompatibility = 1.8
 targetCompatibility = sourceCompatibility
@@ -37,43 +37,11 @@ dokka {
     outputDirectory = "$buildDir/javadoc"
 }
 
-sourceSets {
-    deploy
-    integrationTest {
-        kotlin.srcDir    'src/test/kotlin/com/amcentral365/service/integrationTests'
-        resources.srcDir 'src/test/resources'
-        compileClasspath += sourceSets.main.output + configurations.testRuntime
-        runtimeClasspath += output + compileClasspath
-    }
-}
-
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
     kotlinOptions {
         jvmTarget = "$targetCompatibility"
     }
 }
-
-task integrationTest(type: Test) {
-    description = 'Runs the integration tests.'
-    group = 'verification'
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
-    mustRunAfter test
-
-    testLogging {
-        events "passed", "skipped", "failed"
-        showStandardStreams = true
-    }
-
-    configure {
-        // Assign all Java system properties from the command line to the JavaExec task:
-        //    gradle -DdbConfig=sqlite.properties check
-        systemProperties System.properties as Map<String, ?>
-    }
-}
-
-check.dependsOn integrationTest   // "gradle check" runs integration test
-
 
 test {
     useJUnitPlatform()
@@ -83,8 +51,7 @@ test {
     }
 }
 
-// uber jar
-jar {
+jar {   // uber jar
     manifest {
         attributes "Main-Class": mainClass
     }
