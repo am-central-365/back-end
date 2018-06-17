@@ -4,6 +4,7 @@ from os.path import isfile, join
 import traceback
 
 import lib.logger as logger
+import lib.db as db
 
 TESTS_DIR = "tests"
 
@@ -15,6 +16,7 @@ class Config:
         self.db_usr = self._consume_2param("-u", "--user") or "ituser"
         self.db_pwd = self._consume_2param("-p", "--pass") or "itpass"
         self.db_url = self._consume_2param("-d", "--db") or "localhost/it"
+        self.prep_sql = self._consume_2param("-s", "--sql") or "../sql/create_tables.sql"
         self.api_base = self._consume_2param("-a", "--api") or "http://localhost:24941/v0.1"
         self.tests = self.args or self._get_test_filenames(TESTS_DIR)
         del self.args
@@ -36,6 +38,12 @@ class Config:
 
     def _get_test_filenames(self, dir_name):
         return sorted([f for f in listdir(dir_name) if f.endswith(".py") and f != "__init__.py" and isfile(join(dir_name, f))])
+
+
+def prepare_db(config):
+    conn = db.connect(config)
+    db.run_script(conn, config.prep_sql)
+    db.disconnect(conn)
 
 
 def run_tests():
@@ -83,4 +91,5 @@ def run_tests():
 
 if __name__ == "__main__":
     config = Config(sys.argv[1:])
+    prepare_db(config)
     run_tests()

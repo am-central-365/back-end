@@ -9,4 +9,4 @@ def main(cfg):
     if not req.ok:
         logger.log("expected {200, OK}, got code:", req.status_code, "reponse:", req.text)
 
-    return len(req.text) > 380
+    return len(req.text) > 380 and req.text.startswith("ssh-rsa ")

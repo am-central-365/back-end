@@ -23,8 +23,5 @@
         </compilerArguments>
       </configuration>
     </facet>
-    <facet type="Python" name="Python">
-      <configuration sdkName="Python 2.7" />
-    </facet>
   </component>
 </module>

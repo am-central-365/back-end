@@ -22,12 +22,11 @@
 */
 
 /* --------- run as user amcentral365 */
-use amcentral365;
+/*use amcentral365;*/
 
 drop table if exists obj_synonyms;
 drop table if exists managed_objects;
 drop table if exists physical_locations;
-
 
 create table if not exists physical_locations(
   physical_location_id binary(16)
