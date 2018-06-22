@@ -91,4 +91,5 @@ internal fun combineRequestParams(req: Request): TreeMap<String, String> {
 }
 
 
-internal fun toJsonStr(lst: List<Any?>): String = gson.toJson(lst)
+internal fun toJsonStr(lst: List<Entity>): String =
+    lst.joinToString(", ", prefix = "[", postfix = "]") { it.asJsonStr() }
