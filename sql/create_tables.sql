@@ -24,9 +24,11 @@
 /* --------- run as user amcentral365 */
 /*use amcentral365;*/
 
+/*
 drop table if exists obj_synonyms;
 drop table if exists managed_objects;
 drop table if exists physical_locations;
+*/
 
 create table if not exists physical_locations(
   physical_location_id binary(16)
@@ -59,7 +61,7 @@ create table if not exists managed_objects(
 );
 
 
-create table obj_synonyms(
+create table if not exists obj_synonyms(
   managed_obj_id binary(16)
   ,   constraint obj_synonyms_fk1 foreign key(managed_obj_id) references managed_objects(managed_object_id)
   , synonym_name varchar(255) not null
@@ -72,12 +74,14 @@ create table obj_synonyms(
 );
 
 
+/*
 drop table if exists script_tags;
 drop table if exists scripts;
 drop table if exists script_stores;
 drop table if exists tags;
+*/
 
-create table tags(
+create table if not exists tags(
   tag_id          binary(16) not null
   ,   constraint  tags_pk primary key(tag_id)
   , parent_tag_id binary(16)
@@ -93,7 +97,7 @@ create table tags(
 );
 
 
-create table script_stores(
+create table if not exists script_stores(
   script_store_id binary(16)
   ,   constraint  script_stores_pk primary key(script_store_id)
   , store_name    varchar(255) not null
@@ -108,7 +112,7 @@ create table script_stores(
 );
 
 
-create table scripts(
+create table if not exists scripts(
   script_id      binary(16)
   ,   constraint script_pk primary key(script_id)
   , script_name  varchar(255) not null
@@ -129,7 +133,7 @@ create table scripts(
   , modified_ts  timestamp default current_timestamp not null
 );
 
-create table script_tags(
+create table if not exists script_tags(
   script_id binary(16) not null
   ,   constraint script_tags_fk1 foreign key(script_id) references scripts(script_id)
   , tag_id binary(16) not null

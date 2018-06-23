@@ -1,11 +1,15 @@
 import requests
 import json
 import uuid
+import time
+from datetime import datetime
 
 import lib.logger as logger
 import lib.db as db
 
 api_base = None
+ts_fmt = "%Y-%m-%d %H:%M:%S.%f"
+test_recs_count = 5
 
 class ScriptStore:
     def __init__(self, tpl):
@@ -13,23 +17,37 @@ class ScriptStore:
         self.created_by, self.created_ts, self.modified_by, self.modified_ts = tpl
         self.script_store_id = uuid.UUID(hex_pk)
 
+
 def main(cfg):
     global api_base
     logger.log("Testing CRUD operations on script_stores")
     api_base = cfg.api_base
     conn = db.connect(cfg)
 
-    apiStoreIds = _testCreateNew(conn, 5)
+    # cleanup test data
+    for x in xrange(test_recs_count):
+        _delete(conn, "store "+str(x+1))
+    db.sql(conn, "commit")
+
+    # ---------------------------------------- Create
+    apiStoreIds = _testCreateNew(conn, test_recs_count)
     if not apiStoreIds:
         return False
 
-    if not _testCreateDupName(conn):
+    if not _testCreateDupName():
         return False
 
+    # ---------------------------------------- Read
     dbStores = [ ScriptStore(_read(conn, apiStoreId["uuid_pk"])[0]) for apiStoreId in apiStoreIds]
 
     for dbStore in dbStores:
         if not _testRead(conn, dbStore):
+            return False
+
+    # ---------------------------------------- Update
+    time.sleep(1)  # ensure modified_ts is greater
+    for dbStore in dbStores:
+        if not _testUpdate(conn, dbStore):
             return False
 
 
@@ -47,7 +65,7 @@ def _testCreateNew(conn, how_many):
         _insert_data = { "store_name": "store "+ks, "store_type": "LocalFile", "description": "test data "+ks}
         req = requests.post(api_base+"/admin/data/scriptStores", data = _insert_data)
         if not req.ok:
-            return logger.failed("expected {200, OK}, got code:", req.status_code, "reponse:", req.text)
+            return logger.failed("expected {200, OK}, got code:", req.status_code, "response:", req.text)
         rsp_msg = json.loads(req.text)["message"]
         id_obj = {
             "script_store_id": str(rsp_msg["pk"]["script_store_id"]),
@@ -60,7 +78,7 @@ def _testCreateNew(conn, how_many):
     return identities
 
 
-def _testCreateDupName(conn):
+def _testCreateDupName():
     _insert_data = { "store_name": "store 1", "store_type": "GitHub", "description": "test data -1"}
     req = requests.post(api_base+"/admin/data/scriptStores", data = _insert_data)
     rsp_msg = json.loads(req.text)["message"]
@@ -84,11 +102,10 @@ def _testRead(conn, scriptStore):
         assert apiObj["store_name" ] == scriptStore.store_name
         assert apiObj["store_type" ] == scriptStore.store_type
         assert apiObj["description"] == scriptStore.description
-        assert datetime.datetime(apiObj["created_by" ]) == scriptStore.created_by
-        assert apiObj["created_ts" ] == scriptStore.created_ts
+        assert apiObj["created_by"] == scriptStore.created_by
         assert apiObj["modified_by"] == scriptStore.modified_by
-        assert apiObj["modified_ts"] == scriptStore.modified_ts
-
+        assert datetime.strptime(apiObj["created_ts"],  ts_fmt) == scriptStore.created_ts
+        assert datetime.strptime(apiObj["modified_ts"], ts_fmt) == scriptStore.modified_ts
 
     test({"script_store_id": str(scriptStore.script_store_id)})
     test({"store_name": scriptStore.store_name})
@@ -97,9 +114,40 @@ def _testRead(conn, scriptStore):
     return True
 
 
+def _testUpdate(conn, store):
+    new_store_type = "GitHub"
+
+    _update_data = { "script_store_id": store.script_store_id.bytes, "store_type": new_store_type}
+    req = requests.post(api_base+"/admin/data/scriptStores", data = _update_data)
+    if not req.ok:
+        return logger.failed("expected {200, OK}, got code:", req.status_code, "response:", req.text)
+
+    rsp_msg = json.loads(req.text)["message"]
+    rsp_script_store_id = str(rsp_msg["pk"]["script_store_id"]),
+    rsp_modified_ts     = str(rsp_msg["optLock"]["modified_ts"])
+
+
+    assert rsp_script_store_id == str(store.script_store_id)
+    assert datetime.strptime(rsp_modified_ts, ts_fmt) > store.modified_ts
+
+    scriptStore = ScriptStore(_read(conn, store.script_store_id))
+    assert store.script_store_id == scriptStore.script_store_id
+    assert store.store_name      == scriptStore.store_name
+    assert store.store_type      == new_store_type
+    assert store.description     == scriptStore.description
+    assert store.created_by      == scriptStore.created_by
+    assert store.modified_by     == scriptStore.modified_by
+    assert datetime.strptime(store.created_ts,  ts_fmt) == scriptStore.created_ts
+    assert datetime.strptime(store.modified_ts, ts_fmt) == datetime.strptime(scriptStore.modified_ts, ts_fmt)
+
+
 def _read(conn, pk):
     return db.sql(conn,"""
         select hex(script_store_id), store_name, store_type, description,
                created_by, created_ts, modified_by, modified_ts
           from script_stores
          where script_store_id = %s""", pk.bytes)
+
+
+def _delete(conn, store_name):
+    return db.sql(conn,"""delete from script_stores where store_name = %s""", store_name)
