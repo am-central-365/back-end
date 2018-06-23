@@ -34,7 +34,7 @@ def main(cfg):
     if not apiStoreIds:
         return False
 
-    if not _testCreateDupName():
+    if not _testCreateDupName(conn):
         return False
 
     # ---------------------------------------- Read
@@ -77,12 +77,13 @@ def _testCreateNew(conn, how_many):
     return identities
 
 
-def _testCreateDupName():
+def _testCreateDupName(conn):
     _insert_data = { "store_name": "store 1", "store_type": "GitHub", "description": "test data -1"}
     req = requests.post(api_base+"/admin/data/scriptStores", data = _insert_data)
     rsp_msg = json.loads(req.text)["message"]
     if not rsp_msg.startswith("Duplicate entry"):
         return logger.failed("expected dup failure, got code:", req.status_code, "message:", req.text)
+    db.sql(conn, "rollback")
     return True
 
 
@@ -121,27 +122,29 @@ def _testUpdate(conn, store):
         "modified_ts": str(store.modified_ts),
         "store_type": new_store_type
     }
-    db.sql(conn, "commit")
     req = requests.post(api_base+"/admin/data/scriptStores", data = _update_data)
     if not req.ok:
         return logger.failed("expected {200, OK}, got code:", req.status_code, "response:", req.text)
 
     rsp_msg = json.loads(req.text)["message"]
     rsp_script_store_id = str(rsp_msg["pk"]["script_store_id"])
-    rsp_modified_ts     = str(rsp_msg["optLock"]["modified_ts"])
+    rsp_modified_ts     = datetime.strptime(rsp_msg["optLock"]["modified_ts"], ts_fmt)
 
     assert rsp_script_store_id == str(store.script_store_id)
-    assert datetime.strptime(rsp_modified_ts, ts_fmt) > store.modified_ts
+    assert store.modified_ts < rsp_modified_ts
 
     scriptStore = ScriptStore(_read(conn, store.script_store_id)[0])
     assert store.script_store_id == scriptStore.script_store_id
     assert store.store_name      == scriptStore.store_name
-    assert store.store_type      == new_store_type
+    assert new_store_type        == scriptStore.store_type
     assert store.description     == scriptStore.description
     assert store.created_by      == scriptStore.created_by
     assert store.modified_by     == scriptStore.modified_by
-    assert datetime.strptime(store.created_ts,  ts_fmt) == scriptStore.created_ts
-    assert datetime.strptime(store.modified_ts, ts_fmt) == datetime.strptime(scriptStore.modified_ts, ts_fmt)
+    assert store.created_ts      == scriptStore.created_ts
+    assert store.modified_ts     <  scriptStore.modified_ts
+    assert rsp_modified_ts       == scriptStore.modified_ts
+
+    return True
 
 
 def _read(conn, pk):

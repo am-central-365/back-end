@@ -20,6 +20,7 @@ def connect(cfg):
 
     return mysql.connector.connect(**db_config)
 
+
 def disconnect(conn):
     conn.close()
 
