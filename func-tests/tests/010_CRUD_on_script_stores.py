@@ -50,7 +50,6 @@ def main(cfg):
         if not _testUpdate(conn, dbStore):
             return False
 
-
     #rows = db.sql(conn, "select 1+%s", 44)
     #logger.log("rows: %s", rows)
     #db.sql(conn, "commit")
@@ -117,20 +116,24 @@ def _testRead(conn, scriptStore):
 def _testUpdate(conn, store):
     new_store_type = "GitHub"
 
-    _update_data = { "script_store_id": store.script_store_id.bytes, "store_type": new_store_type}
+    _update_data = {
+        "script_store_id": str(store.script_store_id),
+        "modified_ts": str(store.modified_ts),
+        "store_type": new_store_type
+    }
+    db.sql(conn, "commit")
     req = requests.post(api_base+"/admin/data/scriptStores", data = _update_data)
     if not req.ok:
         return logger.failed("expected {200, OK}, got code:", req.status_code, "response:", req.text)
 
     rsp_msg = json.loads(req.text)["message"]
-    rsp_script_store_id = str(rsp_msg["pk"]["script_store_id"]),
+    rsp_script_store_id = str(rsp_msg["pk"]["script_store_id"])
     rsp_modified_ts     = str(rsp_msg["optLock"]["modified_ts"])
-
 
     assert rsp_script_store_id == str(store.script_store_id)
     assert datetime.strptime(rsp_modified_ts, ts_fmt) > store.modified_ts
 
-    scriptStore = ScriptStore(_read(conn, store.script_store_id))
+    scriptStore = ScriptStore(_read(conn, store.script_store_id)[0])
     assert store.script_store_id == scriptStore.script_store_id
     assert store.store_name      == scriptStore.store_name
     assert store.store_type      == new_store_type
