@@ -9,13 +9,15 @@ import io.mockk.just
 import io.mockk.Runs
 
 import com.google.common.io.Resources
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import spark.Request
 import spark.Response
 
 internal class WebServerTest {
 
     @Test
-    fun `getPublicKey$production_sources_for_module_amcentral`() {
+    fun getPublicKey() {
         val expectedKey = Resources.toString(Resources.getResource("ssh-key.pub"), Charsets.US_ASCII)
 
         val reqMock = mockk<Request>()
@@ -25,5 +27,13 @@ internal class WebServerTest {
 
         val actualKey = WebServer().getPublicKey(reqMock, rspMock)
         assertEquals(expectedKey, actualKey)
+    }
+
+    @Test
+    fun listDaoEntities() {
+        val daos = WebServer().listDaoEntities()
+        assertNotNull(daos)
+        assertTrue(daos.length > 0)
+        assertTrue(daos.indexOf("script_stores") >= 0)
     }
 }

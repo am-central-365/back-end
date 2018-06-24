@@ -7,7 +7,7 @@ from datetime import datetime
 import lib.logger as logger
 import lib.db as db
 
-api_base = None
+api_path = None
 ts_fmt = "%Y-%m-%d %H:%M:%S.%f"
 test_recs_count = 5
 
@@ -19,9 +19,9 @@ class ScriptStore:
 
 
 def main(cfg):
-    global api_base
-    api_base = cfg.api_base
-    logger.log("Testing CRUD operations on script_stores, API base: %s", api_base+"/admin/data/scriptStores")
+    global api_path
+    api_path = cfg.api_base + "/admin/data/script_stores"
+    logger.log("Testing CRUD operations on script_stores, API path: %s", api_path)
     conn = db.connect(cfg)
 
     # cleanup test data
@@ -77,7 +77,7 @@ def _testCreateNew(conn, how_many):
     for k in xrange(how_many):
         ks = str(k+1)
         _insert_data = { "store_name": "store "+ks, "store_type": "LocalFile", "description": "test data "+ks}
-        req = requests.post(api_base+"/admin/data/scriptStores", data = _insert_data)
+        req = requests.post(api_path, data = _insert_data)
         if not req.ok:
             return logger.failed("CreateNew expected {200, OK}, got code:", req.status_code, "response:", req.text)
         rsp_msg = json.loads(req.text)["message"]
@@ -95,7 +95,7 @@ def _testCreateNew(conn, how_many):
 def _testCreateDupName(conn):
     logger.log("running CreateDupName")
     _insert_data = { "store_name": "store 1", "store_type": "GitHub", "description": "test data -1"}
-    req = requests.post(api_base+"/admin/data/scriptStores", data = _insert_data)
+    req = requests.post(api_path, data = _insert_data)
     rsp_msg = json.loads(req.text)["message"]
     if not rsp_msg.startswith("Duplicate entry"):
         return logger.failed("CreateDupName expected dup failure, got code:", req.status_code, "message:", req.text)
@@ -106,7 +106,7 @@ def _testCreateDupName(conn):
 def _testRead(conn, scriptStore):
 
     def test(prms):
-        req = requests.get(api_base+"/admin/data/scriptStores", params = prms)
+        req = requests.get(api_path, params = prms)
         if not req.ok:
             return logger.failed(
                 "for %s: Read expected {200, OK}, got code: %s, message %s" % (prms, req.status_code, req.text))
@@ -138,7 +138,7 @@ def _testUpdate(conn, store):
         "modified_ts": str(store.modified_ts),
         "store_type": new_store_type
     }
-    req = requests.post(api_base+"/admin/data/scriptStores", data = _update_data)
+    req = requests.post(api_path, data = _update_data)
     if not req.ok:
         return logger.failed("Update expected {200, OK}, got code:", req.status_code, "response:", req.text)
 
@@ -171,7 +171,7 @@ def _testUpdateNonExisted(conn, store):
         "modified_ts":     str(store.modified_ts),
         "store_type":      "GitHub"
     }
-    rsp = requests.post(api_base+"/admin/data/scriptStores", data = _update_data)
+    rsp = requests.post(api_path, data = _update_data)
     if not rsp.status_code == 410:
         return logger.failed("UpdateNonExisted expected {410, ...}, got code:", rsp.status_code, "response:", rsp.text)
     return True
@@ -182,7 +182,7 @@ def _testDelete(conn, store):
         "script_store_id": str(store.script_store_id),
         "modified_ts":     str(store.modified_ts)
     }
-    rsp = requests.delete(api_base+"/admin/data/scriptStores", params = _delete_data)
+    rsp = requests.delete(api_path, params = _delete_data)
     if not rsp.ok:
         return logger.failed("Delete expected {200, OK}, got code:", rsp.status_code, "response:", rsp.text)
 
@@ -198,7 +198,7 @@ def _testDeleteNonExisted(conn, store):
         "script_store_id": str(uuid.uuid4()),   # new UUID
         "modified_ts":     str(store.modified_ts)
     }
-    rsp = requests.delete(api_base+"/admin/data/scriptStores", params = _delete_data)
+    rsp = requests.delete(api_path, params = _delete_data)
     if not rsp.status_code == 410:
         return logger.failed("DeleteNonExisted expected {410, ...}, got code:", rsp.status_code, "response:", rsp.text)
     return True

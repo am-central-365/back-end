@@ -22,7 +22,7 @@ class DAOExclusionStrategy constructor(private val baseTypeToSkip: Class<*>) : E
     }
 }
 
-private val gson = GsonBuilder()
+internal val gson = GsonBuilder()
         .setDateFormat("yyyy-MM-dd HH:mm:ss")
         .setExclusionStrategies(DAOExclusionStrategy(Entity::class.java))
         .create()  // thread-safe

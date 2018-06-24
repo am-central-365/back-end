@@ -1,13 +1,13 @@
 package com.amcentral365.service
 
 import com.amcentral365.pl4kotlin.Entity
+import com.amcentral365.service.dao.Meta
 import spark.Request
 import spark.Response
 
 import com.google.common.io.Resources
 import mu.KLogging
 
-import com.amcentral365.service.dao.ScriptStore
 import com.google.common.annotations.VisibleForTesting
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
@@ -28,10 +28,17 @@ class WebServer {
       //spark.Spark.get(API_BASE+"/publicKey-java",  fun(_,_) = SomeJavaClass.getPublicKey())
         spark.Spark.get("$API_BASE/publicKey",   fun(req, rsp) = this.getPublicKey(req, rsp))
 
-        spark.Spark.get   ("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
-        spark.Spark.post  ("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
-        spark.Spark.put   ("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
-        spark.Spark.delete("$API_BASE/admin/data/scriptStores", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, ScriptStore::class))
+        // --- Admin Data API: for each DAO we define GET/POST/PUT/DELETE
+        val apiBaseForAdminData = "$API_BASE/admin/data"
+        spark.Spark.get(apiBaseForAdminData) { _, _ -> this.listDaoEntities() }
+
+        Meta.entities.forEach {
+            val tn = Meta.tableName(it)
+            spark.Spark.get   ("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
+            spark.Spark.post  ("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
+            spark.Spark.put   ("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
+            spark.Spark.delete("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
+        }
     }
 
     private fun handleCORS() {
@@ -56,6 +63,9 @@ class WebServer {
         rsp.type("text/plain")
         return Resources.toString(Resources.getResource("ssh-key.pub"), Charsets.US_ASCII)
     }
+
+    @VisibleForTesting
+    internal fun listDaoEntities() = gson.toJson(Meta.entities.map { Meta.tableName(it) })
 
     @VisibleForTesting
     internal fun restCallForPersistentObject(req: Request, rsp: Response, entityClass: KClass<out Entity>): String {

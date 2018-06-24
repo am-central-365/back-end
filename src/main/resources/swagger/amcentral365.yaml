@@ -38,14 +38,27 @@ paths:
      responses:
        200: { description: "the key contents" }
 
-  /admin/data/scriptStores:
+  /admin/data:
+   get:
+     summary: Metadata, list names of available entry points
+     description: |
+        Returns a JSON list of entry point names for the Admin Data API.
+        An entry point name can be used as "/admin/data/"+entry-point-name to operate
+        selected entity.
+     tags: [Admin-Data]
+     produces: [application/json]
+     responses:
+       200: { description: "List of entry point names as a JSON array" }
+
+
+  /admin/data/script_stores:
    get:
      summary: Get list of script stores
      description: Defines where scripts can be downloaded from
      tags: [Admin-Data]
      produces: [application/json]
      parameters:
-       - { in: query, name: script_store_id, schema: {type: string, format: uuid}, description: "UUID. c0a71a05-6ade-11e8-9244-0242ac110002" }
+       - { in: query, name: script_store_id, schema: {type: string, format: uuid}, description: "UUID, like c0a71a05-6ade-11e8-9244-0242ac110002" }
        - { in: query, name: store_name, schema: {type: string, maximum: 255}}
        - { in: query, name: store_type, schema: {type: string, enum: [LocalFile, GitHub, Nexus]}, description: "Script store type" }
        - { in: query, name: description, schema: {type: string, maximum: 2000}}
@@ -56,7 +69,7 @@ paths:
 
    post:
      summary: Create or Update a script store record
-     description: script stores define sources of the scripts
+     description: POST or PUT with the PK updates record. When PK is empty, the record is tried to be inserted.
      tags: [Admin-Data]
      requestBody:
        required: true
