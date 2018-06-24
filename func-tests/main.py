@@ -64,7 +64,7 @@ def run_tests():
             try:
                 keep_going = test_module.main(config)
                 tests_cnt += 1 if keep_going else 0
-                logger.log("SUCCEEDED: %s", test_name)
+                logger.log("%s: %s", "SUCCEEDED" if keep_going else "FAILED", test_name)
             except: # Exception as x:
                 # Only print trace from our code.
                 #   We detect our code by their path starting with the current dir
@@ -86,7 +86,7 @@ def run_tests():
         k += 1
 
     status = "SUCCEEDED" if tests_cnt == len(config.tests) else "FAILED"
-    logger.raw_log("%s, ran %d tests" % (status, tests_cnt))
+    logger.raw_log("%s, finished %d tests" % (status, tests_cnt))
 
 
 if __name__ == "__main__":

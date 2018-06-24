@@ -16,7 +16,7 @@ def connect(cfg):
         u, db_config["port"] = u[0], u[1]
 
     db_config["host"] = u[0]
-    logger.log("++ db_config: %s", db_config)
+    #logger.log("++ db_config: %s", db_config)
 
     return mysql.connector.connect(**db_config)
 
