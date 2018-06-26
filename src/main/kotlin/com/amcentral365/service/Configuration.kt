@@ -21,6 +21,10 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             ,help="port for the service to listen on. Must be the same on all nodes if cluster-fqdn was specified")
             .int()
             .default(24941  /* 0x616d = 'am'*/)
+            .validate {
+                if( it < 1024  || it > 65535 )
+                    fail("bind-port must be between 1024 and 65535, got $it")
+            }
 
     val dbUsr: String by option("-u", "--user", help="database user").default("amcentral365")
     val dbPwd: String by option("-p", "--pass", help="database password").default("a")
@@ -29,43 +33,54 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             .convert { if( it.matches(Regex("^jdbc:[^/@]+(//|@).+")) ) it else "jdbc:mysql://" + it }
             .default("jdbc:mysql://127.0.0.1/amcentral365?useSSL=false")
 
-    val clusterNodeNames: MutableList<String> = mutableListOf()
+    val clusterNodeNames: MutableList<Pair<String, Short>> = mutableListOf()
     private val rawClusterNodeNames: List<String> by option("-n", "--node", "--nodes",
             help = """
                 |Comma-separated list of amcentral365 cluster nodes.
-                |The nodes can be specified by fqdn name or an IPv4 address. The parameter may be
-                |specified multiple times, all values are combined into a single list.
+                |The parameter may be specified multiple times, all values are combined into a single list.
                 |When omitted, the values are obtained by resolving --cluster-fqdn.
                 |
-                |The addresses are used for node to communicate with each other.
+                |The node format is address[:port] wjere address can be an fqdn name or IPv4 address.
+                |The port defaults to the value of --bind-port parameter.
                 """.trimMargin()
             ).multiple()
 
-    lateinit var clusterFQDN: String private set
+    lateinit var clusterFQDN: Pair<String, Short> private set
     private val rawClusterFQDN: String by option("-a", "--cluster-fqdn",
             help = """
-                |Passed to the scripts which call this address for amCentral services.
-                |That way the scripts utilize any cluster node, not just the one invoked them.
-                |When omitted, the local node address is used.
+                |Passed as the callback address to the user scripts.
+                |When omitted, the invoking node address is used.
+                |
+                |The format is FQDN[:port], port defaults to --bind-port value.
                 """.trimMargin()
             ).default("")
 
 
     override fun run() {
 
+        fun addressPortToPair(ap: String): Pair<String, Short> {
+            val p = ap.indexOf(':')
+            return if( p < 1 ) Pair(ap, this.bindPort.toShort())
+                   else        Pair(ap.substring(0, p), ap.substring(p+1).toInt().toShort())
+        }
+
         //
-        this.clusterFQDN =
+        this.clusterFQDN = addressPortToPair(
             if( this.rawClusterFQDN.isNotBlank() )
                 this.rawClusterFQDN
             else
                 getLocalIpAddress()?.hostAddress ?: throw Exception("couldn't get local ip address")
+        )
 
 
         // massage cluster node list: split on comma, resolve, and combine multiple parameters
         this.rawClusterNodeNames.forEach {
             it.split(',').forEach {
-                val resolved = resolveFQDN(it)
-                this.clusterNodeNames.addAll(resolved)
+                val hostport = addressPortToPair(it)
+                val resolved = resolveFQDN(hostport.first)
+                resolved.forEach {
+                    this.clusterNodeNames.add(Pair(it, hostport.second))
+                }
                 logger.info { "$it resolved to: ${resolved.joinToString(", ")}" }
             }
         }
@@ -73,8 +88,10 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
         // when parameters were not specified, resolve FQDN
         if( this.clusterNodeNames.isEmpty() ) {
             logger.info { "using FQDN to obtain list of cluster nodes" }
-            val resolved = resolveFQDN(this.clusterFQDN)
-            this.clusterNodeNames.addAll(resolved)
+            val resolved = resolveFQDN(this.clusterFQDN.first)
+            resolved.forEach {
+                this.clusterNodeNames.add(Pair(it, this.clusterFQDN.second))
+            }
             logger.info { "${this.clusterFQDN} resolved to: ${resolved.joinToString(", ")}" }
         }
 
