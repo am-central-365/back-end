@@ -24,8 +24,158 @@
 /* --------- run as user amcentral365 */
 /*use amcentral365;*/
 
-drop table hierarchies;
+drop table asset_linkages;
+drop table asset_values;
+drop table role_attributes;
+drop table asset_roles;
+
+drop table declared_linkage_roles;
+drop table declared_role_attributes;
+
+drop table linkages;
 drop table roles;
+drop table assets;
+
+/* ============================================================================================ */
+create table roles(
+    name         varchar(100) not null
+  ,   constraint role_pk primary key(name)
+  , class        varchar(100) not null   /* Not used, but explains the role to humans. */
+  /*, base_role    varchar(100)            /* A role may inherit its attributes from base" \*
+  ,   constraint roles_fk1 foreign key(base_role) references roles(name)*/
+  , description  varchar(65000)
+  /* --- standard fields */
+  , created_by   varchar(100)
+  , created_ts   timestamp default current_timestamp not null
+  , modified_by  varchar(100)
+  , modified_ts  timestamp default current_timestamp not null
+);
+
+create table assets(
+  asset_id binary(16)
+  ,   constraint assets_pk primary key(asset_id)
+  , name        varchar(100) not null
+  /*,   constraint assets_uk unique(name)*/
+  , description varchar(65000)
+  /* --- standard fields */
+  , created_by  varchar(100)
+  , created_ts  timestamp default current_timestamp not null
+  , modified_by varchar(100)
+  , modified_ts timestamp default current_timestamp not null
+);
+
+create table linkages(
+    name         varchar(100) not null
+  ,   constraint linkages_pk primary key(name)
+  , description  varchar(65000)
+  /* --- standard fields */
+  , created_by  varchar(100)
+  , created_ts  timestamp default current_timestamp not null
+  , modified_by varchar(100)
+  , modified_ts timestamp default current_timestamp not null
+);
+
+/* -------------------------------------------------------------------------------------------- */
+create table declared_role_attributes(   /* a role has declared attributes */
+    role_name   varchar(100) not null
+  ,   constraint declared_role_attributes_fk1 foreign key(role_name) references roles(name)
+  , name        varchar(100) not null
+  ,   constraint declared_role_attributes_pk primary key(role_name, name)
+  , attr_type   enum('string', 'boolean', 'integer', 'real', 'timestamp', 'binary')
+  , required    boolean not null default false
+  , single      boolean not null default false
+  , default_str_val varchar(100)
+  , custom_prop varchar(100)   /* developer-defined property, opaque to amcentral365 */
+  , description varchar(64000)
+  /* --- standard fields */
+  , created_by  varchar(100)
+  , created_ts  timestamp default current_timestamp not null
+  , modified_by varchar(100)
+  , modified_ts timestamp default current_timestamp not null
+);
+
+
+create table declared_linkage_roles(    /* how roles are organized within linkages */
+    dlr_id       int not null auto_increment
+  , constraint declared_linkage_roles_pk primary key(dlr_id)
+  , linkage_name varchar(100) not null
+  ,   constraint linkage_roles_fk1 foreign key(linkage_name) references linkages(name)
+  , role_name    varchar(100) not null
+  ,   constraint declared_linkage_roles_fk2 foreign key(role_name) references roles(name)
+/*,   constraint declared_linkage_roles_uk1 unique(linkage_name, role_name)*/
+  , parent_dlr_id int
+  ,   constraint declared_linkage_roles_fk3 foreign key(parent_dlr_id)
+            references declared_linkage_roles(dlr_id) on delete cascade
+/*, sibling_pos  int default 0 not null   \* position among children of the same parent *\
+  ,   constraint linkage_roles_ck1 check(sibling_pos >= 0)*/
+  , required     boolean not null default false
+  , single       boolean not null default false
+  , description  text
+);
+
+/* -------------------------------------------------------------------------------------------- */
+create table asset_roles(      /* roles assigned to the asset */
+    asset_id     binary(16)   not null
+  ,   constraint asset_roles_fk1 foreign key(asset_id) references assets(asset_id)
+/*, linkage_name varchar(100) not null*/
+  , role_name    varchar(100) not null
+  ,   constraint asset_roles_fk2 foreign key(role_name) references roles(name)
+  ,   constraint asset_roles_pk primary key(asset_id/*, linkage_name*/, role_name)
+);
+
+
+create table asset_values(    /* the biggest table: attribute values for specific role of a specific asset */
+    asset_id     binary(16)   not null
+  ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
+  , role_name    varchar(100) not null
+  ,   constraint asset_values_fk2 foreign key(role_name) references roles(name)
+  , attr_name    varchar(100) not null
+  ,   constraint asset_values_fk3 foreign key(role_name, attr_name) references declared_role_attributes(role_name, name)
+  ,   constraint asset_values_pk primary key(asset_id, role_name, attr_name)
+  , str_val   varchar(65000)
+  , bool_val  boolean
+  , int_val   int
+  , real_val  double
+  , ts_val    timestamp
+  , bin_val   blob
+  ,  constraint asset_values_ck1 check(coalesce(str_val, bool_val, int_val, real_val, ts_val, bin_val) is not null)
+  /* --- standard fields */
+  , created_by  varchar(100)
+  , created_ts  timestamp default current_timestamp not null
+  , modified_by varchar(100)
+  , modified_ts timestamp default current_timestamp not null
+);
+
+
+create table asset_linkages(  /*  */
+    linkage_name varchar(100) not null
+  ,   constraint asset_linkages_fk1 foreign key(linkage_name) references linkages(name)
+  , asset1_id    binary(16)   not null
+  ,   constraint asset_linkages_fk2 foreign key(asset1_id) references assets(asset_id)
+  , asset2_id    binary(16)   not null
+  ,   constraint asset_linkages_fk3 foreign key(asset1_id) references assets(asset_id)
+  , dlr1_id      int          not null
+  , dlr2_id      int          not null
+  , sibling1_pos int default 0 not null
+  , sibling2_pos int default 0 not null
+  ,   constraint   asset_linkages_uk1 unique(linkage_name, asset1_id, dlr1_id, sibling1_pos, asset2_id, dlr2_id, sibling2_pos)
+  ,   unique index asset_linkages_uk2       (linkage_name, asset2_id, dlr2_id, sibling2_pos, asset1_id, dlr1_id, sibling1_pos)
+);
+
+
+
+select hex(asset_id), name, description from assets;
+select hex(asset_id), role_name from asset_roles;
+select * from asset_linkages;
+select * from declared_role_attributes;
+select * from declared_linkage_roles;
+select * from linkages;
+
+select * from roles;
+select * from declared_linkage_roles;
+select hex(asset_id), t.* from asset_values t;
+
+/* ============================================================================================ */
 
 /*
 create table execution_channels(
@@ -48,48 +198,7 @@ insert into execution_channels(name, auth_method, descritption) values
 ;
 */
 
-/*
-   Role is one of the three fundamental tables (assets, roles, and attributes)
 
-   An asset assumes one or more roles. Role defines a single function or property of an asset.
-   Role examples are: a host (bare metal or virtual), Galera cluster, Oracle listener.
-   Roles have attributes specific to them, say VM has hostname and ip addresses, memory size, etc.
-
-   Attribute inheritance
-     A role's attributes may be derived from another role, which's attributes are added to this
-     role. Note that inheritance only applies to the list of attributes, not their values
-     as the inheritance is effective at declaration-time. In case of name clash, the current role's
-     attribute takes precedence.
-     Examples of role inheritance: "host" could be a base for "bare-metal-box" and "virtual-machine".
-     host may define attributes such as host-name and ip-addresses. bare-metal-box may additionally
-     define location attribute, while  VM may have "hypervisor" attribute of type bare-metal-box.
-
-   Misc notes:
-     * Role attributes can be copied from another role.
-     *
-     * Role names are unique system-wide, if needed, use dash to break them into parts:
-         galera-cluster, oracle-listener.
-     * Scripts, or actions, are bound to roles
-     * When 'is_script_target' is true, the asset posessing the role may execute scripts.
-       For example, a "host" may execute scripts, while "oracle-listener" can't (but scripts
-       managing the listener may be executed on amCentral box or on the box hosting the listener)
-     * Currently, "class" column isn't used ande serves as a comment classifier
-*/
-create table roles(
-  /*  role_id    binary(16) not null
-  ,   constraint role_pk primary key(role_id)*/
-    name         varchar(100) not null
-  ,   constraint role_pk primary key(name)
-  , class        varchar(100) not null   /* Not used, but explains the role to humans. */
-  , attr_parent  varchar(100)
-  ,   constraint roles_fk1 foreign key(parent_role) references roles(name)
-  , description  text
-  /* --- standard fields */
-  , created_by   varchar(100)
-  , created_ts   timestamp default current_timestamp not null
-  , modified_by  varchar(100)
-  , modified_ts  timestamp default current_timestamp not null
-);
 
 create table scripts(
   name         varchar(100) not null
@@ -105,206 +214,12 @@ create table scripts(
   , ...
 );
 
---truncate table roles;
-insert into roles(class, name, attr_parent, description) values
-  ('root',    'root',         null,   'The topmost role. The intention is that all other roles inherit from it.'),
-  ('generic', 'host',        'root', 'A generic  version of a virtual machine'),
-  ('generic', 'db-instance', 'root', 'A database instance running on a host: standalone or cluster node'),
-  /* -- */
-  ('virtualization', 'container',        'root',      'A light version of a virtual machine'),
-  ('virtualization', 'hypervisor',       'host',      'Hosts, runs, and manages virtual machines'),
-  ('virtualization', 'docker-container', 'container', 'A Docker container'),
-  /* -- */
-  ('application', 'site',           'root', 'Application service'),
-  ('application', 'cluster',        'root', 'A generic cluster: App service, Web, Database, ZK, ...'),
-  ('application', 'cluster-worker', 'host', 'A generic cluster worker node'),
-  /* -- */
-  ('database', 'galera-cluster', 'cluster',     'MySQL Galera cluster'),
-  ('database', 'oracle-rac',     'cluster',     'Oracle Real Application Cluster'),
-  ('database', 'oracle-db',      'db-instance', 'A generic standalone Oracle database'),
-  ('database', 'mysql-db',       'db-instance', 'A generic standalone MySql database'),
-  /* -- */
-  ('oneops', 'oneops-org',       'root', 'OneOps Organization'),
-  ('oneops', 'oneops-assembly',  'root', 'OneOps Assembly'),
-  ('oneops', 'oneops-platform',  'root', 'OneOps Platform'),
-  ('oneops', 'oneops-component', 'root', 'OneOps Component'),
-  ('oneops', 'oneops-env',       'root', 'OneOps Environment'),
-  ('oneops', 'oneops-dc',        'root', 'OneOps Data Center'),
-  ('oneops', 'oneops-cloud',     'root', 'OneOps Cloud, also Availability Zone (AZ)')
-;
 
-
-create table hierarchies(
-    name         varchar(100) not null
-  ,   constraint hierarchy_pk primary key(name)
-  , description   varchar(2000)
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
-insert into hierarchies(name, description) values
-  ('site',              'Application ecosystem: workers, database, web servers, etc'),
-  ('oneops-catalog',    'OneOps org/assembly/platform/component')
-  ('oneops-deployment', 'OneOps org/assembly/environment/platform/component')
-  ('oneops-location',   'OneOps hierarchy: data center, cloud (az), hypervisor, VM, container')
-;
-commit;
-/* select * from hierarchies; */
-
-create table hierarchy_roles(
-    hierarchy_name varchar(100) not null
-  ,   constraint hierarchy_roles_fk1 foreign key(hierarchy_name) references hierarchies(hierarchy_name)
-  , role_name      varchar(100) not null
-  ,   constraint hierarchy_roles_fk2 foreign key(role_name) references roles(role_name)
-  ,   constraint hierarchy_roles_pk  primary key(hierarchy_name, role_name)
-  , parent_role  varchar(100)
-  ,   constraint hierarchy_roles_fk3 foreign key(hierarchy_name, parent_role) references hierarchy_roles(hierarchy_name, role_name)
-  , level        int not null
-  ,   constraint hierarchy_roles_ck1 check(level > 0)
-  ,   constraint hierarchy_roles_ck2 check((level = 1 and parent_role is null) or (level > 1 and parent_role is not null))
-  , description  varchar(2000)
-);
-
-insert into hierarchy_roles(hierarchy_name, role_name, level, parent_role) values
-  ('site', 'application',  1, null),
-  ('site', 'cluster',      2, 'application'),   /* this level may be skipped for non-clustered architectures */
-  ('site', 'cluster-node', 3, 'cluster'),
-  ('site', 'container',    4, 'cluster-node'),
-  /* -- */
-  ('oneops-deployment', 'oneops-org',       1),
-  ('oneops-deployment', 'oneops-assembly',  2),
-  ('oneops-deployment', 'oneops-env',       3),
-  ('oneops-deployment', 'oneops-platform',  4),
-  ('oneops-deployment', 'oneops-component', 5),
-  /* -- */
-  ('oneops-catalog', 'oneops-org',       1),
-  ('oneops-catalog', 'oneops-assembly',  2),
-  ('oneops-catalog', 'oneops-platform',  3),
-  ('oneops-catalog', 'oneops-component', 4),
-  /* -- */
-  ('oneops-location', 'oneops-dc',    1),
-  ('oneops-location', 'oneops-cloud', 2),
-  ('oneops-location', 'hypervisor',   3)
-;
-
-
-create table assets(
-  asset_id binary(16)
-  ,   constraint asset_pk primary key(asset_id)
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
-create table asset_hierarchies(
-  asset_id binary(16)
-  , hierarchy_name varchar(100) not null
-  /* -- */
-  ,   constraint asset_hierarchy_pk  primary key(asset_id, hierarchy_name)
-  ,   constraint asset_hierarchy_uk1 unique(hierarchy_name, asset_id)
-  ,   constraint asset_hierarchies_fk1 foreign key(asset_id) references assets(asset_id)
-  ,   constraint asset_hierarchies_fk2 foreign key(hierarchy_name) references hierarchies(hierarchy_name)
-);
-
-create table asset_hierarchy_role_val(
-  asset_id binary(16)
-  , hierarchy_name varchar(100) not null
-  , role_name      varchar(100) not null
-  ,   constraint asset_hierarchy_role_pk  primary key(asset_id, hierarchy_name, role_name)
-  ,   constraint asset_hierarchy_role_fk1 foreign key(asset_id)       references assets(asset_id)
-  ,   constraint asset_hierarchy_role_fk2 foreign key(hierarchy_name) references hierarchies(name)
-  ,   constraint asset_hierarchy_role_fk3 foreign key(role_name)      references roles(name)
-  , str_val     varchar(2000)
-  , int_val     int
-  , double_val  double
-  , date_val    date
-  , ts_val      timestamp
-  , bool_val    boolean
-  , text_val    text
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
-create table attributes(
-  name varchar(100) not null
-  ,  constraint attributes_pk  primary key(name)
-  , attr_type    enum('Varchar', 'Int', 'Double', 'Date', 'Timestamp', 'Bool', 'Text')
-  , decription   varchar(2000)
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
-create table role_attributes(
-    role_name varchar(100) not null
-  , attr_name varchar(100) not null
-  ,  constraint role_attribute_pk  primary key(role_name, attr_name)  /* !!! how about multiple ip addresses? */
-);
 
 
 /*
-drop table if exists obj_synonyms;
-drop table if exists managed_objects;
-drop table if exists physical_locations;
-*/
-
-create table if not exists physical_locations(
-  physical_location_id binary(16)
-  ,   constraint physical_locations_pk primary key(physical_location_id)
-  , region varchar(100) not null  /* US East/West, Japan East, ... */
-  , dc     varchar(100) not null  /* datacenter1, datacenter2, ... */
-  , zone   varchar(100) not null  /* Availability zone: azA, azB, ... */
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
-
-create table if not exists managed_objects(
-  managed_object_id binary(16)
-  ,   constraint managed_objects_pk primary key(managed_object_id)
-  , physical_location_id binary(16) not null
-  ,   constraint managed_objs_fk1 foreign key(physical_location_id) references physical_locations(physical_location_id)
-  , site      varchar(255) not null  /* prod-main, prod-dr, minimal-qa ... */
-  , cluster   varchar(255) not null  /* db, web-serivce, queue, coordinator, metrics-storage, ... */
-  , host      varchar(255) not null  /* db-node1, db-node2, web-service-worker1, ... */
-  , container varchar(255)           /* Docker or other container running on the host */
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
-
-create table if not exists obj_synonyms(
-  managed_obj_id binary(16)
-  ,   constraint obj_synonyms_fk1 foreign key(managed_obj_id) references managed_objects(managed_object_id)
-  , synonym_name varchar(255) not null
-  ,   constraint obj_synonyms_pk primary key(managed_obj_id, synonym_name)
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
-
-/*
-  Hierarchies, connections, and roles
-      hierarchy: dc/cloud/node/container
+  linkages, connections, and roles
+      linkage: dc/cloud/node/container
       replication: master/slave
       service dependencies
       shards
@@ -340,11 +255,10 @@ Node, runs DB and ZK
      zk-node <- zk-cluster
 
 
-  hierarchies and connectors
+  linkages and connectors
 
 
 */
-
 
 
 
