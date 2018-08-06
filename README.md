@@ -1,6 +1,11 @@
 AM Central 365 back-end service
 ===============================
 
+Project status: under development
+
+AM Central-365 is a DevOps service. Its approach is to assist without getting in the way. Existing automation scripts can be shared and used by others. Or not: run ad-hoc commands on selectd targets. There is no markup language or metadata, scripts are written on any language supported by the host running it. If a script needs to learn about its surroundings, it can make a REST call to amCentral. Sometimes it make sense to run scripts outside of the targets, amCentral365 supports that too. There is a built-in scheduler to run periodic jobs. Scripts may request amCentral to run other scripts for code reuse, this also allows automated self healing by reacting to events.
+
+
 Build
 -----
 ```
