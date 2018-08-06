@@ -16,7 +16,7 @@
 */
 
 create table assets(
-  asset_id binary(16)
+  asset_id binary(16) not null
   ,   constraint assets_pk primary key(asset_id)
   , name        varchar(100) not null
   ,   constraint assets_uk unique(name)
@@ -42,10 +42,20 @@ create table roles(
   , modified_ts  timestamp default current_timestamp not null
 );
 
-create table linkages(
-    name         varchar(100) not null
-  ,   constraint linkages_pk primary key(name)
-  , description  varchar(64000)
+/* -------------------------------------------------------------------------------------------- */
+create table declared_role_attributes(   /* a role has declared attributes */
+    dra_id      int not null auto_increment
+  ,   constraint declared_role_attributes_pk primary key(dra_id)
+  , role_name   varchar(100) not null
+  ,   constraint declared_role_attributes_fk1 foreign key(role_name) references roles(name)
+  , attr_name   varchar(100) not null
+  ,   constraint declared_role_attributes_uk1 unique(role_name, attr_name)
+  , attr_type   enum('string', 'boolean', 'integer', 'real', 'timestamp', 'binary')
+  , required    boolean not null default false
+  , single      boolean not null default false
+  , default_str_val varchar(100)
+  , custom_prop varchar(100)   /* developer-defined property, opaque to amcentral365 */
+  , description varchar(64000)
   /* --- standard fields */
   , created_by  varchar(100)
   , created_ts  timestamp default current_timestamp not null
@@ -53,18 +63,44 @@ create table linkages(
   , modified_ts timestamp default current_timestamp not null
 );
 
+
 /* -------------------------------------------------------------------------------------------- */
-create table declared_role_attributes(   /* a role has declared attributes */
-    role_name   varchar(100) not null
-  ,   constraint declared_role_attributes_fk1 foreign key(role_name) references roles(name)
-  , name        varchar(100) not null
-  ,   constraint declared_role_attributes_pk primary key(role_name, name)
-  , attr_type   enum('string', 'boolean', 'integer', 'real', 'timestamp', 'binary')
-  , required    boolean not null default false
-  , single      boolean not null default false
-  , default_str_val varchar(100)
-  , custom_prop varchar(100)   /* developer-defined property, opaque to amcentral365 */
-  , description varchar(64000)
+create table asset_roles(      /* roles assigned to an asset */
+    asset_id     binary(16)   not null
+  ,   constraint asset_roles_fk1 foreign key(asset_id) references assets(asset_id)
+/*, linkage_name varchar(100) not null*/
+  , role_name    varchar(100) not null
+  ,   constraint asset_roles_fk2 foreign key(role_name) references roles(name)
+  ,   constraint asset_roles_pk primary key(asset_id/*, linkage_name*/, role_name)
+);
+
+
+create table asset_values(    /* the biggest table: attribute values for specific role of a specific asset */
+    asset_id     binary(16)   not null
+  ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
+  , dra_id       int not null
+  ,   constraint asset_values_fk2 foreign key(dra_id) references declared_role_attributes(dra_id)
+  ,   constraint asset_values_pk primary key(asset_id, dra_id)
+  /* A question: shall we honor data types, or store everything as varchar and let the app layer handle them? */
+  , str_val   varchar(64000)
+  , bool_val  boolean
+  , int_val   int
+  , real_val  double
+  , ts_val    timestamp
+  , bin_val   blob
+  ,  constraint asset_values_ck1 check(coalesce(str_val, bool_val, int_val, real_val, ts_val, bin_val) is not null)
+  /* --- standard fields */
+  , created_by  varchar(100)
+  , created_ts  timestamp default current_timestamp not null
+  , modified_by varchar(100)
+  , modified_ts timestamp default current_timestamp not null
+);
+
+
+create table linkages(
+    name         varchar(100) not null
+  ,   constraint linkages_pk primary key(name)
+  , description  varchar(64000)
   /* --- standard fields */
   , created_by  varchar(100)
   , created_ts  timestamp default current_timestamp not null
@@ -91,40 +127,6 @@ create table declared_linkage_roles(    /* how roles are organized within linkag
   , description  text
 );
 
-/* -------------------------------------------------------------------------------------------- */
-create table asset_roles(      /* roles assigned to an asset */
-    asset_id     binary(16)   not null
-  ,   constraint asset_roles_fk1 foreign key(asset_id) references assets(asset_id)
-/*, linkage_name varchar(100) not null*/
-  , role_name    varchar(100) not null
-  ,   constraint asset_roles_fk2 foreign key(role_name) references roles(name)
-  ,   constraint asset_roles_pk primary key(asset_id/*, linkage_name*/, role_name)
-);
-
-
-create table asset_values(    /* the biggest table: attribute values for specific role of a specific asset */
-    asset_id     binary(16)   not null
-  ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
-  , role_name    varchar(100) not null
-  ,   constraint asset_values_fk2 foreign key(role_name) references roles(name)
-  , attr_name    varchar(100) not null
-  ,   constraint asset_values_fk3 foreign key(role_name, attr_name) references declared_role_attributes(role_name, name)
-  ,   constraint asset_values_pk primary key(asset_id, role_name, attr_name)
-  /* A question: shall we honor data types, or store everything as varchar and let the app layer handle them? */
-  , str_val   varchar(64000)
-  , bool_val  boolean
-  , int_val   int
-  , real_val  double
-  , ts_val    timestamp
-  , bin_val   blob
-  ,  constraint asset_values_ck1 check(coalesce(str_val, bool_val, int_val, real_val, ts_val, bin_val) is not null)
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
 
 create table asset_linkages(  /* how assets relate to each other. dlrX_id must belong to the same linkage of declared_linkage_roles */
     linkage_name varchar(100) not null
@@ -142,14 +144,16 @@ create table asset_linkages(  /* how assets relate to each other. dlrX_id must b
 );
 
 /*
+select * from roles;
 select hex(asset_id), name, description from assets;
 select hex(asset_id), role_name from asset_roles;
 select * from asset_linkages;
 select * from declared_role_attributes;
-select * from declared_linkage_roles;
-select * from linkages;
-
-select * from roles;
-select * from declared_linkage_roles;
 select hex(asset_id), t.* from asset_values t;
+
+select * from linkages;
+select * from declared_linkage_roles;
+
+select * from declared_linkage_roles;
+
 */

@@ -29,6 +29,10 @@ var dlrGlrNId = 0
 var dlrGphCId = 0
 var dlrGphNId = 0
 
+var draAmcNodeHostnameId = 0
+var draAmcNodeServicePortId = 0
+var draAmcNodeHazelcastPortId = 0
+
 
 println("Connecting to $dbUrl as $dbUsr")
 Class.forName("com.mysql.jdbc.Driver")
@@ -48,13 +52,12 @@ runSql(conn, "delete from assets")
 
 insertRoles(conn)
 insertDeclaredRoleAttributes(conn)
-
-insertLinkages(conn)
-insertDeclaredLinkageRoles(conn)
-
 insertAssets(conn)
 insertAssetRoles(conn)
 insertAssetValues(conn)
+
+insertLinkages(conn)
+insertDeclaredLinkageRoles(conn)
 insertAssetLinkages(conn)
 
 
@@ -113,14 +116,61 @@ fun insertRoles(conn: Connection) {
 
 fun insertDeclaredRoleAttributes(conn: Connection) {
     println("inserting into declared_role_attributes...")
+    draAmcNodeHostnameId = runSql(conn, """
+        insert into declared_role_attributes(role_name, attr_name, attr_type, required, single, default_str_val)
+        values('amc-node', 'hostname',       'string',  true, false, null)""".trimIndent())
+
+    draAmcNodeServicePortId = runSql(conn, """
+        insert into declared_role_attributes(role_name, attr_name, attr_type, required, single, default_str_val)
+        values('amc-node', 'service-port',   'integer', true, true, '24941')""".trimIndent())
+
+    draAmcNodeHazelcastPortId = runSql(conn, """
+        insert into declared_role_attributes(role_name, attr_name, attr_type, required, single, default_str_val)
+        values('amc-node', 'hazelcast-port', 'integer', true, true, '5701')""".trimIndent())
+}
+
+fun insertAssets(conn: Connection) {
+    println("inserting into assets...")
     runSql(conn, """
-        insert into declared_role_attributes(role_name, name, attr_type, required, single, default_str_val) values
-          ('amc-node', 'hostname',       'string',  true, false, null)
-        , ('amc-node', 'service-port',   'integer', true, true, '24941')
-        , ('amc-node', 'hazelcast-port', 'integer', true, true, '5701')
+        insert into assets(asset_id, name, description) values
+          (unhex('$assetAMCSite'), 'amCentral365-prod', 'production deployment of amCentral365'),
+          (unhex('$assetAMCWorkerCluster'), 'amCentral365-prod-wc', 'amCentral365 workers cluster'),
+          (unhex('$assetAMCWorker1'), 'amCentral365-prod-wn1', 'amCentral365 worker node'),
+          (unhex('$assetAMCWorker2'), 'amCentral365-prod-wn2', 'amCentral365 worker node')
         """.trimIndent()
     )
 }
+
+fun insertAssetRoles(conn: Connection) {
+    println("inserting into asset_roles...")
+    runSql(conn, """
+        insert into asset_roles(asset_id, role_name) values
+          (unhex('$assetAMCSite'),          'site'),
+          (unhex('$assetAMCWorkerCluster'), 'amc-cluster'),
+          (unhex('$assetAMCWorker1'),       'amc-node'),
+          (unhex('$assetAMCWorker1'),       'host'),
+          (unhex('$assetAMCWorker2'),       'amc-node'),
+          (unhex('$assetAMCWorker2'),       'host')
+        """.trimIndent()
+    )
+}
+
+fun insertAssetValues(conn: Connection) {
+    println("inserting into asset_values...")
+    // assetAmCentralSite has no attributes
+    // assetAMCWorkerCluster has no attributes
+    runSql(conn, """
+        insert into asset_values(asset_id, dra_id, str_val, int_val) values
+          (unhex('$assetAMCWorker1'), $draAmcNodeHostnameId,     'localhost', null)
+        , (unhex('$assetAMCWorker1'), $draAmcNodeServicePortId,   null, 24941)
+        , (unhex('$assetAMCWorker1'), $draAmcNodeHazelcastPortId, null,  5701)
+        , (unhex('$assetAMCWorker2'), $draAmcNodeHostnameId,     'localhost', null)
+        , (unhex('$assetAMCWorker2'), $draAmcNodeServicePortId,   null, 24942)
+        , (unhex('$assetAMCWorker2'), $draAmcNodeHazelcastPortId, null,  5702)
+        """.trimIndent()
+    )
+}
+
 
 fun insertLinkages(conn: Connection) {
     println("inserting into linkages...")
@@ -177,48 +227,6 @@ fun insertDeclaredLinkageRoles(conn: Connection) {
         insert into  declared_linkage_roles(linkage_name, role_name, parent_dlr_id, required, single)
         select linkage_name, 'graphite-node', dlr_id, true, false from declared_linkage_roles dlr
          where linkage_name = 'amcentral365-site' and role_name = 'graphite-cluster'""".trimIndent())
-}
-
-fun insertAssets(conn: Connection) {
-    println("inserting into assets...")
-    runSql(conn, """
-        insert into assets(asset_id, name, description) values
-          (unhex('$assetAMCSite'), 'amCentral365-prod', 'production deployment of amCentral365'),
-          (unhex('$assetAMCWorkerCluster'), 'amCentral365-prod-wc', 'amCentral365 workers cluster'),
-          (unhex('$assetAMCWorker1'), 'amCentral365-prod-wn1', 'amCentral365 worker node'),
-          (unhex('$assetAMCWorker2'), 'amCentral365-prod-wn2', 'amCentral365 worker node')
-        """.trimIndent()
-    )
-}
-
-fun insertAssetRoles(conn: Connection) {
-    println("inserting into asset_roles...")
-    runSql(conn, """
-        insert into asset_roles(asset_id, role_name) values
-          (unhex('$assetAMCSite'),          'site'),
-          (unhex('$assetAMCWorkerCluster'), 'amc-cluster'),
-          (unhex('$assetAMCWorker1'),       'amc-node'),
-          (unhex('$assetAMCWorker1'),       'host'),
-          (unhex('$assetAMCWorker2'),       'amc-node'),
-          (unhex('$assetAMCWorker2'),       'host')
-        """.trimIndent()
-    )
-}
-
-fun insertAssetValues(conn: Connection) {
-    println("inserting into asset_values...")
-    // assetAmCentralSite has no attributes
-    // assetAMCWorkerCluster has no attributes
-    runSql(conn, """
-        insert into asset_values(asset_id, role_name, attr_name, str_val, int_val) values
-          (unhex('$assetAMCWorker1'), 'amc-node', 'hostname',     'localhost', null)
-        , (unhex('$assetAMCWorker1'), 'amc-node', 'service-port',   null, 24941)
-        , (unhex('$assetAMCWorker1'), 'amc-node', 'hazelcast-port', null,  5701)
-        , (unhex('$assetAMCWorker2'), 'amc-node', 'hostname',     'localhost', null)
-        , (unhex('$assetAMCWorker2'), 'amc-node', 'service-port',   null, 24942)
-        , (unhex('$assetAMCWorker2'), 'amc-node', 'hazelcast-port', null,  5702)
-        """.trimIndent()
-    )
 }
 
 fun insertAssetLinkages(conn: Connection) {

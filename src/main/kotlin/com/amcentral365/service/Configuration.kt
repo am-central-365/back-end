@@ -17,6 +17,8 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             fail("verbosity must be between 0 to 4, got $it")
     }
 
+    val devel: Boolean by option("--devel").flag("--no-devel", default = false)
+
     val bindPort: Int by option("-b", "--bind-port"
             ,help="port for the service to listen on. Must be the same on all nodes if cluster-fqdn was specified")
             .int()
@@ -30,7 +32,7 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
     val dbPwd: String by option("-p", "--pass", help="database password").default("a")
     val dbUrl: String by option("-c", "--conn",
             help = "JDBC connection string for the back-end MySql database. Format: [jdbc:mysql://]host[:port=3306]/database")
-            .convert { if( it.matches(Regex("^jdbc:[^/@]+(//|@).+")) ) it else "jdbc:mysql://" + it }
+            .convert { if( it.matches(Regex("^jdbc:[^/@]+(//|@).+")) ) it else "jdbc:mysql://$it" }
             .default("jdbc:mysql://127.0.0.1/amcentral365?useSSL=false")
 
     val clusterNodeNames: MutableList<Pair<String, Short>> = mutableListOf()
@@ -74,14 +76,14 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
 
 
         // massage cluster node list: split on comma, resolve, and combine multiple parameters
-        this.rawClusterNodeNames.forEach {
-            it.split(',').forEach {
-                val hostport = addressPortToPair(it)
+        this.rawClusterNodeNames.forEach { rawClusterNodeName ->
+            rawClusterNodeName.split(',').forEach { clusterNodePair ->
+                val hostport = addressPortToPair(clusterNodePair)
                 val resolved = resolveFQDN(hostport.first)
                 resolved.forEach {
                     this.clusterNodeNames.add(Pair(it, hostport.second))
                 }
-                logger.info { "$it resolved to: ${resolved.joinToString(", ")}" }
+                logger.info { "$clusterNodePair resolved to: ${resolved.joinToString(", ")}" }
             }
         }
 

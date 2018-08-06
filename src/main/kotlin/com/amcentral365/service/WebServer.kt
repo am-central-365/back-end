@@ -2,6 +2,7 @@ package com.amcentral365.service
 
 import com.amcentral365.pl4kotlin.Entity
 import com.amcentral365.service.dao.Meta
+import com.amcentral365.service.dao.Role
 import spark.Request
 import spark.Response
 
@@ -21,11 +22,14 @@ class WebServer {
     fun start(port: Int) {
         spark.Spark.port(port)
 
-        spark.Spark.staticFiles.location("swagger")
+        if( config.devel )
+            // With --devel flag, we read API specs from directory. This allows changing files while the program is running
+            spark.Spark.staticFiles.externalLocation("src/main/resources/swagger");
+        else
+            spark.Spark.staticFiles.location("swagger")
 
         handleCORS()
 
-      //spark.Spark.get(API_BASE+"/publicKey-java",  fun(_,_) = SomeJavaClass.getPublicKey())
         spark.Spark.get("$API_BASE/publicKey",   fun(req, rsp) = this.getPublicKey(req, rsp))
 
         // --- Admin Data API: for each DAO we define GET/POST/PUT/DELETE
@@ -39,6 +43,8 @@ class WebServer {
             spark.Spark.put   ("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
             spark.Spark.delete("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
         }
+
+        spark.Spark.get("$API_BASE/catalog/roles", fun(req, rsp) = this.restCallForRoles(req, rsp))
     }
 
     private fun handleCORS() {
@@ -71,7 +77,7 @@ class WebServer {
     internal fun restCallForPersistentObject(req: Request, rsp: Response, entityClass: KClass<out Entity>): String {
         rsp.type("application/json")
         val method = requestMethod("restCallForPersistentObject", req)
-        if (method.isEmpty())
+        if( method.isEmpty() )
             return formatResponse(rsp, 400, "no HTTP request method")
 
         try {
@@ -104,5 +110,38 @@ class WebServer {
         } catch(x: Exception) {
             return formatResponse(rsp, x)
         }
+    }
+
+
+    @VisibleForTesting
+    internal fun restCallForRoles(req: Request, rsp: Response): String {
+        rsp.type("application/json")
+        val method = requestMethod("restCallForRoles", req)
+        if( method.isEmpty() )
+            return formatResponse(rsp, 400, "no HTTP request method")
+        try {
+            val paramMap = combineRequestParams(req)
+            val role = Role()
+            role.assignFrom(paramMap)
+
+            when(method) {
+                "GET" -> {
+                    val limit = paramMap.getOrDefault("limit", "0").toInt()
+                    val defs = databaseStore.fetchRowsAsObjects(role, limit = limit)
+                    logger.info { "get[${role.tableName}]: returning ${defs.size} items" }
+                    return toJsonStr(defs)
+                }
+
+                "HEAD"        -> return formatResponse(rsp, 501, "Coming soon")
+                "PUT", "POST" -> return formatResponse(rsp, 501, "Coming soon")
+
+                else ->
+                    return formatResponse(rsp, 405, "request method $method is unsupported, valid methods are HEAD, GET, PUT, POST")
+            }
+
+        } catch(x: Exception) {
+            return formatResponse(rsp, x)
+        }
+
     }
 }
