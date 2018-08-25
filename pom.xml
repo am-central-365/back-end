@@ -6,7 +6,7 @@
     <version>0.0.1</version>
 
     <properties>
-        <kotlin.version>1.2.60</kotlin.version>
+        <kotlin.version>1.2.61</kotlin.version>
         <junit.version>5.2.0</junit.version>
 
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
@@ -73,7 +73,7 @@
       <dependency>
         <groupId>com.amcentral365</groupId>
         <artifactId>pl4kotlin</artifactId>
-        <version>0.3.8</version>
+        <version>0.3.10</version>
       </dependency>
 
       <!-- ======================= Test dependencies ======================= -->

@@ -11,7 +11,7 @@ import java.sql.SQLException
 class DatabaseStore {
     companion object: KLogging()
 
-    private fun getGoodConnection(): Connection {
+    internal fun getGoodConnection(): Connection {
         while( keepRunning ) {
             try {
                 logger.debug { "connecting to ${config.dbUrl} as ${config.dbUsr}" }

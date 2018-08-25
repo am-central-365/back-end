@@ -1,6 +1,8 @@
 package com.amcentral365.service
 
 import com.amcentral365.pl4kotlin.Entity
+import com.amcentral365.pl4kotlin.SelectStatement
+import com.amcentral365.pl4kotlin.closeIfCan
 import com.amcentral365.service.dao.Meta
 import com.amcentral365.service.dao.Role
 import spark.Request
@@ -24,7 +26,7 @@ class WebServer {
 
         if( config.devel )
             // With --devel flag, we read API specs from directory. This allows changing files while the program is running
-            spark.Spark.staticFiles.externalLocation("src/main/resources/swagger");
+            spark.Spark.staticFiles.externalLocation("src/main/resources/swagger")
         else
             spark.Spark.staticFiles.location("swagger")
 
@@ -44,7 +46,8 @@ class WebServer {
             spark.Spark.delete("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
         }
 
-        spark.Spark.get("$API_BASE/catalog/roles", fun(req, rsp) = this.restCallForRoles(req, rsp))
+        spark.Spark.head("$API_BASE/catalog/roles", fun(req, rsp) = this.restCallForRoles(req, rsp))
+        spark.Spark.get ("$API_BASE/catalog/roles", fun(req, rsp) = this.restCallForRoles(req, rsp))
     }
 
     private fun handleCORS() {
@@ -90,7 +93,7 @@ class WebServer {
                     val limit = paramMap.getOrDefault("limit", "0").toInt()
                     val defs = databaseStore.fetchRowsAsObjects(inputInstance, limit = limit)
                     logger.info { "get[${inputInstance.tableName}]: returning ${defs.size} items" }
-                    return toJsonStr(defs)
+                    return toJsonArray(defs)
                 }
 
                 "PUT", "POST" -> {
@@ -127,12 +130,20 @@ class WebServer {
             when(method) {
                 "GET" -> {
                     val limit = paramMap.getOrDefault("limit", "0").toInt()
-                    val defs = databaseStore.fetchRowsAsObjects(role, limit = limit)
+                    val justnames = paramMap.getOrDefault("justnames", "false").toBoolean()
+
+                    val selStmt = SelectStatement(role).byPresentValues()
+                    if( justnames ) selStmt.select(role::roleName)
+                    else            selStmt.select(role.allCols)
+
+                    val fetchLimit = if( limit > 0 ) limit else Int.MAX_VALUE
+                    val conn = databaseStore.getGoodConnection()
+                    val defs = selStmt.iterate(conn).asSequence().take(fetchLimit).toList()
+                    closeIfCan(conn)
                     logger.info { "get[${role.tableName}]: returning ${defs.size} items" }
-                    return toJsonStr(defs)
+                    return toJsonArray(defs, if( justnames ) "name" else null)
                 }
 
-                "HEAD"        -> return formatResponse(rsp, 501, "Coming soon")
                 "PUT", "POST" -> return formatResponse(rsp, 501, "Coming soon")
 
                 else ->

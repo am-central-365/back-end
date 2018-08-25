@@ -5,7 +5,6 @@ info:
   version: 0.0.1
 
 #  The API principles:
-#    HEAD   gets list of names
 #    GET    returns objects
 #    POST   is used for both CREATE and UPDATE: when ID is present its an update, otherwise create,
 #           When updating, the missing fields are not modified. This makes it impossible to set field
@@ -118,22 +117,16 @@ paths:
 
 
   /catalog/roles:
-   head:
-     summary: Get role names as a JSON array
-     tags: [Core]
-     produces: [application/json]
-     responses:
-       200: { description: "List of role names" }
-       500: { description: "Generic error, see the message" }
-
    get:
-     summary: Get list of roles and their attributes as a list of JSON objects
+     summary: Get list of roles and optionally their attributes as a JSON list
      tags: [Core]
      produces: [application/json]
      parameters:
-       - { in: query, name: class, schema: {type: string, maximum: 100}}
+       - { in: query, name: class,     schema: {type: string, maximum: 100}, description: "only roles of the specified class" }
+       - { in: query, name: justnames, schema: {type: boolean}, description: "only return role names"}
+       - { in: query, name: limit,     schema: {type: integer, default: 0}, description: "Limit the number of items returned. 0 for no limit."}
      responses:
-       200: { description: "List of role objects" }
+       200: { description: "List of the role objects or their names" }
        500: { description: "Generic error, see the message" }
 
    post:

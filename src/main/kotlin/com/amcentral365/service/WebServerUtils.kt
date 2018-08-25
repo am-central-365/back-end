@@ -45,12 +45,12 @@ internal fun quoteJsonChars(s: String) = s.replace("""["']""", "\\$1")
 internal fun formatResponse(rsp: Response, msg: StatusMessage): String = formatResponse(rsp, msg.code, msg.msg)
 
 internal fun formatResponse(rsp: Response, code: Int, message: String): String {
+    if( code == StatusMessage.OK.code ) WebServer.logger.debug { "$code: $message" }
+    else                                WebServer.logger.error { "$code: $message" }
+    val jsonMsg = "{\"code\": $code, \"message\": \"${quoteJsonChars(message)}\"}"
     rsp.status(code)
-    if( code == StatusMessage.OK.code )
-        WebServer.logger.debug { "code: $code, messsage: $message" }
-    else
-        WebServer.logger.error { "$code: $message" }
-    return "{\"code\": $code, \"message\": \"${quoteJsonChars(message)}\"}"
+    rsp.body(jsonMsg)
+    return jsonMsg
 }
 
 
@@ -91,5 +91,10 @@ internal fun combineRequestParams(req: Request): TreeMap<String, String> {
 }
 
 
-internal fun toJsonStr(lst: List<Entity>): String =
-    lst.joinToString(", ", prefix = "[", postfix = "]") { it.asJsonStr() }
+internal fun toJsonArray(lst: List<Entity>, singleItemColumnName: String? = null): String =
+    lst.joinToString(", ", prefix = "[", postfix = "]") { ent ->
+        if( singleItemColumnName == null )
+            ent.asJsonStr()
+        else
+            ent.allCols.first { it.columnName == singleItemColumnName }.asJsonValue()
+    }
