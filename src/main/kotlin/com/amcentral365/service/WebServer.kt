@@ -19,7 +19,7 @@ import kotlin.reflect.full.primaryConstructor
 class WebServer {
     companion object: KLogging()
 
-    private val API_BASE = "/v0.1"   // must match servers.url in src/main/resources/swagger/amcentral365.yaml
+    private val API_BASE = "/v0.1"   // must match servers.url in src/main/resources/swagger/amcentral365.yml
 
     fun start(port: Int) {
         spark.Spark.port(port)

@@ -51,69 +51,10 @@ paths:
        200: { description: "the key contents" }
 
   /admin/data:
-   get:
-     summary: Metadata, list names of available entry points
-     description: |
-        Returns a JSON list of entry point names for the Admin Data API.
-        An entry point name can be used as "/admin/data/"+entry-point-name to operate
-        selected entity.
-     tags: [Admin-Data]
-     produces: [application/json]
-     responses:
-       200: { description: "List of entry point names as a JSON array" }
-
+    $ref: './api/admin_data.yml#root'
 
   /admin/data/script_stores:
-   get:
-     summary: Get list of script stores
-     description: Defines where scripts can be downloaded from
-     tags: [Admin-Data]
-     produces: [application/json]
-     parameters:
-       - { in: query, name: script_store_id, schema: {type: string, format: uuid}, description: "UUID, like c0a71a05-6ade-11e8-9244-0242ac110002" }
-       - { in: query, name: store_name, schema: {type: string, maximum: 255}}
-       - { in: query, name: store_type, schema: {type: string, enum: [LocalFile, GitHub, Nexus]}, description: "Script store type" }
-       - { in: query, name: description, schema: {type: string, maximum: 2000}}
-       - { in: query, name: limit, schema: {type: integer, default: 20}, description: "Limit the number of records returned. 0 for no limit."}
-     responses:
-       200: { description: "List of script stores matching criteria" }
-       default: { schema: { $ref: "#/definitions/GenericResponse"  }, description: "The generic response" }
-
-   post:
-     summary: Create or Update a script store record
-     description: POST or PUT with the PK updates record. When PK is empty, the record is tried to be inserted.
-     tags: [Admin-Data]
-     requestBody:
-       required: true
-       content:
-         application/x-www-form-urlencoded:
-           schema:
-             type: object
-             properties:
-               script_store_id: {type: string, format: uuid} #, description: "PK, UUID"
-               store_name:      {type: string, maximum: 255}
-               store_type:      {type: string, enum: [LocalFile, GitHub, Nexus]}
-               description:     {type: string, maximum: 2000}
-               modified_ts:     {type: string} #, description: "OptLock value, gets overwritten by the database"
-     produces: application/json]
-     responses:
-       200: { description: "List of script stores matching criteria" }
-       400: { description: "Something is wrong with the input data, see the message" }
-       410: { description: "Gone. Optimistic lock update failed because the record was modified or PK dies not exist. Re-read the record" }
-       500: { description: "Generic error, see the message" }
-
-   delete:
-     summary: Delete a script store record
-     description: script stores define sources of the scripts
-     tags: [Admin-Data]
-     parameters:
-       - { in: query, name: script_store_id, schema: {type: string, format: uuid}, description: "PK, UUID" }
-       - { in: query, name: modified_ts,     schema: {type: string, format: timestamp}, description: "record modification timestamp, servers as the OptLock. yyyy-MM-dd HH:mm:ss.f"}
-     produces: application/json]
-     responses:
-       200: { description: "List of script stores matching criteria" }
-       410: { description: "Gone. Optimistic lock delete failed because the record was modified or PK dies not exist. Re-read the record" }
-       500: { description: "Generic error, see the message" }
+    $ref: './api/admin_data.yml#script_stores'
 
 
   /catalog/roles:
@@ -128,6 +69,7 @@ paths:
      responses:
        200: { description: "List of the role objects or their names" }
        500: { description: "Generic error, see the message" }
+       default: { schema: { $ref: "/definitions/GenericResponse"  }, description: "The generic response" }
 
    post:
      summary: Create a role object
