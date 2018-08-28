@@ -5,7 +5,7 @@
   * roles are assigned to assets to reflect their nature
   * linkages list role relations
 
-  Declarative tables, only declarations
+  the "declared_" tables only contain declarations.
   * declared_role_attributes specify what properties a role can have
   * declared_linkage_roles describe how roles relate to each other within linkage
 

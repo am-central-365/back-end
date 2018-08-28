@@ -12,6 +12,7 @@ import com.google.common.io.Resources
 import mu.KLogging
 
 import com.google.common.annotations.VisibleForTesting
+import java.sql.Connection
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
 
@@ -32,7 +33,11 @@ class WebServer {
 
         handleCORS()
 
-        spark.Spark.get("$API_BASE/publicKey",   fun(req, rsp) = this.getPublicKey(req, rsp))
+        // TODO: Always gzip responses
+        // spark.Spark.after("*", fun(_: Request, rsp: Response) = rsp.header("Content-Encoding", "gzip"))
+
+        // ------------------------------- the API
+        spark.Spark.get("$API_BASE/publicKey", fun(req, rsp) = this.getPublicKey(req, rsp))
 
         // --- Admin Data API: for each DAO we define GET/POST/PUT/DELETE
         val apiBaseForAdminData = "$API_BASE/admin/data"
@@ -46,8 +51,10 @@ class WebServer {
             spark.Spark.delete("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
         }
 
-        spark.Spark.head("$API_BASE/catalog/roles", fun(req, rsp) = this.restCallForRoles(req, rsp))
-        spark.Spark.get ("$API_BASE/catalog/roles", fun(req, rsp) = this.restCallForRoles(req, rsp))
+        spark.Spark.get ("$API_BASE/catalog/roles",            fun(req, rsp) = this.restCallForRoles(req, rsp))
+        spark.Spark.get ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = this.restCallForRole (req, rsp))
+        spark.Spark.put ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = this.restCallForRole (req, rsp))
+        spark.Spark.post("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = this.restCallForRole (req, rsp))
     }
 
     private fun handleCORS() {
@@ -98,7 +105,7 @@ class WebServer {
 
                 "PUT", "POST" -> {
                     val msg = databaseStore.mergeObjectAsRow(inputInstance)
-                    return if( msg.isOk ) formatJsonResponse(rsp, msg) else formatResponse(rsp, msg)
+                    return formatResponse(rsp, msg)
                 }
 
                 "DELETE" -> {
@@ -122,6 +129,8 @@ class WebServer {
         val method = requestMethod("restCallForRoles", req)
         if( method.isEmpty() )
             return formatResponse(rsp, 400, "no HTTP request method")
+
+        var conn: Connection? = null
         try {
             val paramMap = combineRequestParams(req)
             val role = Role()
@@ -137,22 +146,61 @@ class WebServer {
                     else            selStmt.select(role.allCols)
 
                     val fetchLimit = if( limit > 0 ) limit else Int.MAX_VALUE
-                    val conn = databaseStore.getGoodConnection()
+                    conn = databaseStore.getGoodConnection()
                     val defs = selStmt.iterate(conn).asSequence().take(fetchLimit).toList()
-                    closeIfCan(conn)
                     logger.info { "get[${role.tableName}]: returning ${defs.size} items" }
                     return toJsonArray(defs, if( justnames ) "name" else null)
                 }
 
-                "PUT", "POST" -> return formatResponse(rsp, 501, "Coming soon")
-
                 else ->
-                    return formatResponse(rsp, 405, "request method $method is unsupported, valid methods are HEAD, GET, PUT, POST")
+                    return formatResponse(rsp, 405, "request method $method is unsupported, the valid methods are: GET")
             }
 
         } catch(x: Exception) {
             return formatResponse(rsp, x)
+        } finally {
+            closeIfCan(conn)
         }
 
+    }
+
+    @VisibleForTesting
+    internal fun restCallForRole(req: Request, rsp: Response): String {
+        rsp.type("application/json")
+        val method = requestMethod("restCallForRole", req)
+        if( method.isEmpty() )
+            return formatResponse(rsp, 400, "no HTTP request method")
+
+        var conn: Connection? = null
+        try {
+            val paramMap = combineRequestParams(req)
+            val role = Role()
+            role.roleName = paramMap["role_name"]
+            conn = databaseStore.getGoodConnection()
+            val recs: Int = SelectStatement(role).select(role.allCols).byPk().run(conn)
+            closeIfCan(conn); conn = null
+
+            when(method) {
+                "GET" -> return role.asJsonStr()
+
+                "PUT", "POST" -> {
+                    val msg = databaseStore.mergeObjectAsRow(role)
+                    return formatResponse(rsp, msg)
+                }
+
+                "DELETE" -> {
+                    val msg = databaseStore.deleteObjectRow(role)
+                    return formatResponse(rsp, msg)
+                }
+
+                else ->
+                    return formatResponse(rsp, 405, "request method $method is unsupported, the valid methods are GET, PUT, POST, DELETE")
+            }
+
+        } catch(x: Exception) {
+            return formatResponse(rsp, x)
+        } finally {
+            closeIfCan(conn)
+        }
     }
 }

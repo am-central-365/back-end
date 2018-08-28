@@ -1,0 +1,78 @@
+components:
+  requestBodies:
+    create_role:
+      description: A role object, see table ROLES.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:        {type: string, maximum: 100}
+              class:       {type: string, maximum: 100}
+              description: {type: string, maximum: 64000}
+    update_role:
+      description: A role object, see table ROLES.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              class:       {type: string, maximum: 100}
+              description: {type: string, maximum: 64000}
+              modified_ts: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
+    delete_role:
+      description: A role object, see table ROLES.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              modified_ts: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
+
+
+root:
+  get:
+    tags: [Core]
+    summary: Get list of roles and optionally their attributes as a JSON list
+    produces: [application/json]
+    parameters:
+    - { in: query, name: class,     schema: {type: string, maximum: 100}, description: "only roles of the specified class" }
+    - { in: query, name: justnames, schema: {type: boolean}, description: "only return role names"}
+    - { in: query, name: field,     schema:     {type: string}, description: "for each object, return the specified field, typically name"}
+    - { in: query, name: fields,    schema:     {type: string}, description: "comma-separated list of filed names to retrieve. Can't be mixed with 'field'"}
+    - { in: query, name: limit,     schema: {type: integer, default: 0}, description: "Limit the number of items returned. 0 for no limit."}
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+  post:
+    tags: [Core]
+    summary: Create a role object
+    description: modified_ts is ignored. Retirns PK + Optimistic Lock
+
+    requestBody: { $ref: '#/components/requestBodies/create_role' }
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/create_resource'}] }
+
+
+$role_name:
+  get:
+    summary: Get the role object with the name
+    tags: [Core]
+    produces: [application/json]
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+  post:
+    tags: [Core]
+    summary: Update the role object
+    description: Only specified fields are updated. Retirns PK + Optimistic Lock
+
+    requestBody: { $ref: '#/components/requestBodies/update_role' }
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/update_resource'}] }
+
+  delete:
+    summary: Delete a role object
+    tags: [Core]
+    produces: application/json]
+    requestBody: { $ref: '#/components/requestBodies/delete_role' }
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/delete_resource'}] }

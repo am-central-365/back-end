@@ -5,16 +5,36 @@ info:
   version: 0.0.1
 
 #  The API principles:
-#    GET    returns objects
-#    POST   is used for both CREATE and UPDATE: when ID is present its an update, otherwise create,
-#           When updating, the missing fields are not modified. This makes it impossible to set field
-#           value to NULL, but it is ok with our schema. Updates usually require the OptLock value.
-#    PUT    is identical to POST.
-#    DELETE naturally deletes
+#    Inspired by https://www.vinaysahni.com/best-practices-for-a-pragmatic-restful-api#restful
 #
-#  x-www-form-urlencoded os preferred over multipart/form-data
+#    http://~path~
+#      GET    returns list of resources at path.
+#             - Adding  &fields=A,B returns JSON array of [ {A:a1, B:b1}, {A:a2, B:b3}. ...}
+#             - Adding  &field=X returns JSON array of [ x1, x2, x3, ... ]
+#             "field" and "fields" are mutually exclusive
+#      POST   create a resources
+#             the body is a JSON structure.
 #
-
+#    http://~path~/resource-id
+#      GET     return all details about the resource.
+#      POST:   update the resource. The request body is a JSON object with { attr1: value1, ... } map.
+#              Only supplied fields are updated. Must supply OptLock if the resource has it (obtained by GET).
+#      DELETE: delete the resource. Must supply OptLock if the resource has it
+#
+#  NOTE:
+#   | Alternative approach, wasn't chosen for implementation:
+#   |   POST   is used for both CREATE and UPDATE. JSON object is passed. All PK fields must be either
+#   |          present or omitted. When all PK fields are present its an update, otherwise create.
+#   |          When updating, the missing fields are not modified. This makes it impossible to set field
+#   |          value to NULL, but it is ok with our schema. Updates usually require the OptLock value.
+#   |  PUT    is identical to POST.
+#
+# The body encoding is x-www-form-urlencoded
+# Using multipart/form-data would be a special case and wasn't so far needed
+#
+# On create or update, the response format is:
+#   {pk: {pk1: v1, pk2: v2, ...} optLock: {col: val}}   # The optLock part is optional
+#
 
 servers:
   - url: /v0.1  # must match API_BASE in src/main/kotlin/com/amcentral365/service/WebServer.kt
@@ -40,6 +60,71 @@ definitions:
    required:  [code, message, SQLState, SQLError, sql]
 
 
+components:
+  responses:
+    object_data:
+      content:
+        application/json:
+
+    code_message:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:     { type: integer, description: The response code. In most cases on of HTTP codes, but sometimes a cusimt value. 200 meanss ok }
+              message:  { type: string,  descriprion: The message. When code is 200 (success), the message is OK }
+            required: [code, message]
+
+    code_mesage_cause:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              code:     { type: integer, description: The response code. In most cases on of HTTP codes, but sometimes a cusimt value. 200 meanss ok }
+              message:  { type: string,  descriprion: The message. When code is 200 (success), the message is OK }
+              cause:    { type: object,  description: Nested code_mesage_cause }
+            required: [code, message]
+
+
+
+    200_dml_ok:          { allOf: [{$ref: '#/components/responses/code_message'}], description: Success }
+    200_read_ok:         { allOf: [{$ref: '#/components/responses/object_data'}],  description: Returns the object's data }
+    201_created:         { allOf: [{$ref: '#/components/responses/code_message'}], description: Created the resource }
+    400_bad_input:       { allOf: [{$ref: '#/components/responses/code_message'}], description: Something is wrong with the input data, see the message }
+    409_already_exists:  { allOf: [{$ref: '#/components/responses/code_message'}], description: The role already exists }
+    410_optlock_failure: { allOf: [{$ref: '#/components/responses/code_message'}], description: Gone. Optimistic lock update failed because the record was modified or PK did not exist. Re-read the record }
+
+    500_server_error:
+      description: Server error, see the messsage
+      allOf:
+      - $ref: '#/components/responses/code_mesage_cause'
+
+    read_resource:
+      200: { $ref: '#/components/responses/200_read_ok' }
+      410: { $ref: '#/components/responses/410_optlock_failure' }
+      500: { $ref: '#/components/responses/500_server_error' }
+
+    create_resource:
+      201: { $ref: '#/components/responses/201_created' }
+      409: { $ref: '#/components/responses/409_already_exists' }
+      400: { $ref: '#/components/responses/400_bad_input' }
+      500: { $ref: '#/components/responses/500_server_error' }
+
+    update_resource:
+      200: { $ref: '#/components/responses/200_dml_ok' }
+      410: { $ref: '#/components/responses/410_optlock_failure' }
+      400: { $ref: '#/components/responses/400_bad_input' }
+      500: { $ref: '#/components/responses/500_server_error' }
+
+    delete_resource:
+      200: { $ref: '#/components/responses/200_dml_ok' }
+      410: { $ref: '#/components/responses/410_optlock_failure' }
+      400: { $ref: '#/components/responses/400_bad_input' }
+      500: { $ref: '#/components/responses/500_server_error' }
+
+
 paths:
   /publicKey:
    get:
@@ -51,88 +136,17 @@ paths:
        200: { description: "the key contents" }
 
   /admin/data:
-    $ref: './api/admin_data.yml#root'
+    $ref: 'api/admin_data.yml#root'
 
   /admin/data/script_stores:
-    $ref: './api/admin_data.yml#script_stores'
+    $ref: 'api/admin_data.yml#script_stores'
 
 
   /catalog/roles:
-   get:
-     summary: Get list of roles and optionally their attributes as a JSON list
-     tags: [Core]
-     produces: [application/json]
-     parameters:
-       - { in: query, name: class,     schema: {type: string, maximum: 100}, description: "only roles of the specified class" }
-       - { in: query, name: justnames, schema: {type: boolean}, description: "only return role names"}
-       - { in: query, name: limit,     schema: {type: integer, default: 0}, description: "Limit the number of items returned. 0 for no limit."}
-     responses:
-       200: { description: "List of the role objects or their names" }
-       500: { description: "Generic error, see the message" }
-       default: { schema: { $ref: "/definitions/GenericResponse"  }, description: "The generic response" }
+    $ref: 'api/catalog_roles.yml#root'
 
-   post:
-     summary: Create a role object
-     tags: [Core]
-     requestBody:
-       required: true
-       content:
-         application/x-www-form-urlencoded:
-           schema:
-             type: object
-             properties:
-               name:        {type: string, maximum: 100}
-               class:       {type: string, maximum: 100}
-               description: {type: string, maximum: 64000}
-     responses:
-       200: { description: "List of script stores matching criteria" }
-       400: { description: "Something is wrong with the input data, see the message" }
-       409: { description: "The role already exists" }
-       500: { description: "Server error, see the message" }
-
-
-  /catalog/roles/$role_name:
-   get:
-     summary: Get role object
-     tags: [Core]
-     produces: [application/json]
-     responses:
-       200: { description: "The role object" }
-       410: { description: "Gone. Role with this name does not exist"}
-       500: { description: "Generic error, see the message" }
-
-   post:
-     summary: Update a role object
-     description: non-mentioned fields are not updated. Retirns PK + Optimistic Lock
-     tags: [Core]
-     produces: [application/json]
-     requestBody:
-       required: true
-       content:
-         application/x-www-form-urlencoded:
-           schema:
-             type: object
-             properties:
-               name:        {type: string, maximum: 100}
-               class:       {type: string, maximum: 100}
-               description: {type: string, maximum: 64000}
-               modified_ts: {type: string, format: timestamp} #, description: "OptLock value, gets overwritten by the database"
-     responses:
-       200: { description: "List of script stores matching criteria" }
-       400: { description: "Something is wrong with the input data, see the message" }
-       410: { description: "Gone. Optimistic lock update failed because the record was modified or PK dies not exist. Re-read the record" }
-       500: { description: "Generic error, see the message" }
-
-   delete:
-     summary: Delete a role object
-     tags: [Core]
-     parameters:
-       - { in: query, name: modified_ts, schema: {type: string, format: timestamp}, description: "record modification timestamp, servers as the OptLock. yyyy-MM-dd HH:mm:ss.f"}
-     produces: application/json]
-     responses:
-       200: { description: "List of script stores matching criteria" }
-       410: { description: "Gone. Optimistic lock delete failed because the record was modified or PK dies not exist. Re-read the record" }
-       500: { description: "Generic error, see the message" }
+  /catalog/roles/{role_name}:
+    $ref: 'api/catalog_roles.yml#$role_name'
 
 
   /catalog/assets/$asset_id/roles/$role_name:
@@ -166,7 +180,7 @@ paths:
    #   and that is too unsafe. To delete all attributes, remove role from the asset.
 
 
-  /catalog/assets/$asset_id/roles/$role_name/attributes/$attr_name:
+  /catalog/assets/{asset_id}/roles/{role_name}/attributes/${dra_id}:
    get:
      summary: Get specific attribute value
      description: All attributes marked as required in declared_role_attributes

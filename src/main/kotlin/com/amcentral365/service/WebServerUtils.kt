@@ -31,10 +31,14 @@ internal fun requestMethod(caller: String, req: Request): String {
     var method = req.requestMethod()
     WebServer.logger.debug { "$caller: http request method is $method" }
 
-    val m2 = req.queryParams("_method")
-    if( m2 != null ) {
-        method = m2
-        WebServer.logger.debug( "$caller: the real http request method is $method")
+    // For clients not supporting PUT, PATCH, etc allow supplying the real method in the headers
+    // NB: GET should never allow overrides, limit to POST only.
+    if( method == "POST" && req.headers().contains("X-HTTP-Method-Override") ) {
+        val m2 = req.headers("X-HTTP-Method-Override")
+        if( m2 != method ) {
+            method = m2
+            WebServer.logger.debug( "$caller: the real http request method is $method")
+        }
     }
 
     return method
@@ -61,17 +65,6 @@ internal fun formatResponse(rsp: Response, x: Throwable): String {
     return gson.toJson(js)
 }
 
-
-internal fun formatJsonResponse(rsp: Response, msg: StatusMessage): String = formatJsonResponse(rsp, msg.code, msg.msg)
-
-internal fun formatJsonResponse(rsp: Response, code: Int, message: String): String {
-    rsp.status(code)
-    if( code == StatusMessage.OK.code )
-        WebServer.logger.debug { "code: $code, messsage: $message" }
-    else
-        WebServer.logger.error { "$code: $message" }
-    return "{\"code\": $code, \"message\": $message}"
-}
 
 internal fun combineRequestParams(req: Request): TreeMap<String, String> {
     // API converts parameter names to lowercase, we prefer mixed
