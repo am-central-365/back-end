@@ -103,7 +103,7 @@ components:
 
     read_resource:
       200: { $ref: '#/components/responses/200_read_ok' }
-      410: { $ref: '#/components/responses/410_optlock_failure' }
+      400: { $ref: '#/components/responses/400_bad_input' }
       500: { $ref: '#/components/responses/500_server_error' }
 
     create_resource:

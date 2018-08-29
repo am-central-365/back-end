@@ -39,10 +39,9 @@ root:
     summary: Get list of roles and optionally their attributes as a JSON list
     produces: [application/json]
     parameters:
-    - { in: query, name: class,     schema: {type: string, maximum: 100}, description: "only roles of the specified class" }
-    - { in: query, name: justnames, schema: {type: boolean}, description: "only return role names"}
-    - { in: query, name: field,     schema:     {type: string}, description: "for each object, return the specified field, typically name"}
-    - { in: query, name: fields,    schema:     {type: string}, description: "comma-separated list of filed names to retrieve. Can't be mixed with 'field'"}
+    - { in: query, name: field,     schema: {type: string}, description: "for each object, return the specified field, typically name"}
+    - { in: query, name: fields,    schema: {type: string}, description: "comma-separated list of filed names to retrieve. Can't be mixed with 'field'"}
+    - { in: query, name: skip,      schema: {type: integer, default: 0}, description: "Number of items to skip"}
     - { in: query, name: limit,     schema: {type: integer, default: 0}, description: "Limit the number of items returned. 0 for no limit."}
     responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
 

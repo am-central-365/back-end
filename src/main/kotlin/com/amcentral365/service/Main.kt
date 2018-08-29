@@ -11,6 +11,7 @@ internal val authorizer: Authorization = Authorization()
 var keepRunning = true  /** Global 'lights out' flag */
 
 val databaseStore = DatabaseStore()
+val webServer = WebServer()
 
 fun main(args: Array<String>) {
 
@@ -19,7 +20,6 @@ fun main(args: Array<String>) {
     logger.info { "parsing arguments" }
     config = Configuration(args)
 
-    val webServer = WebServer()
     webServer.start(config.bindPort)
 
     Thread.sleep(500)  // give the web server some breath time

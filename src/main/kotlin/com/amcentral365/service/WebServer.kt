@@ -3,15 +3,20 @@ package com.amcentral365.service
 import com.amcentral365.pl4kotlin.Entity
 import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.pl4kotlin.closeIfCan
+
+import com.amcentral365.service.api.catalog.Roles
+
 import com.amcentral365.service.dao.Meta
 import com.amcentral365.service.dao.Role
+
 import spark.Request
 import spark.Response
 
-import com.google.common.io.Resources
 import mu.KLogging
 
+import com.google.common.io.Resources
 import com.google.common.annotations.VisibleForTesting
+
 import java.sql.Connection
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
@@ -51,7 +56,8 @@ class WebServer {
             spark.Spark.delete("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
         }
 
-        spark.Spark.get ("$API_BASE/catalog/roles",            fun(req, rsp) = this.restCallForRoles(req, rsp))
+        val roles = Roles()
+        spark.Spark.get ("$API_BASE/catalog/roles",            fun(req, rsp) = roles.getRoles(req, rsp))
         spark.Spark.get ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = this.restCallForRole (req, rsp))
         spark.Spark.put ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = this.restCallForRole (req, rsp))
         spark.Spark.post("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = this.restCallForRole (req, rsp))
