@@ -1,0 +1,16 @@
+{
+  "id": "string",
+  "creationTimestamp": "string",
+  "name": "string",
+  "description": "string",
+  "address": "string",
+  "status": ["RESERVING", "RESERVED", "IN_USE"],
+  "region": "string",
+  "selfLink": "string",
+  "users": [ "string" ],
+  "networkTier": ["PREMIUM", "STANDARD"],
+  "ipVersion": ["IPV4", "IPV6"],
+  "addressType": [" INTERNAL", "EXTERNAL"],
+  "subnetwork": "string",
+  "kind": "string"
+}

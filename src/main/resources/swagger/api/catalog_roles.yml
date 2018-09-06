@@ -8,8 +8,9 @@ components:
           schema:
             type: object
             properties:
-              name:        {type: string, maximum: 100}
+              role_name:   {type: string, maximum: 100, required: true}
               class:       {type: string, maximum: 100}
+              role_schema: {type: object, required: true, description: "schema definition"}
               description: {type: string, maximum: 64000}
     update_role:
       description: A role object, see table ROLES.
@@ -20,6 +21,7 @@ components:
             type: object
             properties:
               class:       {type: string, maximum: 100}
+              role_schema: {type: object, description: "schema definition"}
               description: {type: string, maximum: 64000}
               modified_ts: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
     delete_role:
@@ -61,11 +63,16 @@ $role_name:
     produces: [application/json]
     responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
 
+    parameters:
+    - { in: path, name: role_name, required: true, schema: {type: string, maximum: 100}, description: "name of the role to query"}
+
   post:
     tags: [Core]
     summary: Update the role object
     description: Only specified fields are updated. Retirns PK + Optimistic Lock
 
+    parameters:
+    - { in: path, name: role_name, required: true, schema: {type: string, maximum: 100}, description: "name of the role to update"}
     requestBody: { $ref: '#/components/requestBodies/update_role' }
     responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/update_resource'}] }
 
@@ -73,5 +80,7 @@ $role_name:
     summary: Delete a role object
     tags: [Core]
     produces: application/json]
+    parameters:
+    - { in: path, name: role_name, required: true, schema: {type: string, maximum: 100}, description: "name of the role to delete"}
     requestBody: { $ref: '#/components/requestBodies/delete_role' }
     responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/delete_resource'}] }

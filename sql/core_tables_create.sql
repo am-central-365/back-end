@@ -28,12 +28,14 @@ create table assets(
   , modified_ts timestamp default current_timestamp not null
 );
 
+
 create table roles(
     name         varchar(100) not null
   ,   constraint role_pk primary key(name)
   , class        varchar(100) not null   /* Not used, but explains the role to humans. */
   /*, base_role    varchar(100)            /* A role may inherit its attributes from base" \*
   ,   constraint roles_fk1 foreign key(base_role) references roles(name)*/
+  , role_schema  json not null
   , description  varchar(64000)
   /* --- standard fields */
   , created_by   varchar(100)
@@ -43,25 +45,48 @@ create table roles(
 );
 
 /* -------------------------------------------------------------------------------------------- */
-create table declared_role_attributes(   /* a role has declared attributes */
+
+/*create table role_schemas(   *//* a role has declared attributes *//*
     dra_id      int not null auto_increment
   ,   constraint declared_role_attributes_pk primary key(dra_id)
   , role_name   varchar(100) not null
   ,   constraint declared_role_attributes_fk1 foreign key(role_name) references roles(name)
-  , attr_name   varchar(100) not null
-  ,   constraint declared_role_attributes_uk1 unique(role_name, attr_name)
-  , attr_type   enum('string', 'boolean', 'integer', 'real', 'timestamp', 'binary')
-  , required    boolean not null default false
-  , single      boolean not null default false
-  , default_str_val varchar(100)
-  , custom_prop varchar(100)   /* developer-defined property, opaque to amcentral365 */
-  , description varchar(64000)
-  /* --- standard fields */
+  , role_schema json not null
+  *//* --- standard fields *//*
   , created_by  varchar(100)
   , created_ts  timestamp default current_timestamp not null
   , modified_by varchar(100)
   , modified_ts timestamp default current_timestamp not null
-);
+);*/
+
+
+/*create table declared_role_attributes(   *//* a role has declared attributes *//*
+    dra_id      int not null auto_increment
+  ,   constraint declared_role_attributes_pk primary key(dra_id)
+  , role_name   varchar(100) not null
+  ,   constraint declared_role_attributes_fk1 foreign key(role_name) references roles(name)
+  , attr_schema json not null
+  , attr_name   varchar(100) not null
+  ,   constraint declared_role_attributes_uk1 unique(role_name, attr_name)
+  , attr_type   enum('string', 'boolean', 'number', 'array', 'map', 'subobject')
+  , subobject_ref int null
+  ,   constraint declared_role_attributes_fk2 foreign key(subobject_ref) references declared_role_attributes(dra_id)
+     *//* array is a number of same type objects. map is a 'key': 'val' pair. Object is another set of DRA *//*
+  , required    boolean not null default false
+  *//*, single      boolean not null default false   -- for multi-values use array *//*
+  , default_str_val varchar(100)
+  , default_num_val number
+  , default_bool_val boolean
+  , custom_prop varchar(100)   *//* developer-defined property, opaque to amcentral365 *//*
+  , description varchar(64000)
+  *//* --- standard fields *//*
+  , created_by  varchar(100)
+  , created_ts  timestamp default current_timestamp not null
+  , modified_by varchar(100)
+  , modified_ts timestamp default current_timestamp not null
+);*/
+
+
 
 
 /* -------------------------------------------------------------------------------------------- */
@@ -78,17 +103,19 @@ create table asset_roles(      /* roles assigned to an asset */
 create table asset_values(    /* the biggest table: attribute values for specific role of a specific asset */
     asset_id     binary(16)   not null
   ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
-  , dra_id       int not null
-  ,   constraint asset_values_fk2 foreign key(dra_id) references declared_role_attributes(dra_id)
-  ,   constraint asset_values_pk primary key(asset_id, dra_id)
+  , role_name    varchar(100) not null
+  ,   constraint asset_values_fk2 foreign key(asset_id, role_name) references asset_roles(asset_id, role_name)
+  , attr_name    varchar(200) not null
+  ,  constraint asset_values_pk primary key(asset_id, role_name, attr_name)
   /* A question: shall we honor data types, or store everything as varchar and let the app layer handle them? */
   , str_val   varchar(64000)
+  , num_val   decimal(65,30)
   , bool_val  boolean
-  , int_val   int
-  , real_val  double
-  , ts_val    timestamp
-  , bin_val   blob
-  ,  constraint asset_values_ck1 check(coalesce(str_val, bool_val, int_val, real_val, ts_val, bin_val) is not null)
+  /* sub-objects and arrays reference their parent */
+  , parent_attr  varchar(200)
+  , arr_pos      int
+  ,   constraint asset_values_fk3 foreign key(asset_id, role_name, parent_attr) references asset_values(asset_id, role_name, attr_name)
+  /*,   constraint asset_values_ck1 check(coalesce(str_val, num_val, bool_val, parent_attr, arr_pos) is not null)*/
   /* --- standard fields */
   , created_by  varchar(100)
   , created_ts  timestamp default current_timestamp not null
@@ -157,3 +184,22 @@ select * from declared_linkage_roles;
 select * from declared_linkage_roles;
 
 */
+
+/* ============ */
+
+drop table tj;
+create table tj(n int auto_increment primary key, jsn json);
+select * from tj;
+delete  from tj;
+insert into tj(jsn) values
+  ('{ "a": [1, 4    ], "b": { "b1":  true, "b2": "zellers"}, "c": "alan"}'),
+  ('{ "a": [2, 8, 24], "b": { "b1": false, "b2": "tj-max"},  "c": "joe"}'),
+  ('{ "a": [4, 2,  4], "b": { "b1":  true, "b2": "sears"},   "c": "fred"}')
+;
+select n, jsn from tj;
+select n, concat('x', jsn->'$.c') from tj where not jsn->'$.b.b1';
+select n, convert(jsn->'$.c', char) from tj;
+select n, convert(jsn, char) from tj where not jsn->'$.b.b1';
+select n, jsn->'$.c' from tj where json_search(jsn, 'all', 'sears', null, '$') is not null;
+select n, json_unquote(jsn->'$.a[1]') from tj;
+select json_array(1, 4, 'x');

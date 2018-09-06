@@ -8,10 +8,22 @@ import com.amcentral365.pl4kotlin.closeIfCan
 import com.amcentral365.service.*
 
 import com.amcentral365.service.dao.Role
+import com.google.gson.JsonElement
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import java.sql.Connection
 
 class Roles {
     private val restToColDef = Role().allCols.map { it.restParamName to it }.toMap()
+
+    companion object {
+        fun validate(jsonStr: String): Boolean {
+            return true
+
+            //val rootObj = JsonParser().parse(jsonStr).asJsonObject
+            //rootObj.
+        }
+    }
 
     fun getRoles(req: Request, rsp: Response): String {
         rsp.type("application/json")
@@ -65,5 +77,33 @@ class Roles {
             closeIfCan(conn)
         }
 
+    }
+
+    fun mergeRole(req: Request, rsp: Response): String {
+        rsp.type("application/json")
+        val paramMap = combineRequestParams(req)
+        val role = Role()
+
+        if( paramMap.containsKey("role_schema") )
+            Roles.validate(paramMap.get("role_schema")!!)
+
+        role.assignFrom(paramMap)
+        if( role.roleName == null )
+            return formatResponse(rsp, 400, "parameters 'role_name' is required")
+
+        val msg = databaseStore.mergeObjectAsRow(role)
+        return formatResponse(rsp, msg)
+    }
+
+    fun deleteRole(req: Request, rsp: Response): String {
+        rsp.type("application/json")
+        val paramMap = combineRequestParams(req)
+        val role = Role()
+        role.assignFrom(paramMap)
+        if( role.roleName == null )
+            return formatResponse(rsp, 400, "parameters 'role_name' is required")
+
+        val msg = databaseStore.deleteObjectRow(role)
+        return formatResponse(rsp, msg)
     }
 }

@@ -116,6 +116,9 @@ fun insertRoles(conn: Connection) {
 
 fun insertDeclaredRoleAttributes(conn: Connection) {
     println("inserting into declared_role_attributes...")
+
+    /* FIXME: the table is now role_schemas and stires the schema in a JSON column */
+
     draAmcNodeHostnameId = runSql(conn, """
         insert into declared_role_attributes(role_name, attr_name, attr_type, required, single, default_str_val)
         values('amc-node', 'hostname',       'string',  true, false, null)""".trimIndent())

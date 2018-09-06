@@ -54,7 +54,7 @@ class StatusException : Exception {
 
         internal fun asJsonObject(x: Throwable): JsonObject {
             val js = JsonObject()
-            js.addProperty("message", x.message)
+            js.addProperty("message", x.message ?: x.javaClass.name)
 
             if( x is StatusException ) {
                 js.addProperty("code", x.code)

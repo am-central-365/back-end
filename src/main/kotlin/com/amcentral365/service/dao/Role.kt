@@ -5,13 +5,15 @@ import com.amcentral365.pl4kotlin.Entity
 import com.amcentral365.pl4kotlin.Generated
 import com.amcentral365.pl4kotlin.Table
 import com.amcentral365.service.authUser
+import com.google.gson.JsonObject
 import java.sql.Timestamp
 import java.util.UUID
 
 @Table("roles")
 class Role: Entity() {
-    @Column("name", pkPos = 1)  var roleName:      String? = null
+    @Column("name", pkPos = 1, restParamName = "role_name")  var roleName: String? = null
     @Column("class")            var roleClass:     String? = null
+    @Column("role_schema")      var roleSchema:    String? = null
     @Column("description")      var description:   String? = null
 
     @Column("created_by")  var createdBy:  String? = null
