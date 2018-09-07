@@ -1,12 +1,10 @@
 package com.amcentral365.service
 
 import com.amcentral365.pl4kotlin.Entity
-import com.google.gson.GsonBuilder
+import com.google.gson.*
 import spark.Request
 import spark.Response
 import java.util.TreeMap
-import com.google.gson.FieldAttributes
-import com.google.gson.ExclusionStrategy
 
 
 class DAOExclusionStrategy constructor(private val baseTypeToSkip: Class<*>) : ExclusionStrategy {
@@ -44,7 +42,7 @@ internal fun requestMethod(caller: String, req: Request): String {
     return method
 }
 
-internal fun quoteJsonChars(s: String) = s.replace("""["']""", "\\$1")
+internal fun quoteJsonChars(s: String) = s.replace("\"", "\\\"")
 
 internal fun formatResponse(rsp: Response, msg: StatusMessage): String = formatResponse(rsp, msg.code, msg.msg)
 
@@ -65,10 +63,38 @@ internal fun formatResponse(rsp: Response, x: Throwable): String {
     return gson.toJson(js)
 }
 
-
-internal fun combineRequestParams(req: Request): TreeMap<String, String> {
+/**
+ * Combine all Request parameters into a single uber map
+ *
+ * Since we combine all parameters, the order we parse them is important, as the later overwrite the former.
+ * - We parse the body
+ * - Then the form, which looks to me same as body
+ * - Then the query parameters
+ * - And finally the path.
+ *
+ * The goal for this order is to make the target resource visible and immutable.
+ * E.g. when we POST to /.../resourceId (which is pretty visible), the id can't be overwritten in the request body
+ * (which is not shown in the browser).
+ *
+ */
+internal fun combineRequestParams(req: Request, parseJsonBody: Boolean=false): TreeMap<String, String> {
     // API converts parameter names to lowercase, we prefer mixed
     val p = TreeMap<String, String>(String.CASE_INSENSITIVE_ORDER)
+
+    if( parseJsonBody ) {
+        val jsonRoot = JsonParser().parse(req.body()).asJsonObject  // throws subclasses of JsonParseException
+        jsonRoot.keySet().forEach { key ->
+            // asString isn't working for Json children, but toString() does
+            val v = jsonRoot[key]
+            when {
+                v.isJsonPrimitive -> p[key.toLowerCase()] = v.asString
+                v.isJsonNull -> throw StatusException(400, "null values are not yet supported, check parameter '$key'")
+                v.isJsonObject -> p[key.toLowerCase()] = v.toString()
+                v.isJsonArray -> p[key.toLowerCase()] = v.toString()
+            }
+        }
+    }
+
     req.params().forEach { key, value ->
         if( value.isNotBlank() && "*" != value )
             p[(if (key.length > 1 && key[0] == ':') key.substring(1) else key).toLowerCase()] = value

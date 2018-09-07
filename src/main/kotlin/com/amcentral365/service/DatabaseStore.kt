@@ -7,6 +7,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
 
+val DBERR_DUP_VAL_ON_INDEX = 1062
 
 class DatabaseStore {
     companion object: KLogging()
@@ -101,6 +102,30 @@ class DatabaseStore {
 
         } catch(x: SQLException) {
             conn.rollback()
+            return StatusMessage(x)
+        } finally {
+            closeIfCan(conn)
+        }
+    }
+
+    internal fun insertObjectAsRow(entity: Entity): StatusMessage {
+        val identityStr: String?
+        val conn = this.getGoodConnection()
+        try {
+            logger.info { "inserting into ${entity.tableName}" }
+            val cnt = InsertStatement(entity).run(conn)
+            if( cnt == 0 )
+                return StatusMessage(500, "There was no error, but the record was not inserted")
+            identityStr = entity.getIdentityAsJsonStr()
+
+            conn.commit()
+            logger.info { "insert succeeded, returning $identityStr" }
+            return StatusMessage(201, identityStr)
+
+        } catch(x: SQLException) {
+            conn.rollback()
+            if( x.errorCode == DBERR_DUP_VAL_ON_INDEX )
+                return StatusMessage(409, x.message!!)
             return StatusMessage(x)
         } finally {
             closeIfCan(conn)

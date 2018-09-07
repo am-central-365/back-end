@@ -8,9 +8,8 @@ import com.amcentral365.pl4kotlin.closeIfCan
 import com.amcentral365.service.*
 
 import com.amcentral365.service.dao.Role
-import com.google.gson.JsonElement
-import com.google.gson.JsonObject
-import com.google.gson.JsonParser
+import com.google.gson.*
+import com.google.gson.stream.MalformedJsonException
 import java.sql.Connection
 
 class Roles {
@@ -79,20 +78,37 @@ class Roles {
 
     }
 
-    fun mergeRole(req: Request, rsp: Response): String {
-        rsp.type("application/json")
-        val paramMap = combineRequestParams(req)
-        val role = Role()
+    fun createRole(req: Request, rsp: Response): String {
+        try {
 
-        if( paramMap.containsKey("role_schema") )
-            Roles.validate(paramMap.get("role_schema")!!)
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req, parseJsonBody = true)
+            val role = Role()
 
-        role.assignFrom(paramMap)
-        if( role.roleName == null )
-            return formatResponse(rsp, 400, "parameters 'role_name' is required")
+            if (paramMap.containsKey("role_schema"))
+                Roles.validate(paramMap.get("role_schema")!!)
 
-        val msg = databaseStore.mergeObjectAsRow(role)
-        return formatResponse(rsp, msg)
+            role.assignFrom(paramMap)
+            if (role.roleName == null)
+                return formatResponse(rsp, 400, "parameters 'role_name' is required")
+
+            val msg = databaseStore.insertObjectAsRow(role)
+            if( msg.code == 201 ) {
+                rsp.status(201)
+                return msg.msg
+            }
+            return formatResponse(rsp, msg)
+
+        } catch(x: JsonParseException) {
+            return formatResponse(rsp, StatusMessage(x, 400))
+        } catch(x: StatusException) {
+            return formatResponse(rsp, x)
+        }
+
+    }
+
+    fun updateRole(req: Request, rsp: Response): String {
+        return formatResponse(rsp, StatusMessage(500, "not implemented"))
     }
 
     fun deleteRole(req: Request, rsp: Response): String {

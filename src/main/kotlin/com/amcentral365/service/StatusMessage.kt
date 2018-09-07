@@ -9,11 +9,11 @@ internal class StatusMessage(val code: Int, val msg: String) {
         val OK = StatusMessage(200, "ok")
     }
 
-    constructor(x: Throwable):
-        this((x as? StatusException)?.code ?: 500, x.message ?: "")
+    constructor(x: Throwable, code: Int=500):
+        this((x as? StatusException)?.code ?: code, x.message ?: "")
 
-    constructor(x: Throwable, prefixMsg: String):
-        this((x as? StatusException)?.code ?: 500, "$prefixMsg ${x.javaClass.name} ${x.message}")
+    constructor(x: Throwable, prefixMsg: String, code: Int=500):
+        this((x as? StatusException)?.code ?: code, "$prefixMsg ${x.javaClass.name} ${x.message}")
 
     val isOk: Boolean get() = this.code == StatusMessage.OK.code
 }
@@ -27,11 +27,11 @@ class StatusException : Exception {
     private fun setCause(x: Exception) { if( this.cause == null ) this.initCause(x) }
 
     internal constructor(x: Exception) : super(x) { this.code = this.getCode(x);  this.setCause(x) }
+    internal constructor(x: Exception, code: Int) : super(x) { this.code = code;  this.setCause(x) }
     internal constructor(x: Exception, attr: Map<String, String>) : this(x) { this.attr = attr }
 
     internal constructor(code: Int, msg: String) : super(msg) { this.code = code }
     internal constructor(code: Int, attr: Map<String, String>, msg: String): this(code, msg) { this.attr = attr }
-
 
     private fun merge(otherAttr: Map<String, String>): StatusException {
         if( this.attr == null )

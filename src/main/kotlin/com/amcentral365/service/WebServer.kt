@@ -58,9 +58,9 @@ class WebServer {
 
         val roles = Roles()
         spark.Spark.get   ("$API_BASE/catalog/roles",            fun(req, rsp) = roles.getRoles(req, rsp))
-        spark.Spark.post  ("$API_BASE/catalog/roles",            fun(req, rsp) = roles.mergeRole(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/roles",            fun(req, rsp) = roles.createRole(req, rsp))
         spark.Spark.get   ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.getRoles(req, rsp))
-        spark.Spark.post  ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.mergeRole(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.updateRole(req, rsp))
         spark.Spark.delete("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.deleteRole(req, rsp))
     }
 
