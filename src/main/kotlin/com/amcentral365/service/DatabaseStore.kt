@@ -148,7 +148,7 @@ class DatabaseStore {
                         .byPkAndOptLock()
                         .run(conn)
             if( cnt == 0 )
-                return StatusMessage(410, "No row was updated: either it does not exist, or its OptLock was modified")
+                return StatusMessage(410, "No row was updated: either it does not exist, or its OptLock has been modified")
 
             identityStr = entity.getIdentityAsJsonStr()
 
@@ -175,11 +175,11 @@ class DatabaseStore {
 
         try {
             if( this.isNullOrBlank(entity.optLockCol) || entity.pkCols.any { this.isNullOrBlank(it) } )
-                return StatusMessage(400, "all PK columns and OptLock column must be supplied to Delete")
+                return StatusMessage(400, "all PK columns and the OptLock column must be supplied to Delete")
 
             val cnt = DeleteStatement(entity, ::getGoodConnection).byPkAndOptLock().run()
             if (cnt == 0)
-                return StatusMessage(410, "either the record does not exist, or it's been modified")
+                return StatusMessage(410, "either the record does not exist, or it's OptLock has been modified")
         } catch(x: SQLException) {
             return StatusMessage(x)
         }

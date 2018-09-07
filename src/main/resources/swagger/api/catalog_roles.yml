@@ -24,15 +24,6 @@ components:
               role_schema: {type: object, description: "schema definition"}
               description: {type: string, maximum: 64000}
               modified_ts: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
-    delete_role:
-      description: A role object, see table ROLES.
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              modified_ts: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
 
 
 root:
@@ -81,6 +72,9 @@ $role_name:
     tags: [Core]
     produces: application/json]
     parameters:
-    - { in: path, name: role_name, required: true, schema: {type: string, maximum: 100}, description: "name of the role to delete"}
-    requestBody: { $ref: '#/components/requestBodies/delete_role' }
+    - { in: path,  name: role_name,   required: true, schema: {type: string, maximum: 100}, description: "name of the role to delete"}
+    - { in: query, name: modified_ts, required: true, schema: {type: string, format: timestamp}, description: "OptLock value, gets overwritten by the database"}
+
+    # NB: DELETE, GET, and HEAD have no body as per RFC 7231
+    #requestBody: { $ref: '#/components/requestBodies/delete_role' }
     responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/delete_resource'}] }
