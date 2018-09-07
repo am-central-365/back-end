@@ -78,6 +78,7 @@ class Roles {
 
     }
 
+
     fun createRole(req: Request, rsp: Response): String {
         try {
 
@@ -93,23 +94,40 @@ class Roles {
                 return formatResponse(rsp, 400, "parameters 'role_name' is required")
 
             val msg = databaseStore.insertObjectAsRow(role)
-            if( msg.code == 201 ) {
-                rsp.status(201)
-                return msg.msg
-            }
-            return formatResponse(rsp, msg)
+            return formatResponse(rsp, msg, jsonIfOk = true)
 
         } catch(x: JsonParseException) {
             return formatResponse(rsp, StatusMessage(x, 400))
         } catch(x: StatusException) {
             return formatResponse(rsp, x)
         }
-
     }
+
 
     fun updateRole(req: Request, rsp: Response): String {
-        return formatResponse(rsp, StatusMessage(500, "not implemented"))
+        try {
+
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req, parseJsonBody = true)
+            val role = Role()
+
+            if (paramMap.containsKey("role_schema"))
+                Roles.validate(paramMap.get("role_schema")!!)
+
+            role.assignFrom(paramMap)
+            if (role.roleName == null)
+                return formatResponse(rsp, 400, "parameters 'role_name' is required")
+
+            val msg = databaseStore.updateObjectAsRow(role)
+            return formatResponse(rsp, msg, jsonIfOk = true)
+
+        } catch(x: JsonParseException) {
+            return formatResponse(rsp, StatusMessage(x, 400))
+        } catch(x: StatusException) {
+            return formatResponse(rsp, x)
+        }
     }
+
 
     fun deleteRole(req: Request, rsp: Response): String {
         rsp.type("application/json")

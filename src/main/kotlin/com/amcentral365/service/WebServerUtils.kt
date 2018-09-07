@@ -44,12 +44,17 @@ internal fun requestMethod(caller: String, req: Request): String {
 
 internal fun quoteJsonChars(s: String) = s.replace("\"", "\\\"")
 
-internal fun formatResponse(rsp: Response, msg: StatusMessage): String = formatResponse(rsp, msg.code, msg.msg)
+internal fun formatResponse(rsp: Response, msg: StatusMessage, jsonIfOk: Boolean = false): String =
+        formatResponse(rsp, msg.code, msg.msg, jsonIfOk=jsonIfOk)
 
-internal fun formatResponse(rsp: Response, code: Int, message: String): String {
+internal fun formatResponse(rsp: Response, code: Int, message: String, jsonIfOk: Boolean = false): String {
     if( code == StatusMessage.OK.code ) WebServer.logger.debug { "$code: $message" }
     else                                WebServer.logger.error { "$code: $message" }
-    val jsonMsg = "{\"code\": $code, \"message\": \"${quoteJsonChars(message)}\"}"
+
+    val jsonMsg =
+        if( jsonIfOk && (code == 200 || code == 201) ) message
+        else  """{"code": $code, "message": "${quoteJsonChars(message)}"}"""
+
     rsp.status(code)
     rsp.body(jsonMsg)
     return jsonMsg

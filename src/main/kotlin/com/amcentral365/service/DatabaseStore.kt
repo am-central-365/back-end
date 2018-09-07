@@ -7,7 +7,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.SQLException
 
-val DBERR_DUP_VAL_ON_INDEX = 1062
+const val DBERR_DUP_VAL_ON_INDEX = 1062
 
 class DatabaseStore {
     companion object: KLogging()
@@ -43,7 +43,7 @@ class DatabaseStore {
      *
      * @param entity the search filter. Fields with non-null non-empty values are used as "=" filter
      *               to the WHERE clause. They are joined with ANDs.
-     * @param orderBy the SQL order by clause. <code>ORDER BY column_list</code>
+     * @param orderByExpr the SQL order by clause. <code>ORDER BY column_list</code>
      * @return List of fetched objects. On error, stops and returns whatever gotten so far.
      */
     fun fetchRowsAsObjects(entity: Entity, orderByExpr: String? = null, limit: Int = 0): List<Entity> {
@@ -65,7 +65,6 @@ class DatabaseStore {
      * with a null/empty OptLock column value.
      *
      * @return HTTP code and the corresponding message, to return to the user.
-     * @throws The function doesn't throw exceptions explicitly
      */
     internal fun mergeObjectAsRow(entity: Entity): StatusMessage {
         val inserting = entity.pkCols.all { it.getValue() == null }
@@ -126,6 +125,39 @@ class DatabaseStore {
             conn.rollback()
             if( x.errorCode == DBERR_DUP_VAL_ON_INDEX )
                 return StatusMessage(409, x.message!!)
+            return StatusMessage(x)
+        } finally {
+            closeIfCan(conn)
+        }
+    }
+
+
+    internal fun updateObjectAsRow(entity: Entity): StatusMessage {
+        val identityStr: String?
+        val conn = this.getGoodConnection()
+
+        try {
+            logger.info { "updating ${entity.tableName}" }
+            if( this.isNullOrBlank(entity.optLockCol) )
+                return StatusMessage(400, "Updates require an optimistic lock which was not provided or is null")
+
+            val cnt = UpdateStatement(entity)
+                        .update(entity.allColsButPkAndOptLock!!
+                            .filter { it.getValue() != null && it.getValue().toString().isNotBlank() })
+                        .withOptLock()
+                        .byPkAndOptLock()
+                        .run(conn)
+            if( cnt == 0 )
+                return StatusMessage(410, "No row was updated: either it does not exist, or its OptLock was modified")
+
+            identityStr = entity.getIdentityAsJsonStr()
+
+            conn.commit()
+            logger.info { "update succeeded, returning $identityStr" }
+            return StatusMessage(200, identityStr)
+
+        } catch(x: SQLException) {
+            conn.rollback()
             return StatusMessage(x)
         } finally {
             closeIfCan(conn)
