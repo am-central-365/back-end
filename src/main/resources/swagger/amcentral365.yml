@@ -93,6 +93,7 @@ components:
     200_read_ok:         { allOf: [{$ref: '#/components/responses/object_data'}],  description: Returns the object's data }
     201_created:         { allOf: [{$ref: '#/components/responses/code_message'}], description: Created the resource }
     400_bad_input:       { allOf: [{$ref: '#/components/responses/code_message'}], description: Something is wrong with the input data, see the message }
+    404_not_found:       { allOf: [{$ref: '#/components/responses/code_message'}], description: The requested resource was not found }
     409_already_exists:  { allOf: [{$ref: '#/components/responses/code_message'}], description: The role already exists }
     410_optlock_failure: { allOf: [{$ref: '#/components/responses/code_message'}], description: Gone. Optimistic lock update failed because the record was modified or PK did not exist. Re-read the record }
 
@@ -104,6 +105,7 @@ components:
     read_resource:
       200: { $ref: '#/components/responses/200_read_ok' }
       400: { $ref: '#/components/responses/400_bad_input' }
+      404: { $ref: '#/components/responses/404_not_found' }
       500: { $ref: '#/components/responses/500_server_error' }
 
     create_resource:

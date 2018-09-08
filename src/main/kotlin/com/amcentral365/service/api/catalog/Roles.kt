@@ -5,11 +5,15 @@ import spark.Response
 
 import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.pl4kotlin.closeIfCan
-import com.amcentral365.service.*
+import com.amcentral365.service.formatResponse
+import com.amcentral365.service.combineRequestParams
+import com.amcentral365.service.StatusException
+import com.amcentral365.service.StatusMessage
+import com.amcentral365.service.databaseStore
+import com.amcentral365.service.toJsonArray
 
 import com.amcentral365.service.dao.Role
-import com.google.gson.*
-import com.google.gson.stream.MalformedJsonException
+import com.google.gson.JsonParseException
 import java.sql.Connection
 
 class Roles {
@@ -68,7 +72,14 @@ class Roles {
 
             conn = databaseStore.getGoodConnection()
             val defs = selStmt.iterate(conn).asSequence().filterIndexed{k, _ -> k >= skipCount}.take(fetchLimit).toList()
-            toJsonArray(defs, if( field.isNotEmpty() ) field else null)
+
+            if( role.roleName != null ) {  // A concrete role GET
+                if (defs.isEmpty() )
+                    return formatResponse(rsp, 404, "role '${role.roleName}' was not found")
+                return defs[0].asJsonStr()
+            }
+
+            return toJsonArray(defs, if( field.isNotEmpty() ) this.restToColDef.getValue(field).columnName else null)
 
         } catch(x: Exception) {
             formatResponse(rsp, x)
