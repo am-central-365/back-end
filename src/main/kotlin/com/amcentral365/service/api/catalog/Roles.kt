@@ -23,6 +23,7 @@ class Roles {
 
     companion object {
         private val validSchemaDefTypes = arrayOf("string", "number", "boolean", "map")
+        private val validAttributeCombinations = arrayOf("!", "+", "+!", "!+")
 
         fun validate(roleName: String, jsonStr: String) {   // throws StatusException 406 (Not Acceptable)
 
@@ -34,6 +35,10 @@ class Roles {
                 }
             }
 
+            fun validateAndStripAttributes(typeName: String): String =
+                    // we only replace one occurrence, preventing repetition  of suffixes
+                    typeName.replaceFirst('!', ' ').replaceFirst('+', ' ').trimEnd(' ')
+
             fun process(name: String, elm: JsonElement) {
                 when {
                     elm.isJsonNull ->
@@ -42,7 +47,9 @@ class Roles {
                     elm.isJsonPrimitive -> {
                         if( !elm.asJsonPrimitive.isString )
                             throw StatusException(406, "Wrong type of $name, should be a string")
-                        val defTypeName = elm.asJsonPrimitive.asString
+                        var defTypeName = elm.asJsonPrimitive.asString
+
+                        defTypeName = validateAndStripAttributes(defTypeName)
 
                         if( defTypeName.startsWith('@') ) {
                             if( defTypeName.length < 2 )
@@ -63,9 +70,16 @@ class Roles {
                             if( !e.isJsonPrimitive )  // used to require a 'string', but relaxed to allow number
                                 throw StatusException(406, "$name[$idx]: must be a primitive denoting an enum value")
                             val enumVal = e.asJsonPrimitive.asString
-                            if( enumVal in enumVals )
-                                throw StatusException(406, "$name[$idx]: the enum value '$enumVal' is already defined")
-                            enumVals.add(enumVal)
+
+                            // TODO: the logic catches ["A", "!"], but passes ["A", "!!"].
+                            if( enumVal in validAttributeCombinations ) {
+                                if( idx > 0 )
+                                    throw StatusException(406, "$name[$idx]: attributes may only appear as the first member of the enum")
+                            } else {
+                                if( enumVal in enumVals )
+                                    throw StatusException(406, "$name[$idx]: the enum value '$enumVal' is already defined")
+                                enumVals.add(enumVal)
+                            }
                         }
                     }
 
