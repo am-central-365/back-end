@@ -8,7 +8,7 @@ import java.sql.Timestamp
 
 
 @Table("roles")
-class Role: Entity() {
+class Role(): Entity() {
     @Column("name", pkPos = 1, restParamName = "role_name")  var roleName: String? = null
     @Column("class")                      var roleClass:     String? = null
     @Column("role_schema", isJson = true) var roleSchema:    String? = null
@@ -18,4 +18,6 @@ class Role: Entity() {
     @Column("modified_by") var modifiedBy: String? = null
     @Column("created_ts",  onInsert = Generated.OnTheDbAlways)                          var createdTs:  Timestamp? = null
     @Column("modified_ts", onInsert = Generated.OnTheDbAlways, isOptimisticLock = true) var modifiedTs: Timestamp? = null
+
+    constructor(roleName: String): this() { this.roleName = roleName }
 }

@@ -62,7 +62,10 @@ internal fun formatResponse(rsp: Response, code: Int, message: String, jsonIfOk:
 
 
 internal fun formatResponse(rsp: Response, x: Throwable): String {
-    WebServer.logger.warn(x) { "in WebServer" }
+    if( x is StatusException && x.code < 500 )
+        WebServer.logger.warn("request failed with code ${x.code}: ${x.message}")
+    else
+        WebServer.logger.warn(x) { "request failed:" }
     val js = StatusException.asJsonObject(x)
     rsp.status(js.getAsJsonPrimitive("code").asInt)
     return gson.toJson(js)
