@@ -28,7 +28,8 @@ The types are:
               Both keys and values are strings.
 
 
-* \[enum-val1, enum-val2, ...\] denotes an enum with specified values
+* \[enum-val1, enum-val2, ...\] denotes an enum with specified values.
+             The values must be strings.
 * { ... }    nested sub-object
 * "@schema"  reference to an external schema definition.
              Schemas may reference self.
@@ -37,7 +38,8 @@ The types are:
 
 
 Base types (string, number, boolean, map) and references may be suffixed
-with special symbols for `required` and `multiple` attributes: '!' and '+'.
+with special symbols for `required`, `multiple`, and `indexed`
+attributes: '!', '+' and '^'.
 
 E.g:
 - `string`:   denotes an optional single value
@@ -45,6 +47,7 @@ E.g:
 - `string+`:  dentotes an optional multi-value
 - `string!+`: denotes a mandatory multi value
 - `string+!`: is the same as `string!+`.
+- `string^!`: denotes a required indexed value.
 
 Example:
 ```
@@ -63,3 +66,7 @@ NB: The term `mandatory array` merely means the member must be present. The arra
   "x": ["!", "ONE", "TWO"]   -- the enum value is mandatory
   "y": ["ONE", "TWO", "!"]   -- invalid, not the first member
 ```
+
+Note:
+Attributes may be specified in arbitrary order, but each attribute may
+only appear once. I.e. "string!!" is illegal.

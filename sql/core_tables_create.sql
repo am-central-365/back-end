@@ -44,6 +44,25 @@ create table roles(
   , modified_ts  timestamp default current_timestamp not null
 );
 
+
+create table role_schemas(
+    role_name    varchar(100) not null
+  ,   constraint role_schemas_fk1 foreign key(role_name) references roles(name)
+  , schema_ver   int not null
+  ,   constraint role_schemas_ck1 check(schema_ver > 0)
+  ,   constraint role_schemas_pk primary key(role_name, schema_ver)
+  , role_schema  json not null
+  , schema_crc   int not null
+  ,   index schema_crc_idx(role_name, schema_crc)
+  , description  varchar(64000)
+  /* --- standard fields */
+  , created_by   varchar(100)
+  , created_ts   timestamp default current_timestamp not null
+  , modified_by  varchar(100)
+  , modified_ts  timestamp default current_timestamp not null
+);
+
+
 /* -------------------------------------------------------------------------------------------- */
 
 /*create table role_schemas(   *//* a role has declared attributes *//*
@@ -95,7 +114,8 @@ create table asset_roles(      /* roles assigned to an asset */
   ,   constraint asset_roles_fk1 foreign key(asset_id) references assets(asset_id)
 /*, linkage_name varchar(100) not null*/
   , role_name    varchar(100) not null
-  ,   constraint asset_roles_fk2 foreign key(role_name) references roles(name)
+  , schema_ver   int not null
+  ,   constraint asset_roles_fk2 foreign key(role_name, schema_ver) references role_schemas(role_name, schema_ver)
   ,   constraint asset_roles_pk primary key(asset_id/*, linkage_name*/, role_name)
 );
 
@@ -104,24 +124,41 @@ create table asset_values(    /* the biggest table: attribute values for specifi
     asset_id     binary(16)   not null
   ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
   , role_name    varchar(100) not null
-  ,   constraint asset_values_fk2 foreign key(asset_id, role_name) references asset_roles(asset_id, role_name)
-  , attr_name    varchar(200) not null
-  ,  constraint asset_values_pk primary key(asset_id, role_name, attr_name)
-  /* A question: shall we honor data types, or store everything as varchar and let the app layer handle them? */
-  , str_val   varchar(64000)
-  , num_val   decimal(65,30)
-  , bool_val  boolean
-  /* sub-objects and arrays reference their parent */
-  , parent_attr  varchar(200)
-  , arr_pos      int
-  ,   constraint asset_values_fk3 foreign key(asset_id, role_name, parent_attr) references asset_values(asset_id, role_name, attr_name)
-  /*,   constraint asset_values_ck1 check(coalesce(str_val, num_val, bool_val, parent_attr, arr_pos) is not null)*/
+  ,   constraint asset_values_uk1 unique(asset_id, role_name)
+  , schema_ver   int not null
+  ,   constraint asset_values_fk3 foreign key(asset_id, role_name, schema_ver)
+                       references asset_roles(asset_id, role_name, schema_ver)
+  , asset_vals   json not null
   /* --- standard fields */
   , created_by  varchar(100)
   , created_ts  timestamp default current_timestamp not null
   , modified_by varchar(100)
   , modified_ts timestamp default current_timestamp not null
 );
+
+
+/*create table asset_values(    *//* the biggest table: attribute values for specific role of a specific asset *//*
+    asset_id     binary(16)   not null
+  ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
+  , role_name    varchar(100) not null
+  ,   constraint asset_values_fk2 foreign key(asset_id, role_name) references asset_roles(asset_id, role_name)
+  , attr_name    varchar(200) not null
+  ,  constraint asset_values_pk primary key(asset_id, role_name, attr_name)
+  *//* A question: shall we honor data types, or store everything as varchar and let the app layer handle them? *//*
+  , str_val   varchar(64000)
+  , num_val   decimal(65,30)
+  , bool_val  boolean
+  *//* sub-objects and arrays reference their parent *//*
+  , parent_attr  varchar(200)
+  , arr_pos      int
+  ,   constraint asset_values_fk3 foreign key(asset_id, role_name, parent_attr) references asset_values(asset_id, role_name, attr_name)
+  *//*,   constraint asset_values_ck1 check(coalesce(str_val, num_val, bool_val, parent_attr, arr_pos) is not null)*//*
+  *//* --- standard fields *//*
+  , created_by  varchar(100)
+  , created_ts  timestamp default current_timestamp not null
+  , modified_by varchar(100)
+  , modified_ts timestamp default current_timestamp not null
+);*/
 
 
 create table linkages(
