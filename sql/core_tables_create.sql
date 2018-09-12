@@ -33,8 +33,6 @@ create table roles(
     name         varchar(100) not null
   ,   constraint role_pk primary key(name)
   , class        varchar(100) not null   /* Not used, but explains the role to humans. */
-  /*, base_role    varchar(100)            /* A role may inherit its attributes from base" \*
-  ,   constraint roles_fk1 foreign key(base_role) references roles(name)*/
   , role_schema  json not null
   , description  varchar(64000)
   /* --- standard fields */
@@ -45,7 +43,9 @@ create table roles(
 );
 
 
-create table role_schemas(
+/* -------------------------------------------------------------------------------------------- */
+
+/*create table role_schemas(
     role_name    varchar(100) not null
   ,   constraint role_schemas_fk1 foreign key(role_name) references roles(name)
   , schema_ver   int not null
@@ -55,56 +55,12 @@ create table role_schemas(
   , schema_crc   int not null
   ,   index schema_crc_idx(role_name, schema_crc)
   , description  varchar(64000)
-  /* --- standard fields */
+  *//* --- standard fields *//*
   , created_by   varchar(100)
   , created_ts   timestamp default current_timestamp not null
   , modified_by  varchar(100)
   , modified_ts  timestamp default current_timestamp not null
-);
-
-
-/* -------------------------------------------------------------------------------------------- */
-
-/*create table role_schemas(   *//* a role has declared attributes *//*
-    dra_id      int not null auto_increment
-  ,   constraint declared_role_attributes_pk primary key(dra_id)
-  , role_name   varchar(100) not null
-  ,   constraint declared_role_attributes_fk1 foreign key(role_name) references roles(name)
-  , role_schema json not null
-  *//* --- standard fields *//*
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
 );*/
-
-
-/*create table declared_role_attributes(   *//* a role has declared attributes *//*
-    dra_id      int not null auto_increment
-  ,   constraint declared_role_attributes_pk primary key(dra_id)
-  , role_name   varchar(100) not null
-  ,   constraint declared_role_attributes_fk1 foreign key(role_name) references roles(name)
-  , attr_schema json not null
-  , attr_name   varchar(100) not null
-  ,   constraint declared_role_attributes_uk1 unique(role_name, attr_name)
-  , attr_type   enum('string', 'boolean', 'number', 'array', 'map', 'subobject')
-  , subobject_ref int null
-  ,   constraint declared_role_attributes_fk2 foreign key(subobject_ref) references declared_role_attributes(dra_id)
-     *//* array is a number of same type objects. map is a 'key': 'val' pair. Object is another set of DRA *//*
-  , required    boolean not null default false
-  *//*, single      boolean not null default false   -- for multi-values use array *//*
-  , default_str_val varchar(100)
-  , default_num_val number
-  , default_bool_val boolean
-  , custom_prop varchar(100)   *//* developer-defined property, opaque to amcentral365 *//*
-  , description varchar(64000)
-  *//* --- standard fields *//*
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);*/
-
 
 
 
@@ -112,7 +68,6 @@ create table role_schemas(
 create table asset_roles(      /* roles assigned to an asset */
     asset_id     binary(16)   not null
   ,   constraint asset_roles_fk1 foreign key(asset_id) references assets(asset_id)
-/*, linkage_name varchar(100) not null*/
   , role_name    varchar(100) not null
   , schema_ver   int not null
   ,   constraint asset_roles_fk2 foreign key(role_name, schema_ver) references role_schemas(role_name, schema_ver)
@@ -124,10 +79,7 @@ create table asset_values(    /* the biggest table: attribute values for specifi
     asset_id     binary(16)   not null
   ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
   , role_name    varchar(100) not null
-  ,   constraint asset_values_uk1 unique(asset_id, role_name)
-  , schema_ver   int not null
-  ,   constraint asset_values_fk3 foreign key(asset_id, role_name, schema_ver)
-                       references asset_roles(asset_id, role_name, schema_ver)
+  ,   constraint asset_values_pk primary key(asset_id, role_name)
   , asset_vals   json not null
   /* --- standard fields */
   , created_by  varchar(100)
