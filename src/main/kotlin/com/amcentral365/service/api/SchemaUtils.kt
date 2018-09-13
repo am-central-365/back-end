@@ -11,6 +11,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
 import com.google.gson.JsonPrimitive
+import java.util.Arrays
 
 
 private val validSchemaDefTypes = mapOf(
@@ -91,7 +92,27 @@ class SchemaUtils {
             val attrName:   String,   // "size"
             val type: TypeDef,
             val enumValues: Array<String>? = null   // when the type is ENUM
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {  // auto-generated
+            if(this === other) return true
+            if(javaClass != other?.javaClass) return false
+
+            other as ASTNode
+
+            if(attrName != other.attrName) return false
+            if(type != other.type) return false
+            if(!Arrays.equals(enumValues, other.enumValues)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {  // auto-generated
+            var result = attrName.hashCode()
+            result = 31 * result + type.hashCode()
+            result = 31 * result + (enumValues?.let { Arrays.hashCode(it) } ?: 0)
+            return result
+        }
+    }
 
     companion object {
 
@@ -155,6 +176,9 @@ class SchemaUtils {
                                 throw StatusException(406, "$name[$idx]: enum values must be strings")
 
                             val enumVal = e.asJsonPrimitive.asString
+
+                            if( enumVal.isBlank() )
+                                throw StatusException(406, "$name: enum value at index $idx is blank")
 
                             if( idx == 0 ) {
                                 val tpd = TypeDef.fromEnumValue(name, enumVal)

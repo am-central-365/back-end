@@ -6,25 +6,69 @@ import com.amcentral365.service.StatusException
 import com.amcentral365.service.config
 import com.amcentral365.service.dao.Role
 import com.amcentral365.service.databaseStore
+import com.google.gson.JsonSyntaxException
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.BeforeAll
 
 import io.mockk.mockk
 import io.mockk.every
 import io.mockk.just
 import io.mockk.Runs
-import org.junit.jupiter.api.BeforeAll
 
 
 internal class SchemaUtilsTest {
 
     companion object {
         @BeforeAll @JvmStatic fun init() {
-            config = Configuration(emptyArray())
+            //config = Configuration(emptyArray())
         }
+    }
+
+    @Test fun `schema - simple, good`() {
+        val nodes = SchemaUtils.validateAndCompile("r1",
+                """{
+                    "a": boolean+,
+                    "b": map,
+                    "c": "number!",
+                    "d": "string",
+                    "e": ["uno", "dos", "tres"],
+                    "g": ["!+^", "sunday", "monday"],
+                    "f": {
+                      "f1": "string^",
+                      "f2": ["yes", "no"],
+                      "f3": "boolean"
+                     }
+                    }""".trimMargin()
+        )
+
+        assertNotNull(nodes)
+        assertEquals(9, nodes.size)
+
+        fun ast(name: String, etp: SchemaUtils.ElementType, rqd: Boolean=false, mul: Boolean=false,
+            idx: Boolean=false, ev: Array<String>? = null): SchemaUtils.ASTNode
+        =
+            SchemaUtils.ASTNode(name, SchemaUtils.TypeDef(etp, rqd, mul, idx), ev)
+
+        //println(nodes.find { it.attrName == "$.e[]" })
+        assertTrue(nodes.contains(ast("$.a", SchemaUtils.ElementType.BOOLEAN, mul=true)))
+        assertTrue(nodes.contains(ast("$.b", SchemaUtils.ElementType.MAP)))
+        assertTrue(nodes.contains(ast("$.c", SchemaUtils.ElementType.NUMBER, rqd=true)))
+        assertTrue(nodes.contains(ast("$.d", SchemaUtils.ElementType.STRING)))
+        assertTrue(nodes.contains(ast("$.e[]", SchemaUtils.ElementType.ENUM, ev=arrayOf("uno", "dos", "tres"))))
+        assertTrue(nodes.contains(ast("$.g[]", SchemaUtils.ElementType.ENUM, rqd=true, mul=true, idx=true, ev= arrayOf("sunday", "monday"))))
+        assertTrue(nodes.contains(ast("$.f.f1", SchemaUtils.ElementType.STRING, idx=true)))
+        assertTrue(nodes.contains(ast("$.f.f2[]", SchemaUtils.ElementType.ENUM, ev=arrayOf("yes", "no"))))
+        assertTrue(nodes.contains(ast("$.f.f3", SchemaUtils.ElementType.BOOLEAN)))
+    }
+
+    @Test fun `schema - bad -json`() {
+        val x = assertThrows<StatusException> { SchemaUtils.validateAndCompile("r1", """{"a": }""") }
+        assertTrue(x.message!!.contains("MalformedJsonException"))
     }
 
     @Test fun `schema - no nulls`() {
@@ -39,7 +83,13 @@ internal class SchemaUtilsTest {
         assertEquals("$.a: no members defined", x.message)
     }
 
-    @Test fun `schema - string type name`() {
+    @Test fun `schema - bad type`() {
+        val x = assertThrows<StatusException> { SchemaUtils.validateAndCompile("r1", """{"a": "xyz"}""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("defines an invalid type 'xyz'"))
+    }
+
+    @Test fun `schema - only string type`() {
         var x = assertThrows<StatusException> { SchemaUtils.validateAndCompile("r1", """{"a": 52}""") }
         assertEquals(406, x.code)
         assertTrue(x.message!!.contains("should be string"))
@@ -86,4 +136,34 @@ internal class SchemaUtilsTest {
         assertEquals(SchemaUtils.ElementType.BOOLEAN, node.type)
     }
 
+
+    @Test fun `schema - array - empty`() {
+        val x = assertThrows<StatusException> { SchemaUtils.validateAndCompile("r1", """{"a": [] }""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("no enum values defined"))
+    }
+
+    @Test fun `schema - array - not string`() {
+        val x = assertThrows<StatusException> { SchemaUtils.validateAndCompile("r1", """{"a": [true, 2] }""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("enum values must be strings"))
+    }
+
+    @Test fun `schema - array - dup value`() {
+        val x = assertThrows<StatusException> { SchemaUtils.validateAndCompile("r1", """{"a": ["x", "x"] }""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("'x' is already defined"))
+    }
+
+    @Test fun `schema - array - blank value`() {
+        val x = assertThrows<StatusException> { SchemaUtils.validateAndCompile("r1", """{"a": [" "] }""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("is blank"))
+    }
+
+    @Test fun `schema - array - no values`() {
+        val x = assertThrows<StatusException> { SchemaUtils.validateAndCompile("r1", """{"a": ["+"] }""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("no enum values defined"))
+    }
 }
