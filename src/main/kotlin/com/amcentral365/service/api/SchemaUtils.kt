@@ -100,7 +100,7 @@ class SchemaUtils {
             val role = Role(roleName)
             val lst = databaseStore.fetchRowsAsObjects(role, limit = 1)
             require(lst.size < 2)
-            return if (lst.size == 1) (lst[0] as Role).roleSchema else null
+            return if( lst.size == 1 ) (lst[0] as Role).roleSchema else null
         }
 
 
@@ -128,7 +128,10 @@ class SchemaUtils {
         }
 
 
-        @JvmStatic fun validateAndCompile(roleName: String, jsonStr: String, rootElmName: String = "\$"): Set<ASTNode> {
+        @JvmStatic fun validateAndCompile(roleName: String, jsonStr: String
+            , rootElmName: String = "\$"
+            , seenRoles: MutableList<Pair<String, String>>? = null): Set<ASTNode>
+        {
             val compiledNodes: MutableSet<ASTNode> = mutableSetOf<ASTNode>()
 
             try {
@@ -185,9 +188,8 @@ class SchemaUtils {
                             if( rfRoleName == roleName )
                                 throw StatusException(406, "$name references the same role $roleName")
 
-                            val rfSchemaStr = loadSchemaReference(roleName)
-                            if( rfSchemaStr == null )
-                                throw StatusException(406, "$name references unknown role '$rfRoleName'")
+                            val rfSchemaStr = loadSchemaReference(roleName) ?:
+                                    throw StatusException(406, "$name references unknown role '$rfRoleName'")
 
                             // NB: recursive call
                             val rfSchemaSet = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = name)
