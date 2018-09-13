@@ -29,7 +29,7 @@ class SchemaUtils {
     data class TypeDef(
           val typeCode: ElementType
         , val required: Boolean = false
-        , val multiple: Boolean = true
+        , val multiple: Boolean = false
         , val indexed:  Boolean = false
     ) {
         companion object {
@@ -44,16 +44,16 @@ class SchemaUtils {
                 var indexed  = false
 
                 // NB: we only replace first occurrence not allowing double definitions
-                if( workStr.contains('!') ) { required = true;   workStr = workStr.replaceFirst('!', ' ') }
-                if( workStr.contains('+') ) { multiple = false;  workStr = workStr.replaceFirst('+', ' ') }
-                if( workStr.contains('^') ) { indexed  = false;  workStr = workStr.replaceFirst('^', ' ') }
+                if( workStr.contains('!') ) { required = true;  workStr = workStr.replaceFirst('!', ' ') }
+                if( workStr.contains('+') ) { multiple = true;  workStr = workStr.replaceFirst('+', ' ') }
+                if( workStr.contains('^') ) { indexed  = true;  workStr = workStr.replaceFirst('^', ' ') }
 
                 return postParse(workStr.trimEnd(), required, multiple, indexed)
             }
 
             @JvmStatic fun fromTypeName(elmName: String, typeStr: String): TypeDef =
                 genericFrom(typeStr) { str, required, multiple, indexed ->
-                    if(str !in validSchemaDefTypes)
+                    if( str !in validSchemaDefTypes )
                         throw StatusException(406, "$elmName defines an invalid type '$str'. " +
                                 "The valid types are: ${validSchemaDefTypes.keys.joinToString(", ")}")
                     TypeDef(validSchemaDefTypes[str]!!, required, multiple, indexed)
@@ -61,8 +61,8 @@ class SchemaUtils {
 
             @JvmStatic fun fromEnumValue(elmName: String, enumVal: String): TypeDef? =
                     genericFrom(enumVal) { str, required, multiple, indexed ->
-                        if(str.isEmpty())
-                            TypeDef(ElementType.STRING, required, multiple, indexed)
+                        if( str.isEmpty() )
+                            TypeDef(ElementType.ENUM, required, multiple, indexed)
                         else
                             null
                     }
@@ -115,97 +115,96 @@ class SchemaUtils {
             when {
                 elm.isJsonNull      -> onNull(name)
                 elm.isJsonPrimitive -> onPrimitive(name, elm.asJsonPrimitive)
-                elm.isJsonArray     -> onArray(name+"[]", elm.asJsonArray)
+                elm.isJsonArray     -> onArray(name, elm.asJsonArray)
                 elm.isJsonObject    -> {
                     if( elm.asJsonObject.entrySet().isEmpty() )
                         onEmptyObject(name)
                     else {
                         for(entry in elm.asJsonObject.entrySet())  // forEach swallows exceptions, use loop
-                            walkJson("$name.${entry.key}", entry.value)
+                            walkJson("$name.${entry.key}", entry.value, onNull, onEmptyObject, onPrimitive, onArray)
                     }
                 }
             }
         }
 
-        
+
         @JvmStatic fun validateAndCompile(roleName: String, jsonStr: String, rootElmName: String = "\$"): Set<ASTNode> {
-            val rootNode: MutableSet<ASTNode> = mutableSetOf<ASTNode>()
+            val compiledNodes: MutableSet<ASTNode> = mutableSetOf<ASTNode>()
 
             try {
                 val elm0 = JsonParser().parse(jsonStr)
                 require(elm0.isJsonObject) { "Role Schema must be a Json Object (e.g. the {...} thingy)" }
 
                 walkJson(rootElmName, elm0.asJsonObject,
-                        onNull = { name -> throw StatusException(406, "$name is null, what is it supposed to define?") }
-                        , onEmptyObject = { name -> throw StatusException(406, "$name: no members defined") }
+                    onNull        = { name -> throw StatusException(406, "$name is null, what is it supposed to define?") }
+                  , onEmptyObject = { name -> throw StatusException(406, "$name: no members defined") }
 
-                        , onArray = { name, arr ->
-                    val enumValues = mutableSetOf<String>()
-                    var typeDef = TypeDef(ElementType.STRING)
+                  , onArray = { name, arr ->
+                        val enumValues = mutableSetOf<String>()
+                        var typeDef = TypeDef(ElementType.ENUM)
 
-                    if(arr.size() < 1)
-                        throw StatusException(406, "$name: no enum values defined")
+                        if( arr.size() < 1 )
+                            throw StatusException(406, "$name: no enum values defined")
 
-                    for(idx in 0 until arr.size()) {
-                        val e = arr[idx]
-                        if(!e.isJsonPrimitive || !e.asJsonPrimitive.isString)
-                            throw StatusException(406, "$name[$idx]: must be a string denoting the enum value")
+                        for(idx in 0 until arr.size()) {
+                            val e = arr[idx]
+                            if( !e.isJsonPrimitive || !e.asJsonPrimitive.isString )
+                                throw StatusException(406, "$name[$idx]: enum values must be strings")
 
-                        val enumVal = e.asJsonPrimitive.asString
+                            val enumVal = e.asJsonPrimitive.asString
 
-                        if(idx == 0) {
-                            val tpd = TypeDef.fromEnumValue(name, enumVal)
-                            if(tpd != null) {
-                                typeDef = tpd
-                                continue
+                            if( idx == 0 ) {
+                                val tpd = TypeDef.fromEnumValue(name, enumVal)
+                                if( tpd != null ) {
+                                    typeDef = tpd
+                                    continue
+                                }
                             }
+
+                            if( enumVal in enumValues )
+                                throw StatusException(406, "$name[$idx]: the enum value '$enumVal' is already defined")
+
+                            enumValues.add(enumVal)
                         }
 
-                        if(enumVal in enumValues)
-                            throw StatusException(406, "$name[$idx]: the enum value '$enumVal' is already defined")
+                        if( enumValues.isEmpty() )
+                            throw StatusException(406, "$name: no enum values defined")
 
-                        enumValues.add(enumVal)
-                    }
+                        compiledNodes.add(ASTNode(name+"[]", typeDef, enumValues = enumValues.toTypedArray()))
+                  }
 
-                    if(enumValues.isEmpty())
-                        throw StatusException(406, "$name: no enum values defined")
+                , onPrimitive = { name, prm ->
+                        if( !prm.isString )
+                            throw StatusException(406, "Wrong type of $name, should be string")
 
-                    rootNode.add(ASTNode(name, typeDef, enumValues = enumValues.toTypedArray()))
-                }
+                        if( prm.asString.startsWith('@'))  {
+                            val rfRoleName = prm.asString.substring(1)
+                            if( rfRoleName.isBlank() )
+                                throw StatusException(406, "$name defines an empty reference '@'")
 
-                        , onPrimitive = { name, prm ->
-                    if(!prm.isString)
-                        throw StatusException(406, "Wrong type of $name, should be string")
+                            if( rfRoleName == roleName )
+                                throw StatusException(406, "$name references the same role $roleName")
 
-                    val typeDef = TypeDef.fromTypeName(name, prm.asString)
+                            val rfSchemaStr = loadSchemaReference(roleName)
+                            if( rfSchemaStr == null )
+                                throw StatusException(406, "$name references unknown role '$rfRoleName'")
 
-                    if(prm.asString.startsWith('@')) {
-                        val rfRoleName = prm.asString.substring(1)
-                        if(rfRoleName.isBlank())
-                            throw StatusException(406, "$name defines an empty reference '@'")
+                            // NB: recursive call
+                            val rfSchemaSet = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = name)
+                            compiledNodes.addAll(rfSchemaSet)
 
-                        if(rfRoleName == roleName)
-                            throw StatusException(406, "$name references the same role $roleName")
-
-                        val rfSchemaStr = loadSchemaReference(roleName)
-                        if(rfSchemaStr == null)
-                            throw StatusException(406, "$name references unknown role '$rfRoleName'")
-
-                        // NB: recursive call
-                        val rfSchemaSet = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = name)
-                        rootNode.addAll(rfSchemaSet)
-
-                    } else {
-                        rootNode.add(ASTNode(name, typeDef))
-                    }
-                }
+                        } else {
+                            val typeDef = TypeDef.fromTypeName(name, prm.asString)
+                            compiledNodes.add(ASTNode(name, typeDef))
+                        }
+                  }
                 )
 
             } catch(x: JsonParseException) {
                 throw StatusException(x, 406)
             }
 
-            return rootNode
+            return compiledNodes
         }
 
         /**
@@ -216,15 +215,14 @@ class SchemaUtils {
 
             val attrs = HashMap<String, String>()
 
-            walkJson(
-                    "\$", schemaJson,
+            walkJson("\$", schemaJson,
                     onPrimitive = { name, prm ->
                         attrs[name] = TypeDef.fromTypeName(name, prm.asString).normalize()
                     },
                     onArray = { name, arr ->
                         var typeDef = TypeDef.fromEnumValue(name, arr[0].asString)
                         val startIndex = if(typeDef == null) 0 else 1
-                        if(typeDef == null)
+                        if( typeDef == null )
                             typeDef = TypeDef(ElementType.STRING)
 
                         attrs[name] = typeDef.normalize() + ':' +
