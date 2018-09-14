@@ -8,11 +8,12 @@ import com.amcentral365.pl4kotlin.closeIfCan
 import com.amcentral365.service.formatResponse
 import com.amcentral365.service.combineRequestParams
 import com.amcentral365.service.StatusException
-import com.amcentral365.service.api.SchemaUtils
-import com.amcentral365.service.databaseStore
 import com.amcentral365.service.toJsonArray
+import com.amcentral365.service.databaseStore
+import com.amcentral365.service.schemaUtils
 
 import com.amcentral365.service.dao.Role
+
 import java.sql.Connection
 
 class Roles {
@@ -87,7 +88,7 @@ class Roles {
             if( role.roleName == null )
                 return formatResponse(rsp, 400, "parameter 'role_name' is required")
             if( role.roleSchema != null )
-                SchemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
+                schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
 
             val msg = databaseStore.insertObjectAsRow(role)
             return formatResponse(rsp, msg, jsonIfOk = true)
@@ -109,7 +110,7 @@ class Roles {
             if( role.roleName == null )
                 return formatResponse(rsp, 400, "parameter 'role_name' is required")
             if( role.roleSchema != null )
-                SchemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
+                schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
 
             val msg = databaseStore.updateObjectAsRow(role)
             return formatResponse(rsp, msg, jsonIfOk = true)

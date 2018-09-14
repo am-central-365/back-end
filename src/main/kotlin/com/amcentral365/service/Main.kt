@@ -1,5 +1,6 @@
 package com.amcentral365.service
 
+import com.amcentral365.service.api.SchemaUtils
 import mu.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -11,7 +12,8 @@ internal val authorizer: Authorization = Authorization()
 var keepRunning = true  /** Global 'lights out' flag */
 
 val databaseStore = DatabaseStore()
-val webServer = WebServer()
+val webServer     = WebServer()
+val schemaUtils   = SchemaUtils()
 
 fun main(args: Array<String>) {
 
