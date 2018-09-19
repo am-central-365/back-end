@@ -1,8 +1,15 @@
 package com.amcentral365.service
 
 import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.parameters.options.*
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.validate
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.convert
+import com.github.ajalt.clikt.parameters.options.multiple
 import com.github.ajalt.clikt.parameters.types.int
+import com.github.ajalt.clikt.parameters.types.long
+
 import mu.KotlinLogging
 
 
@@ -57,6 +64,11 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                 """.trimMargin()
             ).default("")
 
+
+    val schemaCacheSizeInNodes: Long by option("--schema-cache-size-in-nodes").long().default(1000).validate {
+        if( it < 100 )
+            fail("schema-cache-size-in-nodes must be 100 or greater")
+    }
 
     override fun run() {
 

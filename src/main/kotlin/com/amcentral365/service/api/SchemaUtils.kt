@@ -4,12 +4,15 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 
 import com.amcentral365.service.StatusException
+import com.amcentral365.service.config
 import com.amcentral365.service.dao.Role
 import com.amcentral365.service.databaseStore
+import com.amcentral365.service.schemaUtils
 import com.google.common.annotations.VisibleForTesting
+import com.google.common.cache.CacheBuilder
+import com.google.common.cache.CacheLoader
 
 import com.google.gson.JsonArray
-import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
 import com.google.gson.JsonPrimitive
 import java.util.Arrays
@@ -22,8 +25,10 @@ private val validSchemaDefTypes = mapOf(
     , "map"     to SchemaUtils.ElementType.MAP
 )
 
+typealias CompiledSchema = Map<String, SchemaUtils.ASTNode>
 
-open class SchemaUtils() {
+
+open class SchemaUtils {
 
     enum class ElementType { STRING, NUMBER, BOOLEAN, MAP, ENUM, OBJECT }
 
@@ -68,24 +73,6 @@ open class SchemaUtils() {
                             null
                     }
         }
-
-        fun normalize(): String {
-            val tps = when(this.typeCode) {
-                ElementType.STRING -> 's'
-                ElementType.NUMBER -> 'n'
-                ElementType.BOOLEAN -> 'b'
-                ElementType.ENUM -> 'e'
-                ElementType.MAP -> 'm'
-                ElementType.OBJECT -> 'o'
-            }
-
-            val flags = 0
-                + (if( this.required ) 1 else 0)
-                + (if( this.multiple ) 2 else 0)
-                + (if( this.indexed )  4 else 0)
-
-            return "$tps$flags"  // returns values like s1 or b3
-        }
     }
 
     data class ASTNode(
@@ -114,7 +101,32 @@ open class SchemaUtils() {
         }
     }
 
-    @VisibleForTesting open fun loadSchemaReference(roleName: String): String? {
+
+    /**
+     * Guava Cache of compiled role schemas, by role name.
+     *
+     * Cache size is --schema-cache-size-in-nodes [ASTNode]s. When value isn't found in the
+     * cache or the database, a [StatusException] is thrown with value 404.
+     */
+    val schemaCache = CacheBuilder.newBuilder()
+            .maximumWeight(config.schemaCacheSizeInNodes)
+            .weigher { key: String, value: CompiledSchema -> value.size }
+            .build(object: CacheLoader<String, CompiledSchema>() {
+                override fun load(roleName: String): CompiledSchema {
+                    val roleSchema = schemaUtils.loadSchemaFromDb(roleName)
+                    if( roleSchema == null )
+                        throw StatusException(404, "role '$roleName' was not found")
+                    return schemaUtils.validateAndCompile(roleName, roleSchema)
+                }
+            })
+
+
+    /**
+     * Load schema definition from the database
+     *
+     * @return schema as a JSON string or null if [roleName] wasn't found.
+     */
+    @VisibleForTesting open fun loadSchemaFromDb(roleName: String): String? {
         val role = Role(roleName)
         val lst = databaseStore.fetchRowsAsObjects(role, limit = 1)
         require(lst.size < 2)
@@ -122,6 +134,9 @@ open class SchemaUtils() {
     }
 
 
+    /**
+     * Walk schema json top down, calling handlers.
+     */
     private fun walkJson(
               name: String
             , elm: JsonElement
@@ -129,11 +144,13 @@ open class SchemaUtils() {
             , onEmptyObject: (name: String) -> Unit = {}
             , onPrimitive:   (name: String, value: JsonPrimitive) -> Unit = { _: String, _: Any -> }
             , onArray:       (name: String, value: JsonArray)     -> Unit = { _: String, _: Any -> }
+            , beforeEach:    (name: String) -> Unit = {}
     ) {
+        beforeEach(name)
         when {
             elm.isJsonNull      -> onNull(name)
             elm.isJsonPrimitive -> onPrimitive(name, elm.asJsonPrimitive)
-            elm.isJsonArray     -> onArray(name, elm.asJsonArray)
+            elm.isJsonArray     -> onArray("$name[]", elm.asJsonArray)
             elm.isJsonObject    -> {
                 if( elm.asJsonObject.entrySet().isEmpty() )
                     onEmptyObject(name)
@@ -146,11 +163,19 @@ open class SchemaUtils() {
     }
 
 
+    /**
+     * Convert JSON String representation of a role schema to compiled form
+     *
+     * The compiled form has all references to other schemas resolved.
+     * Internally it is a [Set] of node definitions [ASTNode] with full attribute
+     * names serving as keys.
+     * Full attribute name comprise of the full path from the root to the node.
+     */
     fun validateAndCompile(roleName: String, jsonStr: String
         , rootElmName: String = "\$"
-        , seenRoles: MutableList<Pair<String, String>>? = null): Set<ASTNode>
+        , seenRoles: MutableList<Pair<String, String>>? = null): CompiledSchema
     {
-        val compiledNodes: MutableSet<ASTNode> = mutableSetOf<ASTNode>()
+        val compiledNodes: MutableMap<String, ASTNode> = mutableMapOf()
 
         try {
             val elm0 = JsonParser().parse(jsonStr)
@@ -186,7 +211,7 @@ open class SchemaUtils() {
                         }
 
                         if( enumVal in enumValues )
-                            throw StatusException(406, "$name[$idx]: the enum value '$enumVal' is already defined")
+                            throw StatusException(406, "${name.substringAfterLast("[")}[$idx]: the enum value '$enumVal' is already defined")
 
                         enumValues.add(enumVal)
                     }
@@ -194,7 +219,7 @@ open class SchemaUtils() {
                     if( enumValues.isEmpty() )
                         throw StatusException(406, "$name: no enum values defined")
 
-                    compiledNodes.add(ASTNode(name+"[]", typeDef, enumValues = enumValues.toTypedArray()))
+                    compiledNodes.put(name, ASTNode(name, typeDef, enumValues = enumValues.toTypedArray()))
               }
 
             , onPrimitive = { name, prm ->
@@ -215,16 +240,16 @@ open class SchemaUtils() {
                             throw StatusException(406, "$name: cycle in role references. Role $rfRoleName was referenced by ${seeenRoles[prevIdx].first}")
 
                         seeenRoles.add(Pair(name, rfRoleName))
-                        val rfSchemaStr = loadSchemaReference(rfRoleName) ?:
+                        val rfSchemaStr = loadSchemaFromDb(rfRoleName) ?:
                                 throw StatusException(406, "$name references unknown role '$rfRoleName'")
 
                         // NB: recursive call
                         val rfSchemaSet = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = name, seenRoles = seeenRoles)
-                        compiledNodes.addAll(rfSchemaSet)
+                        compiledNodes.putAll(rfSchemaSet)
 
                     } else {
                         val typeDef = TypeDef.fromTypeName(name, prm.asString)
-                        compiledNodes.add(ASTNode(name, typeDef))
+                        compiledNodes.put(name, ASTNode(name, typeDef))
                     }
               }
             )
@@ -233,35 +258,40 @@ open class SchemaUtils() {
             throw StatusException(x, 406)
         }
 
+        schemaCache.put(roleName, compiledNodes)
         return compiledNodes
     }
 
-    /**
-     * Given a valid Role Schema, get its representation string suitable for comparison
-     *
-     */
-    fun normalize(schemaJson: JsonObject): String {
 
-        val attrs = HashMap<String, String>()
+    fun validateAssetValue(roleName: String, elm: JsonElement): String? {
+        val roleSchema = this.schemaCache.get(roleName)
+        val unseenNodes = HashSet<String>(roleSchema.keys)
 
-        walkJson("\$", schemaJson,
-                onPrimitive = { name, prm ->
-                    attrs[name] = TypeDef.fromTypeName(name, prm.asString).normalize()
-                },
-                onArray = { name, arr ->
-                    var typeDef = TypeDef.fromEnumValue(name, arr[0].asString)
-                    val startIndex = if(typeDef == null) 0 else 1
-                    if( typeDef == null )
-                        typeDef = TypeDef(ElementType.STRING)
+        this.walkJson(roleName, elm,
+            beforeEach = { name ->
+                if( !roleSchema.containsKey(name) )
+                    throw StatusException(406, "attribute '$name' is not defined in the schema")
+            }
+          , onNull = { name ->
+                val astn = roleSchema[name]!!
+                if( astn.type.required )
+                    throw StatusException(406, "attribute '$name' is required, null values are not allowed")
+            }
+          , onEmptyObject = { name ->
+                val astn = roleSchema[name]!!
+                if( astn.type.required )
+                    throw StatusException(406, "attribute '$name' is required, empty objects are not allowed")
+            }
+          , onPrimitive = { name, prm ->
 
-                    attrs[name] = typeDef.normalize() + ':' +
-                            arr.filterIndexed { index, _ -> index >= startIndex }
-                                    .sortedBy { elm -> elm.asJsonPrimitive.asString }
-                                    .joinToString("|") { it.asJsonPrimitive.asString }
-                }
+            }
+          , onArray = { name, arr ->
+                val astn = roleSchema[name]!!
+                if( !astn.type.multiple )
+                    throw StatusException(406, "attribute '$name' shan't be an array")
+            }
         )
 
-        return attrs.keys.sorted().joinToString(";") { key -> "$key:${attrs[key]}" }
+        return null
     }
-
 }

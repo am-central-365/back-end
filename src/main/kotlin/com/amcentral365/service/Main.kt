@@ -5,7 +5,7 @@ import mu.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
-lateinit internal var config: Configuration
+internal var config = Configuration(emptyArray())
 internal var authUser: AuthenticatedUser = AuthenticatedUser("amcentral365", "none@amcentral365.com", "Internal User")
 internal val authorizer: Authorization = Authorization()
 

@@ -5,9 +5,8 @@ import com.amcentral365.service.StatusException
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.assertThrows
 
 import org.junit.jupiter.api.Assertions.assertFalse
 
@@ -15,12 +14,6 @@ import org.junit.jupiter.api.Assertions.assertFalse
 internal class SchemaUtilsTest {
 
     var schemaUtils = SchemaUtils()
-
-    companion object {
-        @BeforeAll @JvmStatic fun init() {
-            //config = Configuration(emptyArray())
-        }
-    }
 
     @Test fun `schema - simple, good`() {
         val nodes = this.schemaUtils.validateAndCompile("r1",
@@ -48,15 +41,15 @@ internal class SchemaUtilsTest {
             SchemaUtils.ASTNode(name, SchemaUtils.TypeDef(etp, rqd, mul, idx), ev)
 
         //println(nodes.find { it.attrName == "$.e[]" })
-        assertTrue(nodes.contains(ast("$.a", SchemaUtils.ElementType.BOOLEAN, mul=true)))
-        assertTrue(nodes.contains(ast("$.b", SchemaUtils.ElementType.MAP)))
-        assertTrue(nodes.contains(ast("$.c", SchemaUtils.ElementType.NUMBER, rqd=true)))
-        assertTrue(nodes.contains(ast("$.d", SchemaUtils.ElementType.STRING)))
-        assertTrue(nodes.contains(ast("$.e[]", SchemaUtils.ElementType.ENUM, ev=arrayOf("uno", "dos", "tres"))))
-        assertTrue(nodes.contains(ast("$.g[]", SchemaUtils.ElementType.ENUM, rqd=true, mul=true, idx=true, ev= arrayOf("sunday", "monday"))))
-        assertTrue(nodes.contains(ast("$.f.f1", SchemaUtils.ElementType.STRING, idx=true)))
-        assertTrue(nodes.contains(ast("$.f.f2[]", SchemaUtils.ElementType.ENUM, ev=arrayOf("yes", "no"))))
-        assertTrue(nodes.contains(ast("$.f.f3", SchemaUtils.ElementType.BOOLEAN)))
+        assertTrue(nodes.containsValue(ast("$.a", SchemaUtils.ElementType.BOOLEAN, mul=true)))
+        assertTrue(nodes.containsValue(ast("$.b", SchemaUtils.ElementType.MAP)))
+        assertTrue(nodes.containsValue(ast("$.c", SchemaUtils.ElementType.NUMBER, rqd=true)))
+        assertTrue(nodes.containsValue(ast("$.d", SchemaUtils.ElementType.STRING)))
+        assertTrue(nodes.containsValue(ast("$.e[]", SchemaUtils.ElementType.ENUM, ev=arrayOf("uno", "dos", "tres"))))
+        assertTrue(nodes.containsValue(ast("$.g[]", SchemaUtils.ElementType.ENUM, rqd=true, mul=true, idx=true, ev= arrayOf("sunday", "monday"))))
+        assertTrue(nodes.containsValue(ast("$.f.f1", SchemaUtils.ElementType.STRING, idx=true)))
+        assertTrue(nodes.containsValue(ast("$.f.f2[]", SchemaUtils.ElementType.ENUM, ev=arrayOf("yes", "no"))))
+        assertTrue(nodes.containsValue(ast("$.f.f3", SchemaUtils.ElementType.BOOLEAN)))
     }
 
     @Test fun `schema - bad -json`() {
@@ -107,7 +100,7 @@ internal class SchemaUtilsTest {
 
     @Test fun `schema - ref - unknown role`() {
         val su = object : SchemaUtils() {
-            override fun loadSchemaReference(roleName: String): String? = null
+            override fun loadSchemaFromDb(roleName: String): String? = null
         }
 
         val x = assertThrows<StatusException> { su.validateAndCompile("r1", """{"a": "@r2"}""") }
@@ -118,12 +111,12 @@ internal class SchemaUtilsTest {
 
     @Test fun `schema - ref - recursive call`() {
         val su = object : SchemaUtils() {
-            override fun loadSchemaReference(roleName: String): String? = """{ "b": "boolean+" }"""
+            override fun loadSchemaFromDb(roleName: String): String? = """{ "b": "boolean+" }"""
         }
 
         val nodes = su.validateAndCompile("r1", """{"a": "@r2"}""")
         assertEquals(1, nodes.size)
-        val node = nodes.iterator().next()
+        val node = nodes.iterator().next().value
         assertEquals("$.a.b", node.attrName)
         assertEquals(SchemaUtils.ElementType.BOOLEAN, node.type.typeCode)
         assertTrue(node.type.multiple)
@@ -138,7 +131,7 @@ internal class SchemaUtilsTest {
                 "r3" to """{ "c": "@r2" }"""
             )
 
-            override fun loadSchemaReference(roleName: String): String? = roles[roleName]
+            override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
         }
 
         val x = assertThrows<StatusException> { su.validateAndCompile("r1", """{"a": "@r2"}""") }
