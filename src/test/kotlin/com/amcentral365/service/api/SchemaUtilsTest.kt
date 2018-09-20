@@ -114,10 +114,18 @@ internal class SchemaUtilsTest {
             override fun loadSchemaFromDb(roleName: String): String? = """{ "b": "boolean+" }"""
         }
 
-        val nodes = su.validateAndCompile("r1", """{"a": "@r2"}""")
-        assertEquals(1, nodes.size)
-        val node = nodes.iterator().next().value
-        assertEquals("$.a.b", node.attrName)
+        val nodes = su.validateAndCompile("r1", """{"a": "@r2!"}""")
+        assertEquals(2, nodes.size)
+        val nodea = nodes.get("$.a")
+        assertNotNull(nodea)
+        assertEquals("$.a", nodea!!.attrName)
+        assertEquals(SchemaUtils.ElementType.OBJECT, nodea.type.typeCode)
+        assertTrue(nodea.type.required)
+        assertFalse(nodea.type.multiple)
+        assertFalse(nodea.type.indexed)
+
+        val node = nodes.get("$.a.b")
+        assertEquals("$.a.b", node!!.attrName)
         assertEquals(SchemaUtils.ElementType.BOOLEAN, node.type.typeCode)
         assertTrue(node.type.multiple)
         assertFalse(node.type.required)
@@ -167,5 +175,38 @@ internal class SchemaUtilsTest {
         val x = assertThrows<StatusException> { this.schemaUtils.validateAndCompile("r1", """{"a": ["+"] }""") }
         assertEquals(406, x.code)
         assertTrue(x.message!!.contains("no enum values defined"))
+    }
+
+
+
+    val roleSchemaCompute = """{
+            "hostname": "string!",
+            "ram_mb":   "number!",
+            "audio":    "boolean",
+            "video":    [ "!", "trident", "radeon", "matrox", "nvida" ],
+            "hdds":     "@disk_drive!+"
+        }""".trimIndent()
+
+    val roleSchemaDiskDrive = """{
+            "size_mb":     "number!",
+            "mount_point": "string"
+        }""".trimIndent()
+
+    @Test fun `asset - validate - null`() {
+        val su = object : SchemaUtils() {
+            val roles = mapOf(
+                "compute"    to roleSchemaCompute,
+                "disk_drive" to roleSchemaDiskDrive
+            )
+
+            override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
+        }
+
+        su.validateAndCompile("disk_drive", this.roleSchemaDiskDrive)
+        su.validateAndCompile("compute", this.roleSchemaCompute)
+
+        val x = assertThrows<StatusException> {  su.validateAssetValue("compute", """{ "name": null }""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("'hostname' is required, null values are not allowed"))
     }
 }

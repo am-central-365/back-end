@@ -15,6 +15,7 @@ import com.google.common.cache.CacheLoader
 import com.google.gson.JsonArray
 import com.google.gson.JsonParseException
 import com.google.gson.JsonPrimitive
+import java.lang.Exception
 import java.util.Arrays
 
 
@@ -41,8 +42,8 @@ open class SchemaUtils {
         companion object {
 
             @JvmStatic
-            private fun genericFrom(strToParse: String,
-                              postParse: (s: String, required: Boolean, multiple: Boolean, indexed: Boolean) -> TypeDef?
+            fun genericFrom(strToParse: String,
+                postParse: (s: String, required: Boolean, multiple: Boolean, indexed: Boolean) -> TypeDef?
             ): TypeDef? {
                 var workStr = strToParse
                 var required = false
@@ -227,9 +228,15 @@ open class SchemaUtils {
                         throw StatusException(406, "Wrong type of $name, should be string")
 
                     if( prm.asString.startsWith('@'))  {
-                        val rfRoleName = prm.asString.substring(1)
-                        if( rfRoleName.isBlank() )
+                        val rfRoleNameWithFlags = prm.asString.substring(1)
+                        if( rfRoleNameWithFlags.isBlank() )
                             throw StatusException(406, "$name defines an empty reference '@'")
+
+                        var rfRoleName = rfRoleNameWithFlags
+                        val typeDef = TypeDef.genericFrom(rfRoleNameWithFlags, { stripedRoleName, required, multiple, indexed ->
+                            rfRoleName = stripedRoleName
+                            TypeDef(ElementType.OBJECT, required, multiple, indexed)
+                        })!!
 
                         if( rfRoleName == roleName )
                             throw StatusException(406, "$name references the same role $roleName")
@@ -242,6 +249,8 @@ open class SchemaUtils {
                         seeenRoles.add(Pair(name, rfRoleName))
                         val rfSchemaStr = loadSchemaFromDb(rfRoleName) ?:
                                 throw StatusException(406, "$name references unknown role '$rfRoleName'")
+
+                        compiledNodes.put(name, ASTNode(name, typeDef))
 
                         // NB: recursive call
                         val rfSchemaSet = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = name, seenRoles = seeenRoles)
@@ -263,14 +272,38 @@ open class SchemaUtils {
     }
 
 
-    fun validateAssetValue(roleName: String, elm: JsonElement): String? {
+    fun checkValueType(astn: ASTNode, elm: JsonElement) {
+        when(astn.type.typeCode) {
+            ElementType.STRING  -> require((elm as JsonPrimitive).isString)
+            ElementType.BOOLEAN -> require((elm as JsonPrimitive).isBoolean)
+            ElementType.NUMBER  -> require((elm as JsonPrimitive).isNumber)
+            ElementType.ENUM    -> require((elm as JsonPrimitive).isString)  //elm.asString in astn.enumValues!!)
+            ElementType.MAP     -> require(elm.isJsonObject) // FIXME
+            ElementType.OBJECT  -> require(elm.isJsonObject)
+        }
+    }
+
+
+    fun validateAssetValue(roleName: String, elm: JsonElement) {
         val roleSchema = this.schemaCache.get(roleName)
         val unseenNodes = HashSet<String>(roleSchema.keys)
+
+        fun checkWithThrow(name: String, astn: ASTNode, prm: JsonElement) {
+            try {
+                checkValueType(astn, prm)
+                if( astn.type.typeCode == ElementType.ENUM )
+                    if( prm.asString !in astn.enumValues!! )
+                        throw StatusException(406, "value '${prm.asString}' of attribute '$name' isn't allowed for the enum")
+            } catch(x: Exception) {
+                throw StatusException(406, "type of attribute '$name' isn't ${astn.type.typeCode}")
+            }
+        }
 
         this.walkJson(roleName, elm,
             beforeEach = { name ->
                 if( !roleSchema.containsKey(name) )
                     throw StatusException(406, "attribute '$name' is not defined in the schema")
+                unseenNodes.remove(name)
             }
           , onNull = { name ->
                 val astn = roleSchema[name]!!
@@ -283,15 +316,25 @@ open class SchemaUtils {
                     throw StatusException(406, "attribute '$name' is required, empty objects are not allowed")
             }
           , onPrimitive = { name, prm ->
-
+                val astn = roleSchema[name]!!
+                checkWithThrow(name, astn, prm)
             }
           , onArray = { name, arr ->
                 val astn = roleSchema[name]!!
                 if( !astn.type.multiple )
                     throw StatusException(406, "attribute '$name' shan't be an array")
+                arr.forEach {
+                    checkWithThrow(name, astn, it)
+                }
             }
         )
 
-        return null
+        val unseenRequiredNames = roleSchema.filter { it.value.type.required && it.key in unseenNodes }.keys.sorted()
+        if( unseenRequiredNames.isNotEmpty() )
+            throw StatusException(406, "missing ${unseenRequiredNames.size} required attributes: ${unseenRequiredNames.joinToString(", ")}")
     }
+
+
+    fun validateAssetValue(roleName: String, jsonStr: String) =
+            this.validateAssetValue(roleName, JsonParser().parse(jsonStr))
 }
