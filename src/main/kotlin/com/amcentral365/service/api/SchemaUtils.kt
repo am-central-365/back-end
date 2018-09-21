@@ -147,17 +147,19 @@ open class SchemaUtils {
             , onArray:       (name: String, value: JsonArray)     -> Unit = { _: String, _: Any -> }
             , beforeEach:    (name: String) -> Unit = {}
     ) {
-        beforeEach(name)
         when {
-            elm.isJsonNull      -> onNull(name)
-            elm.isJsonPrimitive -> onPrimitive(name, elm.asJsonPrimitive)
-            elm.isJsonArray     -> onArray("$name[]", elm.asJsonArray)
+            elm.isJsonNull      -> { beforeEach(name);  onNull(name) }
+            elm.isJsonPrimitive -> { beforeEach(name);  onPrimitive(name, elm.asJsonPrimitive) }
+            elm.isJsonArray     -> { beforeEach(name);  onArray(name, elm.asJsonArray) }
             elm.isJsonObject    -> {
-                if( elm.asJsonObject.entrySet().isEmpty() )
+                if( elm.asJsonObject.entrySet().isEmpty() ) {
+                    beforeEach(name)
                     onEmptyObject(name)
-                else {
-                    for(entry in elm.asJsonObject.entrySet())  // forEach swallows exceptions, use loop
-                        walkJson("$name.${entry.key}", entry.value, onNull, onEmptyObject, onPrimitive, onArray)
+                } else {
+                    for(entry in elm.asJsonObject.entrySet()) { // forEach swallows exceptions, use loop
+                        beforeEach("$name.${entry.key}")
+                        walkJson("$name.${entry.key}", entry.value, onNull, onEmptyObject, onPrimitive, onArray, beforeEach)
+                    }
                 }
             }
         }
@@ -220,6 +222,9 @@ open class SchemaUtils {
                     if( enumValues.isEmpty() )
                         throw StatusException(406, "$name: no enum values defined")
 
+                    // walkJson appends '[]' tp array name, but while in the schema definition enums are arrays,
+                    // in the asset they are single values. Strip out the trailing [] from the name.
+                    val scalarName = name.substringBeforeLast('[')
                     compiledNodes.put(name, ASTNode(name, typeDef, enumValues = enumValues.toTypedArray()))
               }
 
@@ -233,10 +238,10 @@ open class SchemaUtils {
                             throw StatusException(406, "$name defines an empty reference '@'")
 
                         var rfRoleName = rfRoleNameWithFlags
-                        val typeDef = TypeDef.genericFrom(rfRoleNameWithFlags, { stripedRoleName, required, multiple, indexed ->
+                        val typeDef = TypeDef.genericFrom(rfRoleNameWithFlags) { stripedRoleName, required, multiple, indexed ->
                             rfRoleName = stripedRoleName
                             TypeDef(ElementType.OBJECT, required, multiple, indexed)
-                        })!!
+                        }!!
 
                         if( rfRoleName == roleName )
                             throw StatusException(406, "$name references the same role $roleName")
@@ -286,24 +291,26 @@ open class SchemaUtils {
 
     fun validateAssetValue(roleName: String, elm: JsonElement) {
         val roleSchema = this.schemaCache.get(roleName)
-        val unseenNodes = HashSet<String>(roleSchema.keys)
+        val unseenRequiredNames = roleSchema.filter { it.value.type.required }.keys.toMutableSet()
 
         fun checkWithThrow(name: String, astn: ASTNode, prm: JsonElement) {
             try {
                 checkValueType(astn, prm)
-                if( astn.type.typeCode == ElementType.ENUM )
-                    if( prm.asString !in astn.enumValues!! )
-                        throw StatusException(406, "value '${prm.asString}' of attribute '$name' isn't allowed for the enum")
             } catch(x: Exception) {
                 throw StatusException(406, "type of attribute '$name' isn't ${astn.type.typeCode}")
             }
+
+            if( astn.type.typeCode == ElementType.ENUM )
+                if( prm.asString !in astn.enumValues!! )
+                    throw StatusException(406, "value '${prm.asString}' of attribute '$name' isn't valid for the enum")
         }
 
-        this.walkJson(roleName, elm,
+        val rootName = "$"
+        this.walkJson(rootName, elm,
             beforeEach = { name ->
-                if( !roleSchema.containsKey(name) )
+                if( name != rootName && !roleSchema.containsKey(name) )
                     throw StatusException(406, "attribute '$name' is not defined in the schema")
-                unseenNodes.remove(name)
+                unseenRequiredNames.remove(name)
             }
           , onNull = { name ->
                 val astn = roleSchema[name]!!
@@ -314,9 +321,13 @@ open class SchemaUtils {
                 val astn = roleSchema[name]!!
                 if( astn.type.required )
                     throw StatusException(406, "attribute '$name' is required, empty objects are not allowed")
+                if( astn.type.multiple )
+                    throw StatusException(406, "attribute '$name' must be an array, got an empty object")
             }
           , onPrimitive = { name, prm ->
                 val astn = roleSchema[name]!!
+                if( astn.type.multiple )
+                    throw StatusException(406, "attribute '$name' must be an array, got a scalar")
                 checkWithThrow(name, astn, prm)
             }
           , onArray = { name, arr ->
@@ -329,7 +340,6 @@ open class SchemaUtils {
             }
         )
 
-        val unseenRequiredNames = roleSchema.filter { it.value.type.required && it.key in unseenNodes }.keys.sorted()
         if( unseenRequiredNames.isNotEmpty() )
             throw StatusException(406, "missing ${unseenRequiredNames.size} required attributes: ${unseenRequiredNames.joinToString(", ")}")
     }

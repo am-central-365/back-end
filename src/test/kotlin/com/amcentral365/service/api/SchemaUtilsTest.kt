@@ -45,10 +45,10 @@ internal class SchemaUtilsTest {
         assertTrue(nodes.containsValue(ast("$.b", SchemaUtils.ElementType.MAP)))
         assertTrue(nodes.containsValue(ast("$.c", SchemaUtils.ElementType.NUMBER, rqd=true)))
         assertTrue(nodes.containsValue(ast("$.d", SchemaUtils.ElementType.STRING)))
-        assertTrue(nodes.containsValue(ast("$.e[]", SchemaUtils.ElementType.ENUM, ev=arrayOf("uno", "dos", "tres"))))
-        assertTrue(nodes.containsValue(ast("$.g[]", SchemaUtils.ElementType.ENUM, rqd=true, mul=true, idx=true, ev= arrayOf("sunday", "monday"))))
+        assertTrue(nodes.containsValue(ast("$.e", SchemaUtils.ElementType.ENUM, ev=arrayOf("uno", "dos", "tres"))))
+        assertTrue(nodes.containsValue(ast("$.g", SchemaUtils.ElementType.ENUM, rqd=true, mul=true, idx=true, ev= arrayOf("sunday", "monday"))))
         assertTrue(nodes.containsValue(ast("$.f.f1", SchemaUtils.ElementType.STRING, idx=true)))
-        assertTrue(nodes.containsValue(ast("$.f.f2[]", SchemaUtils.ElementType.ENUM, ev=arrayOf("yes", "no"))))
+        assertTrue(nodes.containsValue(ast("$.f.f2", SchemaUtils.ElementType.ENUM, ev=arrayOf("yes", "no"))))
         assertTrue(nodes.containsValue(ast("$.f.f3", SchemaUtils.ElementType.BOOLEAN)))
     }
 
@@ -179,7 +179,7 @@ internal class SchemaUtilsTest {
 
 
 
-    val roleSchemaCompute = """{
+    private val roleSchemaCompute = """{
             "hostname": "string!",
             "ram_mb":   "number!",
             "audio":    "boolean",
@@ -187,26 +187,47 @@ internal class SchemaUtilsTest {
             "hdds":     "@disk_drive!+"
         }""".trimIndent()
 
-    val roleSchemaDiskDrive = """{
+    private val roleSchemaDiskDrive = """{
             "size_mb":     "number!",
             "mount_point": "string"
         }""".trimIndent()
 
-    @Test fun `asset - validate - null`() {
-        val su = object : SchemaUtils() {
-            val roles = mapOf(
-                "compute"    to roleSchemaCompute,
-                "disk_drive" to roleSchemaDiskDrive
-            )
 
-            override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
+    private val schemaUtils2 = object : SchemaUtils() {
+        val roles = mapOf(
+            "compute"    to roleSchemaCompute,
+            "disk_drive" to roleSchemaDiskDrive
+        )
+
+        init {
+            this.validateAndCompile("disk_drive", roleSchemaDiskDrive)
+            this.validateAndCompile("compute",    roleSchemaCompute)
         }
 
-        su.validateAndCompile("disk_drive", this.roleSchemaDiskDrive)
-        su.validateAndCompile("compute", this.roleSchemaCompute)
-
-        val x = assertThrows<StatusException> {  su.validateAssetValue("compute", """{ "name": null }""") }
-        assertEquals(406, x.code)
-        assertTrue(x.message!!.contains("'hostname' is required, null values are not allowed"))
+        override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
     }
+
+
+    @Test fun `asset - validate - throws`() {
+        fun check(assetJsonStr: String, exceptionMsgFragment: String) {
+            val x = assertThrows<StatusException> { this.schemaUtils2.validateAssetValue("compute", assetJsonStr) }
+            assertEquals(406, x.code)
+            assertTrue(x.message!!.contains(exceptionMsgFragment)) { "got: ${x.message}" }
+        }
+
+        check("""{ "hostname": null }""",      "hostname' is required, null values are not allowed")
+        check("""{ "hostname": "x" }""",       "missing 4 required attributes")
+        check("""{ "hostname": true }""",      "hostname' isn't STRING")
+        check("""{ "hostname": 54.32 }""",     "hostname' isn't STRING")
+        check("""{ "hostname": [] }""",        "hostname' shan't be an array")
+        check("""{ "ram_mb": "very many" }""", "ram_mb' isn't NUMBER")
+        check("""{ "audio": "true" }""",       "audio' isn't BOOLEAN")
+        check("""{ "video": false }""",        "video' isn't ENUM")
+        check("""{ "video": "sight" }""",      "isn't valid for the enum")
+        check("""{ "hdds": 23 }""",            "hdds' must be an array, got a scalar")
+        check("""{ "hdds": {} }""",            "empty objects are not allowed")
+      //check("""{ "hostname": "x", "ram_mb": 1024, "video": "trident", "hdds": {} }""", "empty objects are not allowed")
+    }
+
+
 }
