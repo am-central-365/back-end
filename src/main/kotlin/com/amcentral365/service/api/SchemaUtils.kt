@@ -151,17 +151,17 @@ open class SchemaUtils {
             , onPrimitive: (name: String, value: JsonPrimitive) -> Unit = { _,_ -> }
             , onArray:     (name: String, value: JsonArray)     -> Unit = { _,_ -> }
             , onObject:    (name: String, value: JsonObject)    -> Unit = { _,_ -> }
-            , beforeEach:  (name: String, value: JsonElement) -> String = { x,_ -> x }
+            , beforeEach:  (name: String, value: JsonElement)   -> Unit = { _,_ -> }
     ) {
         when {
-            elm.isJsonNull      -> { onNull(beforeEach(name, elm)) }
-            elm.isJsonPrimitive -> { onPrimitive(beforeEach(name, elm), elm.asJsonPrimitive) }
-            elm.isJsonArray     -> { onArray(beforeEach(name, elm), elm.asJsonArray) }
+            elm.isJsonNull      -> { beforeEach(name, elm);  onNull(name) }
+            elm.isJsonPrimitive -> { beforeEach(name, elm);  onPrimitive(name, elm.asJsonPrimitive) }
+            elm.isJsonArray     -> { beforeEach(name, elm);  onArray(name, elm.asJsonArray) }
             elm.isJsonObject    -> {
-                onObject(beforeEach(name, elm), elm.asJsonObject)
+                beforeEach(name, elm);
+                onObject(name, elm.asJsonObject)
                 for(entry in elm.asJsonObject.entrySet()) { // forEach swallows exceptions, use loop
-                    val mangledname = beforeEach("$name.${entry.key}", entry.value)
-                    walkJson(mangledname, entry.value, onNull, onPrimitive, onArray, onObject, beforeEach)
+                    walkJson("$name.${entry.key}", entry.value, onNull, onPrimitive, onArray, onObject, beforeEach)
                 }
             }
         }
@@ -262,15 +262,18 @@ open class SchemaUtils {
                                 throw StatusException(406, "$name references unknown role '$rfRoleName'")
 
                         // NB: recursive call
-                        val subAttrRoot = "$name[]"
+                        val subAttrRoot = if( typeDef.multiple ) "$name[]" else name
                         compiledNodes.put(name, ASTNode(name, typeDef))
-                      //compiledNodes.put(subAttrRoot, ASTNode(subAttrRoot, TypeDef(typeDef.typeCode)))
-                        val rfSchemaSet = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = subAttrRoot, seenRoles = seeenRoles)
-                        compiledNodes.putAll(rfSchemaSet) //.minus(subAttrRoot))
+                        compiledNodes.putIfAbsent(subAttrRoot, ASTNode(subAttrRoot, TypeDef(typeDef.typeCode)))
+                        val rfSchemas = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = subAttrRoot, seenRoles = seeenRoles)
+                        rfSchemas.forEach() { compiledNodes.putIfAbsent(it.key, it.value) }
 
                     } else {
                         val typeDef = TypeDef.fromTypeName(name, prm.asString)
                         compiledNodes.put(name, ASTNode(name, typeDef))
+
+                        if( typeDef.multiple )
+                            compiledNodes.put("$name[]", ASTNode("$name[]", TypeDef(typeDef.typeCode)))
                     }
               }
             )
@@ -324,14 +327,13 @@ open class SchemaUtils {
             this.walkJson(rootElmName, jsonElement,
                 beforeEach = { name, e ->
                     if( !roleSchema.containsKey(name) )
-                        throw StatusException(406, "attribute '$name' is not defined in the schema")
+                        throw StatusException(406, "attribute '$name' is not defined for role $roleName")
 
                     val astn = roleSchema[name]!!
-                    if( astn.type.multiple && !e.isJsonArray )
+                    if( astn.type.multiple && !(e.isJsonArray || (!astn.type.required && e.isJsonNull )))
                         throw StatusException(406, "attribute '$name' must be an array")
 
                     unseenRequiredNames.remove(name)
-                    name
                 }
               , onNull = { name ->
                     val astn = roleSchema[name]!!
@@ -356,7 +358,7 @@ open class SchemaUtils {
                     if( !astn.type.multiple )
                         throw StatusException(406, "attribute '$name' shan't be an array")
                     if( astn.type.oneplus && arr.size() == 0 )
-                        throw StatusException(406, "attribute '$name': at least one array elements is required")
+                        throw StatusException(406, "attribute '$name': at least one array element is required")
 
                     arr.forEachIndexed { idx, e ->
                         //checkWithThrow("$name[$idx]", astn, e)
