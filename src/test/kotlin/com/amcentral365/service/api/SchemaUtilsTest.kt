@@ -1,6 +1,7 @@
 package com.amcentral365.service.api
 
 import com.amcentral365.service.StatusException
+import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -206,20 +207,30 @@ internal class SchemaUtilsTest {
             "hdds":     "@disk_drive!+",
             "watchers": "@watchers*",
             "array0*":  "number*",
-            "array1+":  "number+"
+            "array1+":  "number+",
+            "nested":   "@nested1"
         }""".trimIndent()
 
     private val roleSchemaDiskDrive = """{ "size_mb": "number!", "mount_point": "string" }"""
     private val roleSchemaWatchers  = """{ "name":    "string!" }"""
+    private val roleSchemaNested1   = """{ "name1":   "string!", "n2":   "@nested2+" }"""
+    private val roleSchemaNested2   = """{ "name2":   "string!", "n3":   "@nested3!" }"""
+    private val roleSchemaNested3   = """{ "name3":   "string!", "val3":  "number!+" }"""
 
     private val schemaUtils2 = object : SchemaUtils() {
         val roles = mapOf(
             "compute"    to roleSchemaCompute,
             "disk_drive" to roleSchemaDiskDrive,
-            "watchers"   to roleSchemaWatchers
+            "watchers"   to roleSchemaWatchers,
+            "nested1"    to roleSchemaNested1,
+            "nested2"    to roleSchemaNested2,
+            "nested3"    to roleSchemaNested3
         )
 
         init {
+            this.validateAndCompile("nested3",    roleSchemaNested3)
+            this.validateAndCompile("nested2",    roleSchemaNested2)
+            this.validateAndCompile("nested1",    roleSchemaNested1)
             this.validateAndCompile("watchers",   roleSchemaDiskDrive)
             this.validateAndCompile("disk_drive", roleSchemaDiskDrive)
             this.validateAndCompile("compute",    roleSchemaCompute)
@@ -227,7 +238,6 @@ internal class SchemaUtilsTest {
 
         override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
     }
-
 
     @Test fun `asset - validate - throws`() {
         fun check(assetJsonStr: String, exceptionMsgFragment: String) {
@@ -290,5 +300,41 @@ internal class SchemaUtilsTest {
       //check("""{ "hostname": "x", "ram_mb": 1024, "video": "trident", "hdds": {} }""", "empty objects are not allowed")
     }
 
+    @Test fun `asset - validate - simple`() {
+        val assetJsonStr = """{
+            "hostname": "compute-1",
+            "ram_mb":    1024,
+            "audio":     true,
+            "video":     "nvida",
+            "hdds":     [
+                {"size_mb":  2048, "mount_point": "/"     },
+                {"size_mb": 10480, "mount_point": "/data" }
+            ],
+            "watchers": [ { "name": "alice"}, { "name": "bob"} ],
+            "array1+":  [71, 34, 2]
+
+        }""".trimIndent()
+
+        assertDoesNotThrow { this.schemaUtils2.validateAssetValue("compute", assetJsonStr) }
+    }
+
+    @Test fun `asset - validate - nested`() {
+        val assetJsonStr = """{
+            "hostname": "compute-2",
+            "ram_mb":    512,
+            "video":    "matrox",
+            "hdds":     [ {"size_mb": 1.2 } ],
+            "nested":   {
+               "name1":  "x1",
+               "n2": [
+                   { "name2": "alpha", "n3": { "name3": "n3a", "val3": [11, 12] } },
+                   { "name2": "beta",  "n3": { "name3": "n3b", "val3": [21, 22] } }
+                ]
+            }
+
+        }""".trimIndent()
+
+        this.schemaUtils2.validateAssetValue("compute", assetJsonStr)
+    }
 
 }
