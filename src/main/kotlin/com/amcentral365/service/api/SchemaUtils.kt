@@ -13,6 +13,7 @@ import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
 
 import com.google.gson.JsonArray
+import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
 import com.google.gson.JsonPrimitive
 import java.lang.Exception
@@ -36,40 +37,45 @@ open class SchemaUtils {
     data class TypeDef(
           val typeCode: ElementType
         , val required: Boolean = false
-        , val multiple: Boolean = false
+        , val zeroplus: Boolean = false
+        , val oneplus:  Boolean = false
         , val indexed:  Boolean = false
     ) {
+        val multiple: Boolean get() = this.zeroplus || this.oneplus
+
         companion object {
 
             @JvmStatic
             fun genericFrom(strToParse: String,
-                postParse: (s: String, required: Boolean, multiple: Boolean, indexed: Boolean) -> TypeDef?
+                postParse: (s: String, required: Boolean, zeroplus: Boolean, oneplus: Boolean, indexed: Boolean) -> TypeDef?
             ): TypeDef? {
                 var workStr = strToParse
                 var required = false
-                var multiple = false
+                var zeroplus = false
+                var oneplus  = false
                 var indexed  = false
 
                 // NB: we only replace first occurrence not allowing double definitions
                 if( workStr.contains('!') ) { required = true;  workStr = workStr.replaceFirst('!', ' ') }
-                if( workStr.contains('+') ) { multiple = true;  workStr = workStr.replaceFirst('+', ' ') }
+                if( workStr.contains('*') ) { zeroplus = true;  workStr = workStr.replaceFirst('*', ' ') }
+                if( workStr.contains('+') ) { oneplus  = true;  workStr = workStr.replaceFirst('+', ' ') }
                 if( workStr.contains('^') ) { indexed  = true;  workStr = workStr.replaceFirst('^', ' ') }
 
-                return postParse(workStr.trimEnd(), required, multiple, indexed)
+                return postParse(workStr.trimEnd(), required, zeroplus, oneplus, indexed)
             }
 
             @JvmStatic fun fromTypeName(elmName: String, typeStr: String): TypeDef =
-                genericFrom(typeStr) { str, required, multiple, indexed ->
+                genericFrom(typeStr) { str, required, zeroplus, oneplus, indexed ->
                     if( str !in validSchemaDefTypes )
                         throw StatusException(406, "$elmName defines an invalid type '$str'. " +
                                 "The valid types are: ${validSchemaDefTypes.keys.joinToString(", ")}")
-                    TypeDef(validSchemaDefTypes[str]!!, required, multiple, indexed)
+                    TypeDef(validSchemaDefTypes[str]!!, required, zeroplus, oneplus, indexed)
                 }!!
 
             @JvmStatic fun fromEnumValue(elmName: String, enumVal: String): TypeDef? =
-                    genericFrom(enumVal) { str, required, multiple, indexed ->
+                    genericFrom(enumVal) { str, required, zeroplus, oneplus, indexed ->
                         if( str.isEmpty() )
-                            TypeDef(ElementType.ENUM, required, multiple, indexed)
+                            TypeDef(ElementType.ENUM, required, zeroplus, oneplus, indexed)
                         else
                             null
                     }
@@ -141,25 +147,21 @@ open class SchemaUtils {
     private fun walkJson(
               name: String
             , elm: JsonElement
-            , onNull:        (name: String) -> Unit = {}
-            , onEmptyObject: (name: String) -> Unit = {}
-            , onPrimitive:   (name: String, value: JsonPrimitive) -> Unit = { _: String, _: Any -> }
-            , onArray:       (name: String, value: JsonArray)     -> Unit = { _: String, _: Any -> }
-            , beforeEach:    (name: String) -> Unit = {}
+            , onNull:      (name: String) -> Unit = {}
+            , onPrimitive: (name: String, value: JsonPrimitive) -> Unit = { _,_ -> }
+            , onArray:     (name: String, value: JsonArray)     -> Unit = { _,_ -> }
+            , onObject:    (name: String, value: JsonObject)    -> Unit = { _,_ -> }
+            , beforeEach:  (name: String, value: JsonElement) -> String = { x,_ -> x }
     ) {
         when {
-            elm.isJsonNull      -> { beforeEach(name);  onNull(name) }
-            elm.isJsonPrimitive -> { beforeEach(name);  onPrimitive(name, elm.asJsonPrimitive) }
-            elm.isJsonArray     -> { beforeEach(name);  onArray(name, elm.asJsonArray) }
+            elm.isJsonNull      -> { onNull(beforeEach(name, elm)) }
+            elm.isJsonPrimitive -> { onPrimitive(beforeEach(name, elm), elm.asJsonPrimitive) }
+            elm.isJsonArray     -> { onArray(beforeEach(name, elm), elm.asJsonArray) }
             elm.isJsonObject    -> {
-                if( elm.asJsonObject.entrySet().isEmpty() ) {
-                    beforeEach(name)
-                    onEmptyObject(name)
-                } else {
-                    for(entry in elm.asJsonObject.entrySet()) { // forEach swallows exceptions, use loop
-                        beforeEach("$name.${entry.key}")
-                        walkJson("$name.${entry.key}", entry.value, onNull, onEmptyObject, onPrimitive, onArray, beforeEach)
-                    }
+                onObject(beforeEach(name, elm), elm.asJsonObject)
+                for(entry in elm.asJsonObject.entrySet()) { // forEach swallows exceptions, use loop
+                    val mangledname = beforeEach("$name.${entry.key}", entry.value)
+                    walkJson(mangledname, entry.value, onNull, onPrimitive, onArray, onObject, beforeEach)
                 }
             }
         }
@@ -185,8 +187,12 @@ open class SchemaUtils {
             require(elm0.isJsonObject) { "Role Schema must be a Json Object (e.g. the {...} thingy)" }
 
             walkJson(rootElmName, elm0.asJsonObject,
-                onNull        = { name -> throw StatusException(406, "$name is null, what is it supposed to define?") }
-              , onEmptyObject = { name -> throw StatusException(406, "$name: no members defined") }
+                onNull   = { name -> throw StatusException(406, "$name is null, what is it supposed to define?") }
+              , onObject = { name, elm ->
+                    if( elm.size() == 0 )
+                        throw StatusException(406, "$name: no members defined")
+                    compiledNodes.put(name, ASTNode(name, TypeDef(ElementType.OBJECT)))
+                }
 
               , onArray = { name, arr ->
                     val enumValues = mutableSetOf<String>()
@@ -238,9 +244,9 @@ open class SchemaUtils {
                             throw StatusException(406, "$name defines an empty reference '@'")
 
                         var rfRoleName = rfRoleNameWithFlags
-                        val typeDef = TypeDef.genericFrom(rfRoleNameWithFlags) { stripedRoleName, required, multiple, indexed ->
+                        val typeDef = TypeDef.genericFrom(rfRoleNameWithFlags) { stripedRoleName, required, zeroplus, oneplus, indexed ->
                             rfRoleName = stripedRoleName
-                            TypeDef(ElementType.OBJECT, required, multiple, indexed)
+                            TypeDef(ElementType.OBJECT, required, zeroplus, oneplus, indexed)
                         }!!
 
                         if( rfRoleName == roleName )
@@ -255,11 +261,12 @@ open class SchemaUtils {
                         val rfSchemaStr = loadSchemaFromDb(rfRoleName) ?:
                                 throw StatusException(406, "$name references unknown role '$rfRoleName'")
 
-                        compiledNodes.put(name, ASTNode(name, typeDef))
-
                         // NB: recursive call
-                        val rfSchemaSet = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = name, seenRoles = seeenRoles)
-                        compiledNodes.putAll(rfSchemaSet)
+                        val subAttrRoot = "$name[]"
+                        compiledNodes.put(name, ASTNode(name, typeDef))
+                      //compiledNodes.put(subAttrRoot, ASTNode(subAttrRoot, TypeDef(typeDef.typeCode)))
+                        val rfSchemaSet = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = subAttrRoot, seenRoles = seeenRoles)
+                        compiledNodes.putAll(rfSchemaSet) //.minus(subAttrRoot))
 
                     } else {
                         val typeDef = TypeDef.fromTypeName(name, prm.asString)
@@ -282,16 +289,20 @@ open class SchemaUtils {
             ElementType.STRING  -> require((elm as JsonPrimitive).isString)
             ElementType.BOOLEAN -> require((elm as JsonPrimitive).isBoolean)
             ElementType.NUMBER  -> require((elm as JsonPrimitive).isNumber)
-            ElementType.ENUM    -> require((elm as JsonPrimitive).isString)  //elm.asString in astn.enumValues!!)
+            ElementType.ENUM    -> require((elm as JsonPrimitive).isString)
             ElementType.MAP     -> require(elm.isJsonObject) // FIXME
             ElementType.OBJECT  -> require(elm.isJsonObject)
         }
     }
 
 
+    @VisibleForTesting fun isAttributeWithPrefix(attr: String, prefix: String) =
+            attr.startsWith(prefix+".") && attr.indexOf('.', prefix.length+1) == -1
+
+
     fun validateAssetValue(roleName: String, elm: JsonElement) {
         val roleSchema = this.schemaCache.get(roleName)
-        val unseenRequiredNames = roleSchema.filter { it.value.type.required }.keys.toMutableSet()
+        val unseenRequiredNames = mutableSetOf<String>("$")
 
         fun checkWithThrow(name: String, astn: ASTNode, prm: JsonElement) {
             try {
@@ -305,40 +316,61 @@ open class SchemaUtils {
                     throw StatusException(406, "value '${prm.asString}' of attribute '$name' isn't valid for the enum")
         }
 
-        val rootName = "$"
-        this.walkJson(rootName, elm,
-            beforeEach = { name ->
-                if( name != rootName && !roleSchema.containsKey(name) )
-                    throw StatusException(406, "attribute '$name' is not defined in the schema")
-                unseenRequiredNames.remove(name)
-            }
-          , onNull = { name ->
-                val astn = roleSchema[name]!!
-                if( astn.type.required )
-                    throw StatusException(406, "attribute '$name' is required, null values are not allowed")
-            }
-          , onEmptyObject = { name ->
-                val astn = roleSchema[name]!!
-                if( astn.type.required )
-                    throw StatusException(406, "attribute '$name' is required, empty objects are not allowed")
-                if( astn.type.multiple )
-                    throw StatusException(406, "attribute '$name' must be an array, got an empty object")
-            }
-          , onPrimitive = { name, prm ->
-                val astn = roleSchema[name]!!
-                if( astn.type.multiple )
-                    throw StatusException(406, "attribute '$name' must be an array, got a scalar")
-                checkWithThrow(name, astn, prm)
-            }
-          , onArray = { name, arr ->
-                val astn = roleSchema[name]!!
-                if( !astn.type.multiple )
-                    throw StatusException(406, "attribute '$name' shan't be an array")
-                arr.forEach {
-                    checkWithThrow(name, astn, it)
+        fun addUnseenRequiredNodes(prefix: String) =
+            unseenRequiredNames.addAll(roleSchema.filter
+                { it.value.type.required && isAttributeWithPrefix(it.key, prefix) }.keys)
+
+        fun checkElement(rootElmName: String, jsonElement: JsonElement) {
+            this.walkJson(rootElmName, jsonElement,
+                beforeEach = { name, e ->
+                    if( !roleSchema.containsKey(name) )
+                        throw StatusException(406, "attribute '$name' is not defined in the schema")
+
+                    val astn = roleSchema[name]!!
+                    if( astn.type.multiple && !e.isJsonArray )
+                        throw StatusException(406, "attribute '$name' must be an array")
+
+                    unseenRequiredNames.remove(name)
+                    name
                 }
-            }
-        )
+              , onNull = { name ->
+                    val astn = roleSchema[name]!!
+                    if( astn.type.required )
+                        throw StatusException(406, "attribute '$name' is required, null values are not allowed")
+                }
+              , onPrimitive = { name, prm ->
+                    val astn = roleSchema[name]!!
+                    checkWithThrow(name, astn, prm)
+                }
+              , onObject = { name, jo ->
+                    val astn = roleSchema[name]!!
+                    if( astn.type.required && jo.size() == 0 )
+                        throw StatusException(406, "attribute '$name' is required, empty objects are not allowed")
+
+                    checkWithThrow(name, astn, jo)  // ensure it isn't an array or a primitive
+
+                    addUnseenRequiredNodes(name)    // add object's mandatory attributes
+                }
+              , onArray = { name, arr ->
+                    val astn = roleSchema[name]!!
+                    if( !astn.type.multiple )
+                        throw StatusException(406, "attribute '$name' shan't be an array")
+                    if( astn.type.oneplus && arr.size() == 0 )
+                        throw StatusException(406, "attribute '$name': at least one array elements is required")
+
+                    arr.forEachIndexed { idx, e ->
+                        //checkWithThrow("$name[$idx]", astn, e)
+                        try {
+                            checkElement(name+"[]", e)
+                        } catch(x: StatusException) {
+                            throw StatusException(x.code, "$name[$idx]: ${x.message}")
+                        }
+                    }
+                }
+            )
+        }
+
+        checkElement("$", elm)
 
         if( unseenRequiredNames.isNotEmpty() )
             throw StatusException(406, "missing ${unseenRequiredNames.size} required attributes: ${unseenRequiredNames.joinToString(", ")}")

@@ -38,14 +38,20 @@ The types are:
 
 
 Base types (string, number, boolean, map) and references may be suffixed
-with special symbols for `required`, `multiple`, and `indexed`
-attributes: '!', '+' and '^'.
+with special symbols '!', '*', '+' and '^' for `required`, `zero-or-more`,
+`one-or-more`, and `indexed` respectively.
+
+* `!` means the element must be present and can't be null
+* `*` means the element is an array, possibly empty
+* `+` a non-empty array. But if `!` is missing, the value may missing or null
+* `^` is currently ignored.
 
 E.g:
-- `string`:   denotes an optional single value
-- `string!`:  denotes a required single value
-- `string+`:  dentotes an optional multi-value
-- `string!+`: denotes a mandatory multi value
+- `string`:   denotes an optional single string value
+- `string!`:  denotes a required single string value
+- `string+`:  define either a null, or an array with one or more elements.
+- `string!*`: the array element must be present, but can be empty
+- `string!+`: is a mandatory array with one or more elements
 - `string+!`: is the same as `string!+`.
 - `string^!`: denotes a required indexed value.
 
@@ -53,18 +59,16 @@ Example:
 ```
 {
   "x": "string!"   -- 'x' is a required string attribute
-, "y": "number+"   -- 'y' is an optional array of numbers
-, "z": "@disk!+"   -- 'z' is a mandatory array of objects defined by role 'disk'
+, "y": "number+"   -- 'y' is an optional array of one or more numbers
+, "z": "@disk!*"   -- 'z' is a mandatory, possibly empty array of objects defined by role 'disk' (which isn't very practical)
 }
 ```
-
-NB: The term `mandatory array` merely means the member must be present. The array may be empty.
-
 
 `enum` attributes may be specified as the first enum member. I.e.
 ```
   "x": ["!", "ONE", "TWO"]   -- the enum value is mandatory
   "y": ["ONE", "TWO", "!"]   -- invalid, not the first member
+  "z": ["!+", "ONE", "TWO"]  -- an array of one or more enums
 ```
 
 Note:

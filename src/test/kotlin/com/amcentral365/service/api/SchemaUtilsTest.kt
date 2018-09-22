@@ -23,7 +23,7 @@ internal class SchemaUtilsTest {
                     "c": "number!",
                     "d": "string",
                     "e": ["uno", "dos", "tres"],
-                    "g": ["!+^", "sunday", "monday"],
+                    "g": ["!*^", "sunday", "monday"],
                     "f": {
                       "f1": "string^",
                       "f2": ["yes", "no"],
@@ -33,20 +33,22 @@ internal class SchemaUtilsTest {
         )
 
         assertNotNull(nodes)
-        assertEquals(9, nodes.size)
+        assertEquals(11, nodes.size)
 
-        fun ast(name: String, etp: SchemaUtils.ElementType, rqd: Boolean=false, mul: Boolean=false,
-            idx: Boolean=false, ev: Array<String>? = null): SchemaUtils.ASTNode
+        fun ast(name: String, etp: SchemaUtils.ElementType, rqd: Boolean=false, zeroplus: Boolean=false,
+            oneplus: Boolean=false, idx: Boolean=false, ev: Array<String>? = null): SchemaUtils.ASTNode
         =
-            SchemaUtils.ASTNode(name, SchemaUtils.TypeDef(etp, rqd, mul, idx), ev)
+            SchemaUtils.ASTNode(name, SchemaUtils.TypeDef(etp, rqd, zeroplus, oneplus, idx), ev)
 
         //println(nodes.find { it.attrName == "$.e[]" })
-        assertTrue(nodes.containsValue(ast("$.a", SchemaUtils.ElementType.BOOLEAN, mul=true)))
+        assertTrue(nodes.containsValue(ast("$",   SchemaUtils.ElementType.OBJECT)))
+        assertTrue(nodes.containsValue(ast("$.a", SchemaUtils.ElementType.BOOLEAN, oneplus=true)))
         assertTrue(nodes.containsValue(ast("$.b", SchemaUtils.ElementType.MAP)))
         assertTrue(nodes.containsValue(ast("$.c", SchemaUtils.ElementType.NUMBER, rqd=true)))
         assertTrue(nodes.containsValue(ast("$.d", SchemaUtils.ElementType.STRING)))
         assertTrue(nodes.containsValue(ast("$.e", SchemaUtils.ElementType.ENUM, ev=arrayOf("uno", "dos", "tres"))))
-        assertTrue(nodes.containsValue(ast("$.g", SchemaUtils.ElementType.ENUM, rqd=true, mul=true, idx=true, ev= arrayOf("sunday", "monday"))))
+        assertTrue(nodes.containsValue(ast("$.g", SchemaUtils.ElementType.ENUM, rqd=true, zeroplus=true, idx=true, ev= arrayOf("sunday", "monday"))))
+        assertTrue(nodes.containsValue(ast("$.f", SchemaUtils.ElementType.OBJECT)))
         assertTrue(nodes.containsValue(ast("$.f.f1", SchemaUtils.ElementType.STRING, idx=true)))
         assertTrue(nodes.containsValue(ast("$.f.f2", SchemaUtils.ElementType.ENUM, ev=arrayOf("yes", "no"))))
         assertTrue(nodes.containsValue(ast("$.f.f3", SchemaUtils.ElementType.BOOLEAN)))
@@ -115,21 +117,27 @@ internal class SchemaUtilsTest {
         }
 
         val nodes = su.validateAndCompile("r1", """{"a": "@r2!"}""")
-        assertEquals(2, nodes.size)
+        assertEquals(3, nodes.size)
+        val node0 = nodes.get("$")
+        assertNotNull(node0)
+        assertEquals(SchemaUtils.ElementType.OBJECT, node0!!.type.typeCode)
+
         val nodea = nodes.get("$.a")
         assertNotNull(nodea)
         assertEquals("$.a", nodea!!.attrName)
         assertEquals(SchemaUtils.ElementType.OBJECT, nodea.type.typeCode)
         assertTrue(nodea.type.required)
-        assertFalse(nodea.type.multiple)
+        assertFalse(nodea.type.zeroplus)
+        assertFalse(nodea.type.oneplus)
         assertFalse(nodea.type.indexed)
 
-        val node = nodes.get("$.a.b")
-        assertEquals("$.a.b", node!!.attrName)
-        assertEquals(SchemaUtils.ElementType.BOOLEAN, node.type.typeCode)
-        assertTrue(node.type.multiple)
-        assertFalse(node.type.required)
-        assertFalse(node.type.indexed)
+        val nodeb = nodes.get("$.a.b")
+        assertEquals("$.a.b", nodeb!!.attrName)
+        assertEquals(SchemaUtils.ElementType.BOOLEAN, nodeb.type.typeCode)
+        assertFalse(nodeb.type.zeroplus)
+        assertTrue (nodeb.type.oneplus)
+        assertFalse(nodeb.type.required)
+        assertFalse(nodeb.type.indexed)
     }
 
     @Test fun `schema - ref - circular role`() {
@@ -178,28 +186,40 @@ internal class SchemaUtilsTest {
     }
 
 
+    @Test fun isAttributeWithPrefixTest() {
+        assertTrue (schemaUtils.isAttributeWithPrefix("$.a",     "$"))
+        assertTrue (schemaUtils.isAttributeWithPrefix("$.a.b",   "$.a"))
+        assertTrue (schemaUtils.isAttributeWithPrefix("$.a.b.c", "$.a.b"))
+
+        assertFalse(schemaUtils.isAttributeWithPrefix("$",       "$"))
+        assertFalse(schemaUtils.isAttributeWithPrefix("$.a.b",   "$"))
+        assertFalse(schemaUtils.isAttributeWithPrefix("$.a.b.c", "$"))
+        assertFalse(schemaUtils.isAttributeWithPrefix("$.a",     "$.a"))
+        assertFalse(schemaUtils.isAttributeWithPrefix("$.a.b.c", "$.a"))
+    }
+
 
     private val roleSchemaCompute = """{
             "hostname": "string!",
             "ram_mb":   "number!",
             "audio":    "boolean",
             "video":    [ "!", "trident", "radeon", "matrox", "nvida" ],
-            "hdds":     "@disk_drive!+"
+            "hdds":     "@disk_drive!+",
+            "watchers": "@watchers*"
         }""".trimIndent()
 
-    private val roleSchemaDiskDrive = """{
-            "size_mb":     "number!",
-            "mount_point": "string"
-        }""".trimIndent()
-
+    private val roleSchemaDiskDrive = """{ "size_mb": "number!", "mount_point": "string" }"""
+    private val roleSchemaWatchers  = """{ "name":    "string!" }"""
 
     private val schemaUtils2 = object : SchemaUtils() {
         val roles = mapOf(
             "compute"    to roleSchemaCompute,
-            "disk_drive" to roleSchemaDiskDrive
+            "disk_drive" to roleSchemaDiskDrive,
+            "watchers"   to roleSchemaWatchers
         )
 
         init {
+            this.validateAndCompile("watchers",   roleSchemaDiskDrive)
             this.validateAndCompile("disk_drive", roleSchemaDiskDrive)
             this.validateAndCompile("compute",    roleSchemaCompute)
         }
@@ -216,7 +236,7 @@ internal class SchemaUtilsTest {
         }
 
         check("""{ "hostname": null }""",      "hostname' is required, null values are not allowed")
-        check("""{ "hostname": "x" }""",       "missing 4 required attributes")
+        check("""{ "hostname": "x" }""",       "missing 3 required attributes")
         check("""{ "hostname": true }""",      "hostname' isn't STRING")
         check("""{ "hostname": 54.32 }""",     "hostname' isn't STRING")
         check("""{ "hostname": [] }""",        "hostname' shan't be an array")
@@ -224,8 +244,15 @@ internal class SchemaUtilsTest {
         check("""{ "audio": "true" }""",       "audio' isn't BOOLEAN")
         check("""{ "video": false }""",        "video' isn't ENUM")
         check("""{ "video": "sight" }""",      "isn't valid for the enum")
-        check("""{ "hdds": 23 }""",            "hdds' must be an array, got a scalar")
-        check("""{ "hdds": {} }""",            "empty objects are not allowed")
+        check("""{ "video": [] }""",           "video' shan't be an array")
+        check("""{ "hdds": 23 }""",            "hdds' must be an array")
+        check("""{ "hdds": {} }""",            "hdds' must be an array")
+        check("""{ "hdds": {"x": 1} }""",      "hdds' must be an array")
+        check("""{ "hdds": [] }""",            "hdds': at least one array elements is required")
+        check("""{ "hdds": [ {} ] }""",        "missing 4 required attributes")
+        check("""{ "hdds": [ {"size_mb": true} ] }""",  "isn't NUMBER")
+        check("""{ "hdds": [ {"size_mb": "44"} ] }""",  "isn't NUMBER")
+        check("""{ "hdds": [ {"size_mb":  44 } ] }""",  "missing 3 required attributes")
       //check("""{ "hostname": "x", "ram_mb": 1024, "video": "trident", "hdds": {} }""", "empty objects are not allowed")
     }
 
