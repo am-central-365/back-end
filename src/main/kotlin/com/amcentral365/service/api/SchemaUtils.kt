@@ -79,6 +79,19 @@ open class SchemaUtils {
                         else
                             null
                     }
+
+            /**
+             * Clone another TypeDef object, optionally altering some of its properties
+             */
+            @JvmStatic fun from(
+                    tpd:      TypeDef,
+                    typeCode: ElementType = tpd.typeCode,
+                    required: Boolean = tpd.required,
+                    zeroplus: Boolean = tpd.zeroplus,
+                    oneplus:  Boolean = tpd.oneplus,
+                    indexed:  Boolean = tpd.indexed
+            ) = TypeDef(typeCode, required, zeroplus, oneplus, indexed)
+
         }
     }
 
@@ -121,8 +134,7 @@ open class SchemaUtils {
             .build(object: CacheLoader<String, CompiledSchema>() {
                 override fun load(roleName: String): CompiledSchema {
                     val roleSchema = schemaUtils.loadSchemaFromDb(roleName)
-                    if( roleSchema == null )
-                        throw StatusException(404, "role '$roleName' was not found")
+                                  ?: throw StatusException(404, "role '$roleName' was not found")
                     return schemaUtils.validateAndCompile(roleName, roleSchema)
                 }
             })
@@ -148,10 +160,10 @@ open class SchemaUtils {
               name: String
             , elm: JsonElement
             , onNull:      (name: String) -> Unit = {}
-            , onPrimitive: (name: String, value: JsonPrimitive) -> Unit = { _,_ -> }
-            , onArray:     (name: String, value: JsonArray)     -> Unit = { _,_ -> }
-            , onObject:    (name: String, value: JsonObject)    -> Unit = { _,_ -> }
-            , beforeEach:  (name: String, value: JsonElement)   -> Unit = { _,_ -> }
+            , onPrimitive: (name: String, value: JsonPrimitive) -> Unit =    { _,_ -> }
+            , onArray:     (name: String, value: JsonArray)     -> Unit =    { _,_ -> }
+            , onObject:    (name: String, value: JsonObject)    -> Boolean = { _,_ -> true }
+            , beforeEach:  (name: String, value: JsonElement)   -> Unit =    { _,_ -> }
     ) {
         when {
             elm.isJsonNull      -> { beforeEach(name, elm);  onNull(name) }
@@ -159,10 +171,11 @@ open class SchemaUtils {
             elm.isJsonArray     -> { beforeEach(name, elm);  onArray(name, elm.asJsonArray) }
             elm.isJsonObject    -> {
                 beforeEach(name, elm);
-                onObject(name, elm.asJsonObject)
-                for(entry in elm.asJsonObject.entrySet()) { // forEach swallows exceptions, use loop
-                    walkJson("$name.${entry.key}", entry.value, onNull, onPrimitive, onArray, onObject, beforeEach)
-                }
+                val processChildren = onObject(name, elm.asJsonObject)
+                if( processChildren )
+                    for(entry in elm.asJsonObject.entrySet()) { // forEach swallows exceptions, use loop
+                        walkJson("$name.${entry.key}", entry.value, onNull, onPrimitive, onArray, onObject, beforeEach)
+                    }
             }
         }
     }
@@ -192,8 +205,10 @@ open class SchemaUtils {
                     if( elm.size() == 0 )
                         throw StatusException(406, "$name: no members defined")
                     compiledNodes.put(name, ASTNode(name, TypeDef(ElementType.OBJECT)))
+                    true
                 }
 
+                // ENUMs
               , onArray = { name, arr ->
                     val enumValues = mutableSetOf<String>()
                     var typeDef = TypeDef(ElementType.ENUM)
@@ -269,11 +284,22 @@ open class SchemaUtils {
                         rfSchemas.forEach() { compiledNodes.putIfAbsent(it.key, it.value) }
 
                     } else {
-                        val typeDef = TypeDef.fromTypeName(name, prm.asString)
+                        var typeDef = TypeDef.fromTypeName(name, prm.asString)
+                        val isMap = typeDef.typeCode == ElementType.MAP
+
+                        if( isMap ) {
+                            if( typeDef.indexed )
+                                throw StatusException(406, "$name: map elements can't be indexed")
+                            if( !typeDef.multiple )
+                                typeDef = TypeDef.from(typeDef, zeroplus = true, indexed = false)
+                        }
+
                         compiledNodes.put(name, ASTNode(name, typeDef))
 
                         if( typeDef.multiple )
-                            compiledNodes.put("$name[]", ASTNode("$name[]", TypeDef(typeDef.typeCode)))
+                            // For maps, the name[] element defines the value type, currently always STRING
+                            compiledNodes.put("$name[]", ASTNode("$name[]",
+                                    TypeDef(if( isMap ) ElementType.STRING else typeDef.typeCode )))
                     }
               }
             )
@@ -287,13 +313,13 @@ open class SchemaUtils {
     }
 
 
-    fun checkValueType(astn: ASTNode, elm: JsonElement) {
-        when(astn.type.typeCode) {
+    fun checkValueType(typeCode: ElementType, elm: JsonElement) {
+        when(typeCode) {
             ElementType.STRING  -> require((elm as JsonPrimitive).isString)
             ElementType.BOOLEAN -> require((elm as JsonPrimitive).isBoolean)
             ElementType.NUMBER  -> require((elm as JsonPrimitive).isNumber)
             ElementType.ENUM    -> require((elm as JsonPrimitive).isString)
-            ElementType.MAP     -> require(elm.isJsonObject) // FIXME
+            ElementType.MAP     -> require(elm.isJsonObject)
             ElementType.OBJECT  -> require(elm.isJsonObject)
         }
     }
@@ -309,7 +335,7 @@ open class SchemaUtils {
 
         fun checkWithThrow(name: String, astn: ASTNode, prm: JsonElement) {
             try {
-                checkValueType(astn, prm)
+                checkValueType(astn.type.typeCode, prm)
             } catch(x: Exception) {
                 throw StatusException(406, "type of attribute '$name' isn't ${astn.type.typeCode}")
             }
@@ -330,7 +356,8 @@ open class SchemaUtils {
                         throw StatusException(406, "attribute '$name' is not defined for role $roleName")
 
                     val astn = roleSchema[name]!!
-                    if( astn.type.multiple && !(e.isJsonArray || (!astn.type.required && e.isJsonNull )))
+                    val isMap = astn.type.typeCode == ElementType.MAP
+                    if( astn.type.multiple && !isMap && !(e.isJsonArray || (!astn.type.required && e.isJsonNull )))
                         throw StatusException(406, "attribute '$name' must be an array")
 
                     unseenRequiredNames.remove(name)
@@ -346,12 +373,29 @@ open class SchemaUtils {
                 }
               , onObject = { name, jo ->
                     val astn = roleSchema[name]!!
-                    if( astn.type.required && jo.size() == 0 )
-                        throw StatusException(406, "attribute '$name' is required, empty objects are not allowed")
+                    //if( astn.type.required && jo.size() == 0 )
+                    //    throw StatusException(406, "attribute '$name' is required, empty objects are not allowed")
 
                     checkWithThrow(name, astn, jo)  // ensure it isn't an array or a primitive
 
-                    addUnseenRequiredNodes(name)    // add object's mandatory attributes
+                    if( astn.type.typeCode == ElementType.MAP ) {
+                        if( astn.type.oneplus && jo.size() == 0 )
+                            throw StatusException(406, "attribute '$name' is required, empty maps are not allowed")
+
+                        val astv = roleSchema["$name[]"]!!
+                        jo.entrySet().forEachIndexed() { idx, e ->
+                            try {
+                                checkValueType(astv.type.typeCode, e.value)
+                            } catch(x: Exception) {
+                                throw StatusException(406, "$name[$idx], key '${e.key}': the value type isn't ${astv.type.typeCode}")
+                            }
+                        }
+
+                        false  // don't process individual elements, we just did
+                    } else {
+                        addUnseenRequiredNodes(name)    // add object's mandatory attributes
+                        true   // process object elements
+                    }
                 }
               , onArray = { name, arr ->
                     val astn = roleSchema[name]!!

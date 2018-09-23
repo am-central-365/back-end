@@ -20,6 +20,16 @@ https://cloud.google.com/deployment-manager/docs/configuration/supported-resourc
   }
 }
 
+### Attribute name
+is a string.
+
+Characters to avoid in names are: '$', '.', '[', ']', '\0'
+(dollar sign, dot, square brackets, and the null character)
+
+Characters allowed but not recommended are the ones used in
+type attributes: '@', '!', '*', '+', '^'. While code handles
+them without problems, they may confuse the human readers.
+
 The types are:
 * `string`    max length 64000
 * `number`    integer and decimal

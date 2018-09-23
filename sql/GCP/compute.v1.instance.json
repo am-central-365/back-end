@@ -16,7 +16,7 @@
   "selfLink":           "string",
   "scheduling":        "@scheduling",
   "cpuPlatform":        "string",
-  "labels":            "@kv*",
+  "labels":             "map",
   "labelFingerprint":   "string",
   "minCpuPlatform":     "string",
   "guestAccelerators": "@guestAccelerator*",

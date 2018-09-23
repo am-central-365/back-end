@@ -19,8 +19,8 @@ internal class SchemaUtilsTest {
     @Test fun `schema - simple, valid`() {
         val nodes = this.schemaUtils.validateAndCompile("r1",
                 """{
-                    "a": boolean+,
-                    "b": map,
+                    "a": "boolean+",
+                    "b": "map",
                     "c": "number!",
                     "d": "string",
                     "e": ["uno", "dos", "tres"],
@@ -29,12 +29,13 @@ internal class SchemaUtilsTest {
                       "f1": "string^",
                       "f2": ["yes", "no"],
                       "f3": "boolean"
-                     }
+                     },
+                    "h": "map+"
                     }""".trimMargin()
         )
 
         assertNotNull(nodes)
-        assertEquals(12, nodes.size)
+        assertEquals(15, nodes.size)
 
         fun ast(name: String, etp: SchemaUtils.ElementType, rqd: Boolean=false, zeroplus: Boolean=false,
             oneplus: Boolean=false, idx: Boolean=false, ev: Array<String>? = null): SchemaUtils.ASTNode
@@ -45,7 +46,8 @@ internal class SchemaUtilsTest {
         assertTrue(nodes.containsValue(ast("$",      SchemaUtils.ElementType.OBJECT)))
         assertTrue(nodes.containsValue(ast("$.a",    SchemaUtils.ElementType.BOOLEAN, oneplus=true)))
         assertTrue(nodes.containsValue(ast("$.a[]",  SchemaUtils.ElementType.BOOLEAN)))
-        assertTrue(nodes.containsValue(ast("$.b",    SchemaUtils.ElementType.MAP)))
+        assertTrue(nodes.containsValue(ast("$.b",    SchemaUtils.ElementType.MAP, zeroplus = true)))
+        assertTrue(nodes.containsValue(ast("$.b[]",  SchemaUtils.ElementType.STRING)))
         assertTrue(nodes.containsValue(ast("$.c",    SchemaUtils.ElementType.NUMBER, rqd=true)))
         assertTrue(nodes.containsValue(ast("$.d",    SchemaUtils.ElementType.STRING)))
         assertTrue(nodes.containsValue(ast("$.e",    SchemaUtils.ElementType.ENUM, ev=arrayOf("uno", "dos", "tres"))))
@@ -54,6 +56,8 @@ internal class SchemaUtilsTest {
         assertTrue(nodes.containsValue(ast("$.f.f1", SchemaUtils.ElementType.STRING, idx=true)))
         assertTrue(nodes.containsValue(ast("$.f.f2", SchemaUtils.ElementType.ENUM, ev=arrayOf("yes", "no"))))
         assertTrue(nodes.containsValue(ast("$.f.f3", SchemaUtils.ElementType.BOOLEAN)))
+        assertTrue(nodes.containsValue(ast("$.h",    SchemaUtils.ElementType.MAP, oneplus = true)))
+        assertTrue(nodes.containsValue(ast("$.h[]",  SchemaUtils.ElementType.STRING)))
     }
 
     @Test fun `schema - bad -json`() {
@@ -185,6 +189,12 @@ internal class SchemaUtilsTest {
         assertTrue(x.message!!.contains("no enum values defined"))
     }
 
+    @Test fun `schema - map - indexed`() {
+        val x = assertThrows<StatusException> { this.schemaUtils.validateAndCompile("r1", """{"a": "map+^" }""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("map elements can't be indexed"))
+    }
+
 
     @Test fun isAttributeWithPrefixTest() {
         assertTrue (schemaUtils.isAttributeWithPrefix("$.a",     "$"))
@@ -208,7 +218,9 @@ internal class SchemaUtilsTest {
             "watchers": "@watchers*",
             "array0*":  "number*",
             "array1+":  "number+",
-            "nested":   "@nested1"
+            "nested":   "@nested1",
+            "map0*":    "map",
+            "map1+":    "map+"
         }""".trimIndent()
 
     private val roleSchemaDiskDrive = """{ "size_mb": "number!", "mount_point": "string" }"""
@@ -297,7 +309,22 @@ internal class SchemaUtilsTest {
         check("""{ "array1+": [3] }""",        nonRequiredElementPassedMsg)
         check("""{ "array1+": [3,5] }""",      nonRequiredElementPassedMsg)
         check("""{ "array1+": [3,5,"x"] }""",  "isn't NUMBER")
-      //check("""{ "hostname": "x", "ram_mb": 1024, "video": "trident", "hdds": {} }""", "empty objects are not allowed")
+
+        check("""{ "map0*": null }""",         nonRequiredElementPassedMsg)
+        check("""{ "map0*": {} }""",           nonRequiredElementPassedMsg)
+        check("""{ "map0*": {"a": true} }""",  "isn't STRING")
+        check("""{ "map0*": {"a": []} }""",    "isn't STRING")
+        check("""{ "map0*": {"a": {}} }""",    "isn't STRING")
+        check("""{ "map0*": {"a": 51} }""",    "isn't STRING")
+        check("""{ "map0*": {"a": "q"} }""",   nonRequiredElementPassedMsg)
+
+        check("""{ "map1+": null }""",         nonRequiredElementPassedMsg)
+        check("""{ "map1+": {} }""",           "empty maps are not allowed")
+        check("""{ "map1+": {"a": true} }""",  "isn't STRING")
+        check("""{ "map1+": {"a": []} }""",    "isn't STRING")
+        check("""{ "map1+": {"a": {}} }""",    "isn't STRING")
+        check("""{ "map1+": {"a": 51} }""",    "isn't STRING")
+        check("""{ "map1+": {"a": "q"} }""",   nonRequiredElementPassedMsg)
     }
 
     @Test fun `asset - validate - simple`() {
@@ -311,7 +338,8 @@ internal class SchemaUtilsTest {
                 {"size_mb": 10480, "mount_point": "/data" }
             ],
             "watchers": [ { "name": "alice"}, { "name": "bob"} ],
-            "array1+":  [71, 34, 2]
+            "array1+":  [71, 34, 2],
+            "map1+":    { "one": "uno", "two": "dos", "three": "tres" }
 
         }""".trimIndent()
 
