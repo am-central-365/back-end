@@ -1,0 +1,6 @@
+{
+  "onHostMaintenance": ["!", "MIGRATE", "TERMINATE"],
+  "automaticRestart":   "boolean!",
+  "preemptible":        "boolean!",
+  "nodeAffinities":    "@nodeAffinity*"
+}

@@ -1,0 +1,4 @@
+{
+  "acceleratorType": "string!",
+  "acceleratorCount": "number!"
+}

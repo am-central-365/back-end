@@ -1,0 +1,10 @@
+{
+  "network":        "string",
+  "subnetwork":     "string",
+  "networkIP":      "string",
+  "name":           "string",
+  "accessConfigs": "@accessConfig*",
+  "aliasIpRanges": "@aliasIpRange*",
+  "fingerprint":    "string",
+  "kind":           "string"
+}

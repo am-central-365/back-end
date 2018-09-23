@@ -1,0 +1,5 @@
+{
+  "sha256":     "string",
+  "rawKey":     "string",
+  "kmsKeyName": "string"
+}

@@ -1,0 +1,4 @@
+{
+  "ipCidrRange":         "string!",
+  "subnetworkRangeName": "string!"
+}

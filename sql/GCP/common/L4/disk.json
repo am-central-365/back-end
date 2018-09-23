@@ -1,0 +1,9 @@
+{
+  "diskBasicParams":   "@diskBasicParams!",
+  "autoDelete":         "boolean",
+  "licenses":           "string*",
+  "interface":         ["SCSI", "NVME" ],
+  "guestOsFeatures":   "@diskGuestOsFeature*",
+  "diskEncryptionKey": "@diskEncryptionKey",
+  "kind":              "string"
+}

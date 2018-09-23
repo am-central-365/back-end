@@ -1,0 +1,9 @@
+{
+  "type":           [ "!", "SCRATCH", "PERSISTENT" ],
+  "mode":           [ "!", "READ_WRITE", "READ_ONLY"],
+  "source":           "string!",
+  "deviceName":       "string",
+  "index":            "number",
+  "boot":             "boolean",
+  "initializeParams": "@diskInitializeParam*"
+}

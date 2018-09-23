@@ -1,0 +1,8 @@
+{
+  "diskName":                  "string!",
+  "sourceImage":               "string!",
+  "diskSizeGb":                "number!",
+  "diskType":                  "string!",
+  "sourceImageEncryptionKey": "@diskSourceImageEncryptionKey",
+  "labels":                    "map"
+}

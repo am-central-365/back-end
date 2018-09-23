@@ -1,0 +1,5 @@
+{
+  "fingerprint": "string!",
+  "items":      "@kv*",
+  "kind":        "string"
+}

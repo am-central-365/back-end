@@ -1,0 +1,9 @@
+{
+  "type":               ["ONE_TO_ONE_NAT"],
+  "name":                "string",
+  "natIP":               "string",
+  "setPublicPtr":        "boolean",
+  "publicPtrDomainName": "string",
+  "networkTier":        ["PREMIUM", "STANDARD"],
+  "kind":                "string"
+}

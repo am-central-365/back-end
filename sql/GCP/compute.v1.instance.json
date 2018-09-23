@@ -1,115 +1,26 @@
 {
-  "id": "string",
-  "creationTimestamp": "string",
-  "name": "string",
-  "description": "string",
-  "tags": {
-    "items": [ "string" ],
-    "fingerprint": "string"
-  },
-  "machineType": "string",
-  "status": [ "PROVISIONING", "STAGING", "RUNNING", "STOPPING", "STOPPED", "SUSPENDING", "SUSPENDED", "TERMINATED" ],
-  "statusMessage": "string",
-  "zone": "string",
-  "canIpForward": "boolean",
-  "networkInterfaces": [
-    {
-      "network": "string",
-      "subnetwork": "string",
-      "networkIP": "string",
-      "name": "string",
-      "accessConfigs": [
-        {
-          "type": [ "ONE_TO_ONE_NAT" ],
-          "name": "string",
-          "natIP": "string",
-          "setPublicPtr": "boolean",
-          "publicPtrDomainName": "string",
-          "networkTier": [ "PREMIUM", "STANDARD" ],
-          "kind": "string"
-        }
-      ],
-      "aliasIpRanges": [ { "ipCidrRange": "string", "subnetworkRangeName": "string" } ],
-      "fingerprint": "string",
-      "kind": "string"
-    }
-  ],
-  "disks": [
-    {
-      "type": [ "SCRATCH", "PERSISTENT" ],
-      "mode": [ "READ_WRITE", "READ_ONLY"],
-      "source": "string",
-      "deviceName": "string",
-      "index": "number",
-      "boot": "boolean",
-      "initializeParams": {
-        "diskName": "string",
-        "sourceImage": "string",
-        "diskSizeGb": "string",
-        "diskType": "string",
-        "sourceImageEncryptionKey": {
-          "rawKey":     "string",
-          "kmsKeyName": "string",
-          "sha256":     "string"
-        },
-        "labels": "map"
-      }
-    },
-    "autoDelete": "boolean",
-    "licenses": [ "string" ],
-    "interface": ["SCSI", "NVME"],
-    "guestOsFeatures": [
-      {
-        "type": ["MULTI_IP_SUBNET", "SECURE_BOOT", "UEFI_COMPATIBLE", "VIRTIO_SCSI_MULTIQUEUE", "WINDOWS"]
-      }
-    ],
-    "diskEncryptionKey": {
-      "sha256": "string",
-      "rawKey": "string",
-      "kmsKeyName": "string"
-    },
-    "kind": "string"
-  ],
-  "metadata": {
-    "fingerprint": "string",
-    "items": [
-      {
-        "key": "string",
-        "value": "string"
-      }
-    ],
-    "kind": "string"
-  },
-  "serviceAccounts": [
-    {
-      "email": "string",
-      "scopes": [ "string" ]
-    }
-  ],
-  "selfLink": "string",
-  "scheduling": {
-    "onHostMaintenance": ["MIGRATE", "TERMINATE"],
-    "automaticRestart": "boolean",
-    "preemptible": "boolean",
-    "nodeAffinities": [
-      {
-      "key": "string",
-      "operator": "string",
-      "values": [ "string" ]
-      }
-    ]
-  },
-  "cpuPlatform": "string",
-  "labels": "map",
-  "labelFingerprint": "string",
-  "minCpuPlatform": "string",
-  "guestAccelerators": [
-    {
-      "acceleratorType": "string",
-      "acceleratorCount": "number"
-    }
-  ],
-  "startRestricted": "boolean",
+  "id":                 "string!",
+  "creationTimestamp":  "string!",
+  "name":               "string",
+  "description":        "string",
+  "tags":              "@tagWithFingerprint",
+  "machineType":        "string",
+  "status":            ["PROVISIONING", "STAGING", "RUNNING", "STOPPING", "STOPPED", "SUSPENDING", "SUSPENDED", "TERMINATED"],
+  "statusMessage":      "string",
+  "zone":               "string",
+  "canIpForward":       "boolean",
+  "networkInterfaces": "@networkInterface+",
+  "disks":             "@disk*",
+  "metadata":          "@metadata",
+  "serviceAccounts":   "@serviceAccount*",
+  "selfLink":           "string",
+  "scheduling":        "@scheduling",
+  "cpuPlatform":        "string",
+  "labels":            "@kv*",
+  "labelFingerprint":   "string",
+  "minCpuPlatform":     "string",
+  "guestAccelerators": "@guestAccelerator*",
+  "startRestricted":    "boolean",
   "deletionProtection": "boolean",
-  "kind": "string"
+  "kind":               "string"
 }

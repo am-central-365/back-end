@@ -1,20 +1,15 @@
 {
-  "id": "string",
-  "creationTimestamp": "string",
-  "name": "string",
-  "description": "string",
-  "namedPorts": [
-    {
-      "name": "string",
-      "port": "number"
-    }
-  ],
-  "network": "string",
-  "fingerprint": "string",
-  "zone": "string",
-  "selfLink": "string",
-  "size": "number",
-  "region": "string",
-  "subnetwork": "string",
-  "kind": "string"
+  "id":                "string!",
+  "creationTimestamp": "string!",
+  "name":              "string",
+  "description":       "string",
+  "namedPorts":       "@namedPorts*",
+  "network":           "string",
+  "fingerprint":       "string",
+  "zone":              "string",
+  "selfLink":          "string",
+  "size":              "number",
+  "region":            "string",
+  "subnetwork":        "string",
+  "kind":              "string"
 }
