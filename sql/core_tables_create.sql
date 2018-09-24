@@ -16,7 +16,7 @@
 */
 
 create table assets(
-  asset_id binary(16) not null
+  asset_id bigint not null auto_increment
   ,   constraint assets_pk primary key(asset_id)
   , name        varchar(100) not null
   ,   constraint assets_uk unique(name)
@@ -65,18 +65,19 @@ create table roles(
 
 
 /* -------------------------------------------------------------------------------------------- */
-create table asset_roles(      /* roles assigned to an asset */
-    asset_id     binary(16)   not null
+
+/*create table asset_roles(      *//* roles assigned to an asset. /*
+    asset_id     bigint       not null
   ,   constraint asset_roles_fk1 foreign key(asset_id) references assets(asset_id)
   , role_name    varchar(100) not null
   , schema_ver   int not null
   ,   constraint asset_roles_fk2 foreign key(role_name, schema_ver) references role_schemas(role_name, schema_ver)
-  ,   constraint asset_roles_pk primary key(asset_id/*, linkage_name*/, role_name)
-);
+  ,   constraint asset_roles_pk primary key(asset_id*//*, linkage_name*//*, role_name)
+);*/
 
 
 create table asset_values(    /* the biggest table: attribute values for specific role of a specific asset */
-    asset_id     binary(16)   not null
+    asset_id     bigint not null
   ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
   , role_name    varchar(100) not null
   ,   constraint asset_values_pk primary key(asset_id, role_name)
@@ -90,7 +91,7 @@ create table asset_values(    /* the biggest table: attribute values for specifi
 
 
 /*create table asset_values(    *//* the biggest table: attribute values for specific role of a specific asset *//*
-    asset_id     binary(16)   not null
+    asset_id     bigint   not null
   ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
   , role_name    varchar(100) not null
   ,   constraint asset_values_fk2 foreign key(asset_id, role_name) references asset_roles(asset_id, role_name)
@@ -145,14 +146,14 @@ create table declared_linkage_roles(    /* how roles are organized within linkag
 
 
 create table asset_linkages(  /* how assets relate to each other. dlrX_id must belong to the same linkage of declared_linkage_roles */
-    linkage_name varchar(100) not null
+    linkage_name varchar(100)  not null
   ,   constraint asset_linkages_fk1 foreign key(linkage_name) references linkages(name)
-  , asset1_id    binary(16)   not null
+  , asset1_id    bigint        not null
   ,   constraint asset_linkages_fk2 foreign key(asset1_id) references assets(asset_id)
-  , asset2_id    binary(16)   not null
+  , asset2_id    bigint        not null
   ,   constraint asset_linkages_fk3 foreign key(asset1_id) references assets(asset_id)
-  , dlr1_id      int          not null
-  , dlr2_id      int          not null
+  , dlr1_id      int           not null
+  , dlr2_id      int           not null
   , sibling1_pos int default 0 not null
   , sibling2_pos int default 0 not null
   ,   constraint   asset_linkages_uk1 unique(linkage_name, asset1_id, dlr1_id, sibling1_pos, asset2_id, dlr2_id, sibling2_pos)

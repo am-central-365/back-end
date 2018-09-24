@@ -24,7 +24,7 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             fail("verbosity must be between 0 to 4, got $it")
     }
 
-    val devel: Boolean by option("--devel").flag("--no-devel", default = false)
+    val inDevelopment: Boolean by option("--develop").flag("--no-develop", default = false)
 
     val bindPort: Int by option("-b", "--bind-port"
             ,help="port for the service to listen on. Must be the same on all nodes if cluster-fqdn was specified")

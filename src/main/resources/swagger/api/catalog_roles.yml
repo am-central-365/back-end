@@ -28,8 +28,8 @@ components:
 
 root:
   get:
-    tags: [Core]
-    summary: Get list of roles and optionally their attributes as a JSON list
+    tags: [Core - Roles]
+    summary: Get list of roles and optionally their attributes
     produces: [application/json]
     parameters:
     - { in: query, name: field,     schema: {type: string}, description: "for each object, return the specified field, typically name"}
@@ -39,9 +39,9 @@ root:
     responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
 
   post:
-    tags: [Core]
+    tags: [Core - Roles]
     summary: Create a role object
-    description: modified_ts is ignored. Retirns PK + Optimistic Lock
+    description: modified_ts is ignored. Returns PK + Optimistic Lock
 
     requestBody: { $ref: '#/components/requestBodies/create_role' }
     responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/create_resource'}] }
@@ -49,8 +49,8 @@ root:
 
 $role_name:
   get:
-    summary: Get the role object with the name
-    tags: [Core]
+    summary: Get a role object
+    tags: [Core - Roles]
     produces: [application/json]
     responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
 
@@ -58,9 +58,9 @@ $role_name:
     - { in: path, name: role_name, required: true, schema: {type: string, maximum: 100}, description: "name of the role to query"}
 
   post:
-    tags: [Core]
-    summary: Update the role object
-    description: Only specified fields are updated. Retirns PK + Optimistic Lock
+    tags: [Core - Roles]
+    summary: Update a role object
+    description: Only specified fields are updated. Returns PK + Optimistic Lock
 
     parameters:
     - { in: path, name: role_name, required: true, schema: {type: string, maximum: 100}, description: "name of the role to update"}
@@ -69,11 +69,11 @@ $role_name:
 
   delete:
     summary: Delete a role object
-    tags: [Core]
+    tags: [Core - Roles]
     produces: application/json]
     parameters:
     - { in: path,  name: role_name,   required: true, schema: {type: string, maximum: 100}, description: "name of the role to delete"}
-    - { in: query, name: modified_ts, required: true, schema: {type: string, format: timestamp}, description: "OptLock value, gets overwritten by the database"}
+    - { in: query, name: modified_ts, required: true, schema: {type: string, format: timestamp}, description: "The OptLock value, as obtained by GET"}
 
     # NB: DELETE, GET, and HEAD have no body as per RFC 7231
     #requestBody: { $ref: '#/components/requestBodies/delete_role' }

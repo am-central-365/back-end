@@ -1,0 +1,168 @@
+components:
+  requestBodies:
+    update_asset:
+      description: The asset properties, see table ASSETS.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              asset_name:  {type: string, maximum: 100, required: true}
+              description: {type: string, maximum: 64000}
+              modified_ts: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
+
+
+root:
+  get:
+    tags: [Core - Assets]
+    summary: Query assets
+    produces: [application/json]
+    parameters:
+    - { in: query, name: q,     schema: {type: string}, description: "JSON query as described in the docs"}
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+  post:
+    tags: [Core - Assets]
+    summary: Create an asset
+    description: modified_ts is ignored. Returns PK + Optimistic Lock
+
+    requestBody:
+      description: Asset properties, see table ASSETS.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              asset_name:  {type: string, maximum: 100, required: true}
+              description: {type: string, maximum: 64000}
+
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/create_resource'}] }
+
+
+$asset:
+  get:
+    tags: [Core - Assets]
+    summary: Get an asset by its id
+    description: Return roles and their attributes of the asset
+    produces: [application/json]
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+    parameters:
+    - { in: path,  name: asset_id, required: true, schema: {type: integer, format: int64}, description: "asset id"}
+#   - { in: query, name: role,     schema: {type: string}, description: "Get details for the particular role"}
+#   - { in: query, name: roles,    schema: {type: string}, description: "Get data for the listed roles"}
+
+  post:
+    tags: [Core - Assets]
+    summary: Update an asset
+    description: Only specified fields are updated. Returns PK + Optimistic Lock
+
+    parameters:
+    - { in: path,  name: asset_id, required: true, schema: {type: integer, format: int64}, description: "asset id"}
+
+    requestBody:
+      description: The asset properties, see table ASSETS.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              asset_name:  {type: string, maximum: 100, required: true}
+              description: {type: string, maximum: 64000}
+              modified_ts: {type: string, format:  timestamp, required: true, description: "OptLock value, gets overwritten by the database"}
+
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/update_resource'}] }
+
+  delete:
+    summary: Delete an asset
+    tags: [Core - Assets]
+    produces: application/json]
+    parameters:
+    - { in: path,  name: asset_id,    required: true, schema: {type: integer, format: int64}, description: "asset id"}
+    - { in: query, name: modified_ts, required: true, schema: {type: string,  format: timestamp}, description: "The OptLock value, as obtained by GET"}
+
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/delete_resource'}] }
+
+
+$asset_roles:
+  get:
+    summary: List asset roles
+    tags: [Core - Assets]
+    produces: [application/json]
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+    parameters:
+    - { in: path,  name: asset_id, required: true, schema: {type: integer, format: int64}, description: "asset id"}
+#   - { in: query, name: role,     schema: {type: string}, description: "Get details on a particular role"}
+    - { in: query, name: roles,    schema: {type: string}, description: "Get data for the listed roles. Separate role names by comma"}
+
+  post:
+    tags: [Core - Assets]
+    summary: Add role to an asset
+    description: modified_ts is ignored. Returns PK + Optimistic Lock
+
+    parameters:
+    - { in: path,  name: asset_id, required: true, schema: {type: integer, format: int64}, description: "asset id"}
+
+    requestBody:
+      description: Asset properties, see table ASSETS.
+                   json_data must conform to the role schema.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              role_name:   {type: string, maximum: 100, required: true}
+              description: {type: string, maximum: 64000}
+              json_data:   {type: string, required: true}
+
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/create_resource'}] }
+
+$asset_role:
+  get:
+    tags: [Core - Assets]
+    summary: Fetch data associated with the asset role. Working on it
+    produces: [application/json]
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+    parameters:
+    - { in: path,  name: asset_id,  required: true, schema: {type: integer, format: int64}, description: "asset id"}
+    - { in: path,  name: role_name, required: true, schema: {type: string}, description: "The role name"}
+
+  post:
+    tags: [Core - Assets]
+    summary: Update data associated with the asset role.
+    description: Completely overwrite the role data. Returns PK + Optimistic Lock
+
+    parameters:
+    - { in: path,  name: asset_id,  required: true, schema: {type: integer, format: int64}, description: "asset id"}
+    - { in: path,  name: role_name, required: true, schema: {type: string}, description: "The role name"}
+
+    requestBody:
+      description: The role properties.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              json_data:   {type: string, required: true}
+              modified_ts: {type: string, required: true, format:  timestamp, description: "OptLock value, gets overwritten by the database"}
+
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/update_resource'}] }
+
+  delete:
+    summary: Delete an asset role
+    tags: [Core - Assets]
+    produces: application/json]
+    parameters:
+    - { in: path,  name: asset_id,    required: true, schema: {type: integer, format: int64}, description: "asset id"}
+    - { in: path,  name: role_name,   required: true, schema: {type: string, maximum: 100}, description: "name of the role to delete"}
+    - { in: query, name: modified_ts, required: true, schema: {type: string, format: timestamp}, description: "The OptLock value, as obtained by GET"}
+
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/delete_resource'}] }
+

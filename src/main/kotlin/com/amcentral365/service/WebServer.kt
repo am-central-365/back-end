@@ -30,7 +30,7 @@ class WebServer {
     fun start(port: Int) {
         spark.Spark.port(port)
 
-        if( config.devel )
+        if( config.inDevelopment )
             // With --devel flag, we read API specs from directory. This allows changing files while the program is running
             spark.Spark.staticFiles.externalLocation("src/main/resources/swagger")
         else

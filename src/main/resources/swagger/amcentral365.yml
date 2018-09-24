@@ -95,8 +95,8 @@ components:
     400_bad_input:       { allOf: [{$ref: '#/components/responses/code_message'}], description: Something is wrong with the input data, see the message }
     404_not_found:       { allOf: [{$ref: '#/components/responses/code_message'}], description: The requested resource was not found }
     406_not_acceptable:  { allOf: [{$ref: '#/components/responses/code_message'}], description: Validation failed for one of the input components }
-    409_already_exists:  { allOf: [{$ref: '#/components/responses/code_message'}], description: The role already exists }
-    410_optlock_failure: { allOf: [{$ref: '#/components/responses/code_message'}], description: Gone. Optimistic lock update failed because the record was modified or PK did not exist. Re-read the record }
+    409_already_exists:  { allOf: [{$ref: '#/components/responses/code_message'}], description: The resource already exists }
+    410_optlock_failure: { allOf: [{$ref: '#/components/responses/code_message'}], description: Gone. Optimistic lock update failed because the record was modified or PK does not exist. Re-read the record }
 
     500_server_error:
       description: Server error, see the messsage
@@ -140,6 +140,7 @@ paths:
      responses:
        200: { description: "the key contents" }
 
+  # ------------------- admin
   /admin/data:
     $ref: 'api/admin_data.yml#root'
 
@@ -147,11 +148,28 @@ paths:
     $ref: 'api/admin_data.yml#script_stores'
 
 
+  # ------------------- catalog roles
   /catalog/roles:
     $ref: 'api/catalog_roles.yml#root'
 
   /catalog/roles/{role_name}:
     $ref: 'api/catalog_roles.yml#$role_name'
+
+  # ------------------- catalog assets
+  /catalog/assets:
+    $ref: 'api/catalog_assets.yml#root'
+
+  /catalog/assets/{asset_id}:
+    $ref: 'api/catalog_assets.yml#$asset'
+
+  /catalog/assets/{asset_id}/roles:
+    $ref: 'api/catalog_assets.yml#$asset_roles'
+
+  /catalog/assets/{asset_id}/roles/{role_name}:
+    $ref: 'api/catalog_assets.yml#$asset_role'
+
+
+
 
 
   /catalog/assets/$asset_id/roles/$role_name:
