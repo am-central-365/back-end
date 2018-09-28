@@ -6,7 +6,7 @@
     <version>0.0.1</version>
 
     <properties>
-        <kotlin.version>1.2.70</kotlin.version>
+        <kotlin.version>1.2.71</kotlin.version>
         <junit.version>5.2.0</junit.version>
 
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>

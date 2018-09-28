@@ -1,5 +1,9 @@
 package com.amcentral365.service.api
 
+import mu.KotlinLogging
+import java.lang.Exception
+import java.util.Arrays
+
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 
@@ -16,9 +20,8 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
 import com.google.gson.JsonPrimitive
-import java.lang.Exception
-import java.util.Arrays
 
+private val logger = KotlinLogging.logger {}
 
 private val validSchemaDefTypes = mapOf(
       "string"  to SchemaUtils.ElementType.STRING
@@ -133,6 +136,7 @@ open class SchemaUtils {
             .weigher { key: String, value: CompiledSchema -> value.size }
             .build(object: CacheLoader<String, CompiledSchema>() {
                 override fun load(roleName: String): CompiledSchema {
+                    logger.info { "caching schema for role $roleName" }
                     val roleSchema = schemaUtils.loadSchemaFromDb(roleName)
                                   ?: throw StatusException(404, "role '$roleName' was not found")
                     return schemaUtils.validateAndCompile(roleName, roleSchema)
@@ -193,6 +197,7 @@ open class SchemaUtils {
         , rootElmName: String = "\$"
         , seenRoles: MutableList<Pair<String, String>>? = null): CompiledSchema
     {
+        logger.info { "validating/compiling schema for role $roleName" }
         val compiledNodes: MutableMap<String, ASTNode> = mutableMapOf()
 
         try {
@@ -305,10 +310,12 @@ open class SchemaUtils {
             )
 
         } catch(x: JsonParseException) {
+            logger.warn { "failed validating/compiling schema for role $roleName: ${x.message}" }
             throw StatusException(x, 406)
         }
 
         schemaCache.put(roleName, compiledNodes)
+        logger.info { "successfully validated and cached schema for role $roleName" }
         return compiledNodes
     }
 
@@ -420,6 +427,7 @@ open class SchemaUtils {
 
         if( unseenRequiredNames.isNotEmpty() )
             throw StatusException(406, "missing ${unseenRequiredNames.size} required attributes: ${unseenRequiredNames.joinToString(", ")}")
+        logger.info { "successfully validated asset (TODO: print id here) for role $roleName" }
     }
 
 

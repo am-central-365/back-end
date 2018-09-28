@@ -15,20 +15,6 @@
   * asset_linkages link assets to each other, as declared in declared_linkage_roles
 */
 
-create table assets(
-  asset_id bigint not null auto_increment
-  ,   constraint assets_pk primary key(asset_id)
-  , name        varchar(100) not null
-  ,   constraint assets_uk unique(name)
-  , description varchar(64000)
-  /* --- standard fields */
-  , created_by  varchar(100)
-  , created_ts  timestamp default current_timestamp not null
-  , modified_by varchar(100)
-  , modified_ts timestamp default current_timestamp not null
-);
-
-
 create table roles(
     name         varchar(100) not null
   ,   constraint role_pk primary key(name)
@@ -40,6 +26,20 @@ create table roles(
   , created_ts   timestamp default current_timestamp not null
   , modified_by  varchar(100)
   , modified_ts  timestamp default current_timestamp not null
+);
+
+
+create table assets(
+  asset_id bigint not null auto_increment
+  ,   constraint assets_pk primary key(asset_id)
+  , name        varchar(100) not null
+  ,   constraint assets_uk unique(name)
+  , description varchar(64000)
+  /* --- standard fields */
+  , created_by  varchar(100)
+  , created_ts  timestamp default current_timestamp not null
+  , modified_by varchar(100)
+  , modified_ts timestamp default current_timestamp not null
 );
 
 

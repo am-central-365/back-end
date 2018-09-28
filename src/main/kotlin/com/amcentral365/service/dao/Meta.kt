@@ -10,6 +10,8 @@ class Meta {
     companion object {
         val entities: List<KClass<out Entity>> = listOf(
             Role::class
+          , Asset::class
+          , AssetValues::class
           , ScriptStore::class
         ).sortedBy { Meta.tableName(it) }
 

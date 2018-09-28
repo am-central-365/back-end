@@ -96,9 +96,9 @@ internal fun combineRequestParams(req: Request, parseJsonBody: Boolean=false): T
             val v = jsonRoot[key]
             when {
                 v.isJsonPrimitive -> p[key.toLowerCase()] = v.asString
-                v.isJsonNull -> throw StatusException(400, "null values are not yet supported, check parameter '$key'")
-                v.isJsonObject -> p[key.toLowerCase()] = v.toString()
-                v.isJsonArray -> p[key.toLowerCase()] = v.toString()
+                v.isJsonNull      -> throw StatusException(400, "null values are not yet supported, check parameter '$key'")
+                v.isJsonObject    -> p[key.toLowerCase()] = v.toString()
+                v.isJsonArray     -> p[key.toLowerCase()] = v.toString()
             }
         }
     }

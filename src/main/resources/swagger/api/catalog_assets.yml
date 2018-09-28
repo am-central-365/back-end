@@ -16,10 +16,12 @@ components:
 root:
   get:
     tags: [Core - Assets]
-    summary: Query assets
+    summary: Get asset id name and vice versa. Not very useful API, think of a better purpose.
     produces: [application/json]
     parameters:
-    - { in: query, name: q,     schema: {type: string}, description: "JSON query as described in the docs"}
+   #- { in: query, name: q,     schema: {type: string}, description: "JSON query as described in the docs"}
+    - { in: query, name: asset_id, schema: {type: integer, format: int64}, description: "Asset id"}
+    - { in: query, name: name,     schema: {type: string, maximum: 100},   description: "Asset name"}
     responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
 
   post:
@@ -70,7 +72,7 @@ $asset:
           schema:
             type: object
             properties:
-              asset_name:  {type: string, maximum: 100, required: true}
+              name:        {type: string, maximum: 100, required: true}
               description: {type: string, maximum: 64000}
               modified_ts: {type: string, format:  timestamp, required: true, description: "OptLock value, gets overwritten by the database"}
 

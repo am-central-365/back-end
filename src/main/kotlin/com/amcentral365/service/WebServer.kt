@@ -1,25 +1,25 @@
 package com.amcentral365.service
 
-import com.amcentral365.pl4kotlin.Entity
-import com.amcentral365.pl4kotlin.SelectStatement
-import com.amcentral365.pl4kotlin.closeIfCan
-
-import com.amcentral365.service.api.catalog.Roles
-
-import com.amcentral365.service.dao.Meta
-import com.amcentral365.service.dao.Role
-
-import spark.Request
-import spark.Response
-
 import mu.KLogging
-
-import com.google.common.io.Resources
-import com.google.common.annotations.VisibleForTesting
 
 import java.sql.Connection
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
+
+import spark.Request
+import spark.Response
+
+import com.google.common.io.Resources
+import com.google.common.annotations.VisibleForTesting
+
+import com.amcentral365.pl4kotlin.Entity
+import com.amcentral365.pl4kotlin.SelectStatement
+import com.amcentral365.pl4kotlin.closeIfCan
+
+import com.amcentral365.service.api.catalog.Assets
+import com.amcentral365.service.api.catalog.Roles
+import com.amcentral365.service.dao.Meta
+import com.amcentral365.service.dao.Role
 
 
 class WebServer {
@@ -62,6 +62,12 @@ class WebServer {
         spark.Spark.get   ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.getRoles(req, rsp))
         spark.Spark.post  ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.updateRole(req, rsp))
         spark.Spark.delete("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.deleteRole(req, rsp))
+
+        val assets = Assets()
+        spark.Spark.get("$API_BASE/catalog/assets",            fun(req, rsp) = assets.getAssets(req, rsp))
+        spark.Spark.get("$API_BASE/catalog/assets/:asset_id/roles/:role_name",  fun(req, rsp) = assets.getAssetByIdAndRole(req, rsp))
+
+        spark.Spark.post  ("$API_BASE/catalog/assets",            fun(req, rsp) = assets.createAsset(req, rsp))
     }
 
     private fun handleCORS() {
