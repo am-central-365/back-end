@@ -67,7 +67,10 @@ class WebServer {
         spark.Spark.get("$API_BASE/catalog/assets",            fun(req, rsp) = assets.getAssets(req, rsp))
         spark.Spark.get("$API_BASE/catalog/assets/:asset_id/roles/:role_name",  fun(req, rsp) = assets.getAssetByIdAndRole(req, rsp))
 
-        spark.Spark.post  ("$API_BASE/catalog/assets",            fun(req, rsp) = assets.createAsset(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/assets",                            fun(req, rsp) = assets.createAsset(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_id",                  fun(req, rsp) = assets.updateAsset(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_id/roles",            fun(req, rsp) = assets.addAssetRole(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_id/roles/:role_name", fun(req, rsp) = assets.updateAssetRole(req, rsp))
     }
 
     private fun handleCORS() {

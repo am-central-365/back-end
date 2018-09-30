@@ -105,7 +105,7 @@ class Roles {
             logger.info { "create role ${role.roleName}: ${msg.msg}" }
             return formatResponse(rsp, msg, jsonIfOk = true)
 
-        } catch(x: StatusException) {
+        } catch(x: Exception) {
             logger.error { "error creating role ${role.roleName}: ${x.message}" }
             return formatResponse(rsp, x)
         }
@@ -129,7 +129,7 @@ class Roles {
             logger.info { "update role ${role.roleName} succeeded: $msg" }
             return formatResponse(rsp, msg, jsonIfOk = true)
 
-        } catch(x: StatusException) {
+        } catch(x: Exception) {
             logger.error { "error updating role ${role.roleName}: ${x.message}" }
             return formatResponse(rsp, x)
         }
@@ -137,16 +137,21 @@ class Roles {
 
 
     fun deleteRole(req: Request, rsp: Response): String {
-        rsp.type("application/json")
-        val paramMap = combineRequestParams(req)
         val role = Role()
-        role.assignFrom(paramMap)
-        if( role.roleName == null )
-            return formatResponse(rsp, 400, "parameters 'role_name' is required")
+        try {
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req)
+            role.assignFrom(paramMap)
+            if(role.roleName == null)
+                return formatResponse(rsp, 400, "parameters 'role_name' is required")
 
-        logger.info { "deleting role '${role.roleName}'" }
-        val msg = databaseStore.deleteObjectRow(role)
-        logger.info { "delete role ${role.roleName} succeeded: $msg" }
-        return formatResponse(rsp, msg)
+            logger.info { "deleting role '${role.roleName}'" }
+            val msg = databaseStore.deleteObjectRow(role)
+            logger.info { "delete role ${role.roleName} succeeded: $msg" }
+            return formatResponse(rsp, msg)
+        } catch(x: Exception) {
+            logger.error { "error deleting role '${role.roleName}': ${x.message}" }
+            return formatResponse(rsp, x)
+        }
     }
 }

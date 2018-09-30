@@ -30,7 +30,7 @@ create table roles(
 
 
 create table assets(
-  asset_id bigint not null auto_increment
+  asset_id binary(16) not null
   ,   constraint assets_pk primary key(asset_id)
   , name        varchar(100) not null
   ,   constraint assets_uk unique(name)
@@ -77,7 +77,7 @@ create table assets(
 
 
 create table asset_values(    /* the biggest table: attribute values for specific role of a specific asset */
-    asset_id     bigint not null
+    asset_id     binary(16) not null
   ,   constraint asset_values_fk1 foreign key(asset_id) references assets(asset_id)
   , role_name    varchar(100) not null
   ,   constraint asset_values_pk primary key(asset_id, role_name)
