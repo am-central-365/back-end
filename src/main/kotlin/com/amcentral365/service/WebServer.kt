@@ -64,7 +64,9 @@ class WebServer {
         spark.Spark.delete("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.deleteRole(req, rsp))
 
         val assets = Assets()
-        spark.Spark.get("$API_BASE/catalog/assets",            fun(req, rsp) = assets.getAssets(req, rsp))
+        spark.Spark.get("$API_BASE/catalog/assets",                             fun(req, rsp) = assets.listAssets(req, rsp))
+        spark.Spark.get("$API_BASE/catalog/assets/:asset_id",                   fun(req, rsp) = assets.getAssetById(req, rsp))
+        spark.Spark.get("$API_BASE/catalog/assets/:asset_id/roles",             fun(req, rsp) = assets.listAssetRoles(req, rsp))
         spark.Spark.get("$API_BASE/catalog/assets/:asset_id/roles/:role_name",  fun(req, rsp) = assets.getAssetByIdAndRole(req, rsp))
 
         spark.Spark.post  ("$API_BASE/catalog/assets",                            fun(req, rsp) = assets.createAsset(req, rsp))

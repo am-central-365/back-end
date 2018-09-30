@@ -11,9 +11,9 @@ import com.amcentral365.pl4kotlin.Table
 
 @Table("asset_values")
 class AssetValues(): Entity() {
-    @Column("asset_id",  pkPos = 1) var assetId:   UUID? = null
-    @Column("role_name", pkPos = 2) var roleName:  String? = null
-    @Column("asset_vals")           var assetVals: String? = null  // JSON
+    @Column("asset_id",  pkPos = 1)      var assetId:   UUID? = null
+    @Column("role_name", pkPos = 2)      var roleName:  String? = null
+    @Column("asset_vals", isJson = true) var assetVals: String? = null  // JSON
 
     @Column("created_by")  var createdBy:  String? = null
     @Column("modified_by") var modifiedBy: String? = null

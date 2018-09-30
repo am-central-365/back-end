@@ -16,12 +16,13 @@ components:
 root:
   get:
     tags: [Core - Assets]
-    summary: Get asset id name and vice versa. Not very useful API, think of a better purpose.
+    summary: List assets
     produces: [application/json]
     parameters:
    #- { in: query, name: q,     schema: {type: string}, description: "JSON query as described in the docs"}
-    - { in: query, name: asset_id, schema: {type: string}, description: "Asset id"}
-    - { in: query, name: name,     schema: {type: string, maximum: 100}, description: "Asset name"}
+    - { in: query, name: name_like, schema: {type: string}, description: "a SQL LIKE pattern to match against asset name. Ex: 'ipv%'"}
+    - { in: query, name: skip,      schema: {type: integer, default: 0}, description: "Number of items to skip"}
+    - { in: query, name: limit,     schema: {type: integer, default: 0}, description: "Limit the number of items returned. 0 for no limit."}
     responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
 
   post:

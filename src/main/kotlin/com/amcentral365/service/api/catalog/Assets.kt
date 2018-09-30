@@ -1,22 +1,25 @@
 package com.amcentral365.service.api.catalog
 
+import java.lang.Exception
+import java.lang.IllegalArgumentException
+import java.sql.Connection
+import java.util.UUID
+
 import mu.KotlinLogging
 import spark.Request
 import spark.Response
 
 import com.amcentral365.pl4kotlin.SelectStatement
-import com.amcentral365.service.StatusException
-import com.amcentral365.service.StatusMessage
+import com.amcentral365.pl4kotlin.closeIfCan
 
+import com.amcentral365.service.StatusException
 import com.amcentral365.service.combineRequestParams
 import com.amcentral365.service.dao.Asset
 import com.amcentral365.service.dao.AssetValues
-import com.amcentral365.service.databaseStore
 import com.amcentral365.service.formatResponse
+import com.amcentral365.service.toJsonArray
+import com.amcentral365.service.databaseStore
 import com.amcentral365.service.schemaUtils
-import java.lang.Exception
-import java.lang.IllegalArgumentException
-import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,23 +29,37 @@ class Assets {
     /**
      * /catalog/assets
      */
-    fun getAssets(req: Request, rsp: Response): String {
-        rsp.type("application/json")
-        val paramMap = combineRequestParams(req)
+    fun listAssets(req: Request, rsp: Response): String {
         val asset = Asset()
-        val assetValues = AssetValues()
+        var conn: Connection? = null
+        try {
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req)
 
-        asset.assignFrom(paramMap)
-        val roleName   = paramMap.getOrDefault("role_name", "").trim()
-        logger.info { "get asset by id ${asset.assetId}, name ${asset.name}, role $roleName" }
+            val nameLike  = paramMap.getOrDefault("name_like", "").trim()
+            val skipCount = paramMap.getOrDefault("skip",  "0").toInt()
+            val limit     = paramMap.getOrDefault("limit", "0").toInt()
+            val fetchLimit = if( limit > 0 ) limit else Int.MAX_VALUE
+            logger.debug { "name pattern '$nameLike', skipCount $skipCount, limit: $limit, fetchLimit: $fetchLimit" }
 
-        val selStmtAssets = SelectStatement(asset).byPresentValues()
+            val selStmt = SelectStatement(asset, databaseStore::getGoodConnection)
+                    .select(Asset::assetId)
+                    .select(Asset::name)
+                    .select(Asset::modifiedTs)
+                    .orderBy(Asset::name)
+            if( nameLike.isNotEmpty() )
+                selStmt.by("name like ?", nameLike)
 
+            conn = databaseStore.getGoodConnection()
+            val defs = selStmt.iterate(conn).asSequence().filterIndexed{k, _ -> k >= skipCount}.take(fetchLimit).toList()
+            return toJsonArray(defs)
 
-        if( asset.assetId == null && roleName.isNotEmpty() )
-            return formatResponse(rsp, 400, "parameter 'role_name' requires 'asset_id'")
-
-        return formatResponse(rsp, 501, "Not sure what the method shoud be doing")
+        } catch(x: Exception) {
+            logger.error { "error querying assets: ${x.message}" }
+            return formatResponse(rsp, x)
+        } finally {
+            closeIfCan(conn)
+        }
     }
 
 
@@ -58,57 +75,86 @@ class Assets {
 
     private fun extractAssetIdOrDie(paramMap: MutableMap<String, String>): UUID {
         val pkParam = "asset_id"
-        val pkIdOrName = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }
+        val pkIdOrName = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }.trim()
         val pkId = this.assetIdByStr(pkIdOrName)
         if( pkId == null )
-            throw StatusException(400, "parameter '$pkParam' is required")
+            throw StatusException(400, "asset with name '$pkIdOrName' was not found")
         paramMap.remove(pkParam)
 
         return pkId
     }
 
 
-    fun getAssetByIdAndRole(req: Request, rsp: Response): String {
-        rsp.type("application/json")
-        val paramMap = combineRequestParams(req)
+    fun getAssetById(req: Request, rsp: Response): String {
+        val asset = Asset()
+        try {
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req)
+            asset.assetId = this.extractAssetIdOrDie(paramMap)
+            asset.assignFrom(paramMap)
+            logger.info() { "querying asset ${asset.assetId}" }
 
-        val roleName = paramMap.getOrDefault("role_name", "").trim()
-        require(roleName.isNotEmpty())
+            val cnt = SelectStatement(asset, databaseStore::getGoodConnection)
+                                        .select(asset.allCols).byPresentValues().run()
+            if( cnt == 0 )
+                return formatResponse(rsp, 404, "asset '${asset.assetId}' was not found")
 
-        val assetIdOrName = paramMap.getOrDefault("asset_id", "").trim()
-        require(assetIdOrName.isNotEmpty())
+            return asset.asJsonStr()
 
-        val assetId = this.assetIdByStr(assetIdOrName) ?:
-                        return formatResponse(rsp, 404, "asset '$assetIdOrName' was not found")
-
-        val assetValues = AssetValues(assetId, roleName)
-        val cnt = SelectStatement(assetValues).byPresentValues().run()
-        if( cnt == 0 )
-            return formatResponse(rsp, 404, "asset '$assetIdOrName' does not have role '$roleName'")
-
-        return assetValues.asJsonStr()
+        } catch(x: Exception) {
+            logger.error { "error querying ${asset.name}: ${x.message}" }
+            return formatResponse(rsp, x)
+        }
     }
 
 
-    fun getAssetById(req: Request, rsp: Response): String {
-        rsp.type("application/json")
-        val paramMap = combineRequestParams(req)
+    fun listAssetRoles(req: Request, rsp: Response): String {
+        val assetValues = AssetValues()
+        var conn: Connection? = null
+        try {
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req)
+            assetValues.assetId = this.extractAssetIdOrDie(paramMap)
+            assetValues.assignFrom(paramMap)
+            logger.info() { "listing roles of asset '${assetValues.assetId}'" }
 
-        val roleName = paramMap.getOrDefault("role_name", "").trim()
-        require(roleName.isNotEmpty())
 
-        val assetIdOrName = paramMap.getOrDefault("asset_id", "").trim()
-        require(assetIdOrName.isNotEmpty())
+            conn = databaseStore.getGoodConnection()
+            val defs = SelectStatement(assetValues)
+                                        .select(AssetValues::roleName).byPresentValues().iterate(conn).asSequence().toList()
+            return toJsonArray(defs, "role_name")
 
-        val assetId = this.assetIdByStr(assetIdOrName) ?:
-                        return formatResponse(rsp, 404, "asset '$assetIdOrName' was not found")
+        } catch(x: Exception) {
+            logger.info { "error querying roles of asset ${assetValues.assetId} succeeded: ${x.message}" }
+            return formatResponse(rsp, x)
+        } finally {
+            closeIfCan(conn)
+        }
+    }
 
-        val assetValues = AssetValues(assetId, roleName)
-        val cnt = SelectStatement(assetValues).byPresentValues().run()
-        if( cnt == 0 )
-            return formatResponse(rsp, 404, "asset '$assetIdOrName' does not have role '$roleName'")
 
-        return assetValues.asJsonStr()
+    fun getAssetByIdAndRole(req: Request, rsp: Response): String {
+        val assetValues = AssetValues()
+        try {
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req)
+            assetValues.assetId = this.extractAssetIdOrDie(paramMap)
+            assetValues.assignFrom(paramMap)
+            logger.info() { "querying role '${assetValues.roleName}' of asset '${assetValues.assetId}'" }
+
+            if( assetValues.roleName == null )
+                return formatResponse(rsp, 400, "parameter 'role_name' is required")
+
+            val cnt = SelectStatement(assetValues, databaseStore::getGoodConnection)
+                                        .select(assetValues.allCols).byPresentValues().run()
+            if( cnt == 0 )
+                return formatResponse(rsp, 404, "role '${assetValues.roleName}' of asset '${assetValues.assetId}' was not found")
+
+            return assetValues.asJsonStr()
+        } catch(x: Exception) {
+            logger.info { "error querying role ${assetValues.roleName} of asset ${assetValues.assetId}: ${x.message}" }
+            return formatResponse(rsp, x)
+        }
     }
 
 
@@ -190,7 +236,6 @@ class Assets {
             assetValues.assignFrom(paramMap)
             logger.info() { "adding role '${assetValues.roleName}' to asset '${assetValues.assetId}'" }
 
-
             if( assetValues.roleName == null )
                 return formatResponse(rsp, 400, "parameter 'role_name' is required")
             if( assetValues.assetVals == null )
@@ -205,7 +250,7 @@ class Assets {
             return formatResponse(rsp, msg, jsonIfOk = true)
 
         } catch(x: Exception) {
-            logger.info { "error updating role ${assetValues.roleName} of asset ${assetValues.assetId} succeeded: ${x.message}" }
+            logger.info { "error updating role ${assetValues.roleName} of asset ${assetValues.assetId}: ${x.message}" }
             return formatResponse(rsp, x)
         }
     }
