@@ -159,13 +159,13 @@ paths:
   /catalog/assets:
     $ref: 'api/catalog_assets.yml#root'
 
-  /catalog/assets/{asset_id}:
+  /catalog/assets/{asset_key}:
     $ref: 'api/catalog_assets.yml#$asset'
 
-  /catalog/assets/{asset_id}/roles:
+  /catalog/assets/{asset_key}/roles:
     $ref: 'api/catalog_assets.yml#$asset_roles'
 
-  /catalog/assets/{asset_id}/roles/{role_name}:
+  /catalog/assets/{asset_key}/roles/{role_name}:
     $ref: 'api/catalog_assets.yml#$asset_role'
 
 

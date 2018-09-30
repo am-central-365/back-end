@@ -23,24 +23,24 @@ private val logger = KotlinLogging.logger {}
 class Roles {
     private val restToColDef = Role().allCols.map { it.restParamName to it }.toMap()
 
-    fun getRoles(req: Request, rsp: Response): String {
+    fun listRoles(req: Request, rsp: Response): String {
         rsp.type("application/json")
         val paramMap = combineRequestParams(req)
         val role = Role()
 
         val field  = paramMap.getOrDefault("field",  "")
         val fields = paramMap.getOrDefault("fields", "")
-        logger.debug { "getRoles: field $field, fields: $fields" }
+        logger.debug { "field $field, fields: $fields" }
         if( field.isNotEmpty() && fields.isNotEmpty() )
             return formatResponse(rsp, 400, "parameters 'field' and 'fields' are mutually exclusive")
 
         val skipCount = paramMap.getOrDefault("skip", "0").toInt()
         val limit = paramMap.getOrDefault("limit", "0").toInt()
         val fetchLimit = if( limit > 0 ) limit else Int.MAX_VALUE
-        logger.debug { "getRoles: skipCount $skipCount, limit: $limit, fetchLimit: $fetchLimit" }
+        logger.debug { "skipCount $skipCount, limit: $limit, fetchLimit: $fetchLimit" }
 
         role.assignFrom(paramMap)
-        logger.debug { "getRoles: roleName: ${role.roleName}" }
+        logger.debug { "roleName: ${role.roleName}" }
         val selStmt = SelectStatement(role).byPresentValues()
 
         when {

@@ -1,5 +1,6 @@
 package com.amcentral365.service.api.catalog
 
+import com.amcentral365.pl4kotlin.DeleteStatement
 import java.lang.Exception
 import java.lang.IllegalArgumentException
 import java.sql.Connection
@@ -25,6 +26,27 @@ private val logger = KotlinLogging.logger {}
 
 
 class Assets {
+
+    private fun assetIdByKey(assetIdOrName: String): UUID? {
+        try {
+            return UUID.fromString(assetIdOrName)
+        } catch(x: IllegalArgumentException) {
+            val asset = Asset(assetIdOrName)
+            val cnt = SelectStatement(asset, databaseStore::getGoodConnection).select(Asset::assetId).by(Asset::name).run()
+            return if( cnt == 0 ) null else asset.assetId
+        }
+    }
+
+    private fun extractAssetIdOrDie(paramMap: MutableMap<String, String>): UUID {
+        val pkParam = "asset_key"
+        val pkKey = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }.trim()
+        val pkId = this.assetIdByKey(pkKey)
+        if( pkId == null )
+            throw StatusException(400, "asset with name '$pkKey' was not found")
+        paramMap.remove(pkParam)
+
+        return pkId
+    }
 
     /**
      * /catalog/assets
@@ -63,28 +85,6 @@ class Assets {
     }
 
 
-    private fun assetIdByStr(assetIdOrName: String): UUID? {
-        try {
-            return UUID.fromString(assetIdOrName)
-        } catch(x: IllegalArgumentException) {
-            val asset = Asset(assetIdOrName)
-            val cnt = SelectStatement(asset, databaseStore::getGoodConnection).select(Asset::assetId).by(Asset::name).run()
-            return if( cnt == 0 ) null else asset.assetId
-        }
-    }
-
-    private fun extractAssetIdOrDie(paramMap: MutableMap<String, String>): UUID {
-        val pkParam = "asset_id"
-        val pkIdOrName = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }.trim()
-        val pkId = this.assetIdByStr(pkIdOrName)
-        if( pkId == null )
-            throw StatusException(400, "asset with name '$pkIdOrName' was not found")
-        paramMap.remove(pkParam)
-
-        return pkId
-    }
-
-
     fun getAssetById(req: Request, rsp: Response): String {
         val asset = Asset()
         try {
@@ -117,7 +117,6 @@ class Assets {
             assetValues.assetId = this.extractAssetIdOrDie(paramMap)
             assetValues.assignFrom(paramMap)
             logger.info() { "listing roles of asset '${assetValues.assetId}'" }
-
 
             conn = databaseStore.getGoodConnection()
             val defs = SelectStatement(assetValues)
@@ -251,6 +250,69 @@ class Assets {
 
         } catch(x: Exception) {
             logger.info { "error updating role ${assetValues.roleName} of asset ${assetValues.assetId}: ${x.message}" }
+            return formatResponse(rsp, x)
+        }
+    }
+
+
+    fun deleteAsset(req: Request, rsp: Response): String {
+        val asset = Asset()
+        try {
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req)
+            asset.assetId = this.extractAssetIdOrDie(paramMap)
+            asset.assignFrom(paramMap)
+            logger.info { "deleting asset '${asset.assetId}', name '${asset.name}'" }
+
+            val msg = databaseStore.deleteObjectRow(asset)
+            logger.info { "deleting asset '${asset.assetId}', name '${asset.name}' succeeded: $msg" }
+            return formatResponse(rsp, msg)
+        } catch(x: Exception) {
+            logger.error { "error deleting asset '${asset.assetId}', name '${asset.name}': ${x.message}" }
+            return formatResponse(rsp, x)
+        }
+    }
+
+
+    fun deleteAssetRoles(req: Request, rsp: Response): String {
+        val assetValues = AssetValues()
+        try {
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req)
+            assetValues.assetId = this.extractAssetIdOrDie(paramMap)
+            assetValues.assignFrom(paramMap)
+            logger.info { "deleting roles of asset '${assetValues.assetId}'" }
+
+            val cnt = DeleteStatement(assetValues, databaseStore::getGoodConnection).by(assetValues::assetId).run()
+            if( cnt == 0 )
+                return formatResponse(rsp, 404, "no roles were deleted: either asset '${assetValues.assetId}' does not exist, or has no roles")
+
+            val msg = databaseStore.deleteObjectRow(assetValues)
+            logger.info { "deleting roles of asset '${assetValues.assetId}' succeeded: $msg" }
+            return formatResponse(rsp, 200, "deleted $cnt role(s) of asset ${assetValues.assetId}")
+        } catch(x: Exception) {
+            logger.error { "error deleting roles of asset '${assetValues.assetId}': ${x.message}" }
+            return formatResponse(rsp, x)
+        }
+    }
+
+
+    fun deleteAssetRole(req: Request, rsp: Response): String {
+        val assetValues = AssetValues()
+        var msgRoleOf = "~role/asset are yet unknown~"
+        try {
+            rsp.type("application/json")
+            val paramMap = combineRequestParams(req)
+            assetValues.assetId = this.extractAssetIdOrDie(paramMap)
+            assetValues.assignFrom(paramMap)
+            msgRoleOf = "role '${assetValues.roleName}' of asset '${assetValues.assetId}'"
+            logger.info { "deleting $msgRoleOf" }
+
+            val msg = databaseStore.deleteObjectRow(assetValues)
+            logger.info { "deleting $msgRoleOf succeeded: $msg" }
+            return formatResponse(rsp, msg)
+        } catch(x: Exception) {
+            logger.error { "error deleting $msgRoleOf: ${x.message}" }
             return formatResponse(rsp, x)
         }
     }
