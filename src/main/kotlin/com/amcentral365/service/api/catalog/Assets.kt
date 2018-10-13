@@ -14,6 +14,7 @@ import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.pl4kotlin.closeIfCan
 
 import com.amcentral365.service.StatusException
+import com.amcentral365.service.StatusMessage
 import com.amcentral365.service.combineRequestParams
 import com.amcentral365.service.dao.Asset
 import com.amcentral365.service.dao.AssetValues
@@ -28,21 +29,19 @@ private val logger = KotlinLogging.logger {}
 class Assets {
 
     private fun assetIdByKey(assetIdOrName: String): UUID? {
-        try {
-            return UUID.fromString(assetIdOrName)
+        return try {
+            UUID.fromString(assetIdOrName)
         } catch(x: IllegalArgumentException) {
             val asset = Asset(assetIdOrName)
             val cnt = SelectStatement(asset, databaseStore::getGoodConnection).select(Asset::assetId).by(Asset::name).run()
-            return if( cnt == 0 ) null else asset.assetId
+            if( cnt == 0 ) null else asset.assetId
         }
     }
 
     private fun extractAssetIdOrDie(paramMap: MutableMap<String, String>): UUID {
         val pkParam = "asset_key"
         val pkKey = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }.trim()
-        val pkId = this.assetIdByKey(pkKey)
-        if( pkId == null )
-            throw StatusException(400, "asset with name '$pkKey' was not found")
+        val pkId = this.assetIdByKey(pkKey) ?: throw StatusException(400, "asset with name '$pkKey' was not found")
         paramMap.remove(pkParam)
 
         return pkId
@@ -92,7 +91,7 @@ class Assets {
             val paramMap = combineRequestParams(req)
             asset.assetId = this.extractAssetIdOrDie(paramMap)
             asset.assignFrom(paramMap)
-            logger.info() { "querying asset ${asset.assetId}" }
+            logger.info { "querying asset ${asset.assetId}" }
 
             val cnt = SelectStatement(asset, databaseStore::getGoodConnection)
                                         .select(asset.allCols).byPresentValues().run()
@@ -116,7 +115,7 @@ class Assets {
             val paramMap = combineRequestParams(req)
             assetValues.assetId = this.extractAssetIdOrDie(paramMap)
             assetValues.assignFrom(paramMap)
-            logger.info() { "listing roles of asset '${assetValues.assetId}'" }
+            logger.info { "listing roles of asset '${assetValues.assetId}'" }
 
             conn = databaseStore.getGoodConnection()
             val defs = SelectStatement(assetValues)
@@ -134,12 +133,12 @@ class Assets {
 
     fun getAssetByIdAndRole(req: Request, rsp: Response): String {
         val assetValues = AssetValues()
-        try {
+        return try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req)
             assetValues.assetId = this.extractAssetIdOrDie(paramMap)
             assetValues.assignFrom(paramMap)
-            logger.info() { "querying role '${assetValues.roleName}' of asset '${assetValues.assetId}'" }
+            logger.info { "querying role '${assetValues.roleName}' of asset '${assetValues.assetId}'" }
 
             if( assetValues.roleName == null )
                 return formatResponse(rsp, 400, "parameter 'role_name' is required")
@@ -149,38 +148,38 @@ class Assets {
             if( cnt == 0 )
                 return formatResponse(rsp, 404, "role '${assetValues.roleName}' of asset '${assetValues.assetId}' was not found")
 
-            return assetValues.asJsonStr()
+            assetValues.asJsonStr()
         } catch(x: Exception) {
             logger.info { "error querying role ${assetValues.roleName} of asset ${assetValues.assetId}: ${x.message}" }
-            return formatResponse(rsp, x)
+            formatResponse(rsp, x)
         }
     }
 
 
     fun createAsset(req: Request, rsp: Response): String {
         val asset = Asset()
-        try {
+        return try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req, parseJsonBody = true)
             asset.assignFrom(paramMap)
-            logger.info() { "creating asset '${asset.name}'" }
+            logger.info { "creating asset '${asset.name}'" }
 
             if( asset.name == null )
                 return formatResponse(rsp, 400, "parameter 'name' is required")
 
             val msg = databaseStore.insertObjectAsRow(asset)
             logger.info { "create asset ${asset.name}: ${msg.msg}" }
-            return formatResponse(rsp, msg, jsonIfOk = true)
+            formatResponse(rsp, msg, jsonIfOk = true)
 
         } catch(x: Exception) {
             logger.error { "error creating role ${asset.name}: ${x.message}" }
-            return formatResponse(rsp, x)
+            formatResponse(rsp, x)
         }
     }
 
     fun updateAsset(req: Request, rsp: Response): String {
         val asset = Asset()
-        try {
+        return try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req, parseJsonBody = true)
 
@@ -191,23 +190,23 @@ class Assets {
             val msg = databaseStore.updateObjectAsRow(asset)
             logger.info { "update asset ${asset.assetId}, name '${asset.name}' succeeded: $msg" }
 
-            return formatResponse(rsp, msg, jsonIfOk = true)
+            formatResponse(rsp, msg, jsonIfOk = true)
 
         } catch(x: Exception) {
             logger.error { "error updating asset ${asset.assetId}, name '${asset.name}': ${x.message}" }
-            return formatResponse(rsp, x)
+            formatResponse(rsp, x)
         }
     }
 
 
     fun addAssetRole(req: Request, rsp: Response): String {
         val assetValues = AssetValues()
-        try {
+        return try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req, parseJsonBody = true)
             assetValues.assetId = this.extractAssetIdOrDie(paramMap)
             assetValues.assignFrom(paramMap)
-            logger.info() { "adding role '${assetValues.roleName}' to asset '${assetValues.assetId}'" }
+            logger.info { "adding role '${assetValues.roleName}' to asset '${assetValues.assetId}'" }
 
             if( assetValues.roleName == null )
                 return formatResponse(rsp, 400, "parameter 'role_name' is required")
@@ -218,22 +217,22 @@ class Assets {
 
             val msg = databaseStore.insertObjectAsRow(assetValues)
             logger.info { "add asset role ${assetValues.roleName}: ${msg.msg}" }
-            return formatResponse(rsp, msg, jsonIfOk = true)
+            formatResponse(rsp, msg, jsonIfOk = true)
 
         } catch(x: Exception) {
             logger.error { "error adding role ${assetValues.roleName}: ${x.message}" }
-            return formatResponse(rsp, x)
+            formatResponse(rsp, x)
         }
     }
 
     fun updateAssetRole(req: Request, rsp: Response): String {
         val assetValues = AssetValues()
-        try {
+        return try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req, parseJsonBody = true)
             assetValues.assetId = this.extractAssetIdOrDie(paramMap)
             assetValues.assignFrom(paramMap)
-            logger.info() { "adding role '${assetValues.roleName}' to asset '${assetValues.assetId}'" }
+            logger.info { "adding role '${assetValues.roleName}' to asset '${assetValues.assetId}'" }
 
             if( assetValues.roleName == null )
                 return formatResponse(rsp, 400, "parameter 'role_name' is required")
@@ -246,37 +245,55 @@ class Assets {
             val msg = databaseStore.updateObjectAsRow(assetValues)
             logger.info { "updating role ${assetValues.roleName} of asset ${assetValues.assetId} succeeded: $msg" }
 
-            return formatResponse(rsp, msg, jsonIfOk = true)
+            formatResponse(rsp, msg, jsonIfOk = true)
 
         } catch(x: Exception) {
             logger.info { "error updating role ${assetValues.roleName} of asset ${assetValues.assetId}: ${x.message}" }
-            return formatResponse(rsp, x)
+            formatResponse(rsp, x)
         }
     }
 
 
     fun deleteAsset(req: Request, rsp: Response): String {
         val asset = Asset()
-        try {
+        var conn: Connection? = null
+        return try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req)
             asset.assetId = this.extractAssetIdOrDie(paramMap)
             asset.assignFrom(paramMap)
-            logger.info { "deleting asset '${asset.assetId}', name '${asset.name}'" }
+            val cascade = paramMap.getOrDefault("cascade", "false").toBoolean()
+            logger.info { "deleting asset '${asset.assetId}', name '${asset.name}', cascade='$cascade'" }
 
-            val msg = databaseStore.deleteObjectRow(asset)
-            logger.info { "deleting asset '${asset.assetId}', name '${asset.name}' succeeded: $msg" }
-            return formatResponse(rsp, msg)
+            if( asset.modifiedTs == null )
+                return formatResponse(rsp, 400, "the OptLock value modify_ts must be supplied to Delete")
+
+            conn = databaseStore.getGoodConnection()
+            if( cascade ) {
+                val assetValues = AssetValues(asset.assetId!!)
+                val cnt = DeleteStatement(assetValues, databaseStore::getGoodConnection).by(assetValues::assetId).run(conn)
+                logger.info { "deletrf $cnt roles of asset '${asset.assetId}', name '${asset.name}'" }
+            }
+
+            val cnt = DeleteStatement(asset).by(asset::assetId).run(conn)
+            if( cnt == 0 )
+                return formatResponse(rsp, 400, "asset with id ${asset.assetId} and modify_ts ${asset.modifiedTs} was not found")
+
+            logger.info { "deleted asset '${asset.assetId}', name '${asset.name}'" }
+            formatResponse(rsp, StatusMessage.OK)
+
         } catch(x: Exception) {
             logger.error { "error deleting asset '${asset.assetId}', name '${asset.name}': ${x.message}" }
-            return formatResponse(rsp, x)
+            formatResponse(rsp, x)
+        } finally {
+            closeIfCan(conn)
         }
     }
 
 
     fun deleteAssetRoles(req: Request, rsp: Response): String {
         val assetValues = AssetValues()
-        try {
+        return try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req)
             assetValues.assetId = this.extractAssetIdOrDie(paramMap)
@@ -289,10 +306,10 @@ class Assets {
 
             val msg = databaseStore.deleteObjectRow(assetValues)
             logger.info { "deleting roles of asset '${assetValues.assetId}' succeeded: $msg" }
-            return formatResponse(rsp, 200, "deleted $cnt role(s) of asset ${assetValues.assetId}")
+            formatResponse(rsp, 200, "deleted $cnt role(s) of asset ${assetValues.assetId}")
         } catch(x: Exception) {
             logger.error { "error deleting roles of asset '${assetValues.assetId}': ${x.message}" }
-            return formatResponse(rsp, x)
+            formatResponse(rsp, x)
         }
     }
 
@@ -300,7 +317,7 @@ class Assets {
     fun deleteAssetRole(req: Request, rsp: Response): String {
         val assetValues = AssetValues()
         var msgRoleOf = "~role/asset are yet unknown~"
-        try {
+        return try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req)
             assetValues.assetId = this.extractAssetIdOrDie(paramMap)
@@ -310,10 +327,10 @@ class Assets {
 
             val msg = databaseStore.deleteObjectRow(assetValues)
             logger.info { "deleting $msgRoleOf succeeded: $msg" }
-            return formatResponse(rsp, msg)
+            formatResponse(rsp, msg)
         } catch(x: Exception) {
             logger.error { "error deleting $msgRoleOf: ${x.message}" }
-            return formatResponse(rsp, x)
+            formatResponse(rsp, x)
         }
     }
 

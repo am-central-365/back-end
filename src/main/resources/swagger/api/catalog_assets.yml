@@ -81,12 +81,13 @@ $asset:
 
   delete:
     summary: Delete an asset
-    description: Fails on FK consgtraint if there are roles associated with the asset
+    description: Fails on FK consgtraint if there are roles associated with the asset, unless 'cascade=true' is added
     tags: [Core - Assets]
     produces: application/json]
     parameters:
-    - { in: path,  name: asset_key,   required: true, schema: {type: string},       description: "asset id or name"}
+    - { in: path,  name: asset_key,   required: true, schema: {type: string}, description: "asset id or name"}
     - { in: query, name: modified_ts, required: true, schema: {type: string,  format: timestamp}, description: "The OptLock value, as obtained by GET"}
+    - { in: query, name: cascade,     required: fase, schema: {type: boolean}, description: "delete asset roles"}
 
     responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/delete_resource'}] }
 

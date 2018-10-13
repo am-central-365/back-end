@@ -1,0 +1,4 @@
+#!/bin/sh
+python main.py --db localhost/amcentral365 --user amcentral365 --pass a 020_api_Roles.py
+
+

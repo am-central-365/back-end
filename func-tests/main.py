@@ -16,7 +16,7 @@ class Config:
         self.db_usr = self._consume_2param("-u", "--user") or "ituser"
         self.db_pwd = self._consume_2param("-p", "--pass") or "itpass"
         self.db_url = self._consume_2param("-d", "--db") or "localhost/it"
-        self.prep_sql = self._consume_2param("-s", "--sql") or "../sql/create_tables.sql"
+        self.prep_sql = self._consume_2param("-s", "--sql") or "../sql/core_tables_create.sql"
         self.api_base = self._consume_2param("-a", "--api") or "http://localhost:24941/v0.1"
         self.tests = self.args or self._get_test_filenames(TESTS_DIR)
         del self.args
@@ -25,7 +25,7 @@ class Config:
 
     def _consume_2param(self, *names):
         """ Read parameter """
-        for k in xrange(1, len(self.args)):
+        for k in xrange(len(self.args)):
             if self.args[k] in names:
                 if k+1 >= len(self.args):
                     logger.raw_log("Fatal: arg %s requires a parameter" % self.args[k])

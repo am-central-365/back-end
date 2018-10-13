@@ -18,7 +18,9 @@ def connect(cfg):
     db_config["host"] = u[0]
     #logger.log("++ db_config: %s", db_config)
 
-    return mysql.connector.connect(**db_config)
+    conn = mysql.connector.connect(**db_config)
+    sql(conn, "set session transaction isolation level read committed")
+    return conn
 
 
 def disconnect(conn):
