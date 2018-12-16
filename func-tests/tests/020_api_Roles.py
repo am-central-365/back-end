@@ -72,7 +72,7 @@ def main(cfg):
 
 def _role_name(k):    return "test_role_" + str(k)
 def _role_schema(k):  return "{" + '"a{num}": "string!", "b{num}": "boolean", "n{num}": "number"'.format(num=str(k)) + "}"
-def _role_schema2(k): return "{" + '"a{num}": "string!", "b{num}": "boolean", "n{num}": "number"'.format(num=str(k)) + "}"
+def _role_schema2(k): return "{" + '"z{num}": "string!", "y{num}": "boolean", "x{num}": "number"'.format(num=str(k)) + "}"
 
 def _testCreateNew(conn, how_many):
     logger.log("running CreateNew for %d entities", how_many)
@@ -155,7 +155,7 @@ def _testUpdate(conn, num, role):
     db_rec = Role(_read(conn, role.name)[0])
     assert db_rec.name        == role.name
     assert db_rec.clazz       == role.clazz
-    assert _eq_json_str(db_rec.role_schema, role.role_schema)
+    assert _eq_json_str(db_rec.role_schema, _update_data["role_schema"])
     assert db_rec.description == role.description
     assert db_rec.created_by  == role.created_by
     assert db_rec.modified_by == role.modified_by
@@ -163,6 +163,7 @@ def _testUpdate(conn, num, role):
     assert db_rec.modified_ts >  role.modified_ts
     assert db_rec.modified_ts == rsp_modified_ts
 
+    role.role_schema = db_rec.role_schema
     role.modified_ts = rsp_modified_ts
     return True
 

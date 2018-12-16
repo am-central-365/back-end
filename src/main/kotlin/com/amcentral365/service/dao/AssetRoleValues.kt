@@ -10,7 +10,7 @@ import com.amcentral365.pl4kotlin.Table
 
 
 @Table("asset_role_values")
-class AssetValues(): Entity() {
+class AssetRoleValues(): Entity() {
     @Column("asset_id",  pkPos = 1)      var assetId:   UUID? = null
     @Column("role_name", pkPos = 2)      var roleName:  String? = null
     @Column("asset_vals", isJson = true) var assetVals: String? = null  // JSON
