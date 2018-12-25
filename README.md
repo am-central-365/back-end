@@ -24,7 +24,7 @@ Subsequent builds (w/o "clean") run fine.
 
 Run
 ---
-The command takes various commdn-line options. Run it with `--help`
+The command takes various command-line options. Run it with `--help`
 for the list:
 
 `java -jar target/am-central-service.jar --help`
