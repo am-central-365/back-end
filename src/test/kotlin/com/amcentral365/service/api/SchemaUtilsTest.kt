@@ -159,6 +159,38 @@ internal class SchemaUtilsTest {
         assertEquals("$.a.b.c: cycle in role references. Role r2 was referenced by $.a", x.message)
     }
 
+    @Test fun `schema - anonymous ref`() {
+        val nodes = this.schemaUtils.validateAndCompile("r1",
+                """{
+                     "a": "boolean+",
+                     "b": {
+                       "_attr": "!+",
+                       "c": "number!",
+                       "d": "string",
+                       "e": {
+                         "f": "number^"
+                       }
+                     }
+                   }""".trimMargin()
+        )
+
+        assertEquals(9, nodes.size)
+
+        fun chk(nodeName: String, nodeType: SchemaUtils.TypeDef) {
+            val node = nodes.get(nodeName)
+            assertNotNull(node)
+            assertEquals(nodeName, node!!.attrName)
+            assertEquals(nodeType, node.type)
+        }
+
+        chk("$",         SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk("$.a",       SchemaUtils.TypeDef(SchemaUtils.ElementType.BOOLEAN, oneplus = true))
+        chk("$.b",       SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT, required = true, oneplus = true))
+        chk("$.b[]",     SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk("$.b[].e",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk("$.b[].e.f", SchemaUtils.TypeDef(SchemaUtils.ElementType.NUMBER, indexed = true))
+    }
+
     @Test fun `schema - array - empty`() {
         val x = assertThrows<StatusException> { this.schemaUtils.validateAndCompile("r1", """{"a": [] }""") }
         assertEquals(406, x.code)
@@ -363,6 +395,61 @@ internal class SchemaUtilsTest {
         }""".trimIndent()
 
         this.schemaUtils2.validateAssetValue("compute", assetJsonStr)
+    }
+
+
+    private val schemaUtils3 = object : SchemaUtils() {
+        val roles = mapOf(
+            "compute"    to roleSchemaCompute,
+            "disk_drive" to roleSchemaDiskDrive,
+            "watchers"   to roleSchemaWatchers,
+            "nested1"    to roleSchemaNested1,
+            "nested2"    to roleSchemaNested2,
+            "nested3"    to roleSchemaNested3
+        )
+
+        init {
+            this.validateAndCompile("nested3",    roleSchemaNested3)
+            this.validateAndCompile("nested2",    roleSchemaNested2)
+            this.validateAndCompile("nested1",    roleSchemaNested1)
+            this.validateAndCompile("watchers",   roleSchemaDiskDrive)
+            this.validateAndCompile("disk_drive", roleSchemaDiskDrive)
+            this.validateAndCompile("compute",    roleSchemaCompute)
+        }
+
+        override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
+    }
+
+    @Test fun `asset - validate - anonymous schema`() {
+        val su = object : SchemaUtils() {
+            init {
+                this.validateAndCompile("r1", """{
+                    "a": "boolean+",
+                    "b": {
+                       "_attr": "!+",
+                       "c": "string",
+                       "d": {
+                         "e": "number"
+                       },
+                       "f": "number"
+                    },
+                    "g": "string!"
+                   }""".trimMargin()
+                )
+            }
+        }
+
+        su.validateAssetValue("r1",
+            """{
+                 "a": [true, false, false],
+                 "b": [
+                    { "c": "def 1" },
+                    { "c": "def 3", "d": {}, "f": 14 },
+                    { "c": "def 2", "d": { "e": 4}, "f": 0.8 },
+                  ],
+                 "g": "24 Dec == 18 Hex"
+               }""".trimIndent()
+        )
     }
 
 }

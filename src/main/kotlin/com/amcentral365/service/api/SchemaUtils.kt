@@ -1,7 +1,9 @@
 package com.amcentral365.service.api
 
 import mu.KotlinLogging
-import java.lang.Exception
+
+import kotlin.Exception
+
 import java.util.Arrays
 
 import com.google.gson.JsonElement
@@ -21,6 +23,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParseException
 import com.google.gson.JsonPrimitive
 
+
 private val logger = KotlinLogging.logger {}
 
 private val validSchemaDefTypes = mapOf(
@@ -29,6 +32,8 @@ private val validSchemaDefTypes = mapOf(
     , "boolean" to SchemaUtils.ElementType.BOOLEAN
     , "map"     to SchemaUtils.ElementType.MAP
 )
+
+private const val attributeNodeName = "_attr"
 
 typealias CompiledSchema = Map<String, SchemaUtils.ASTNode>
 
@@ -67,12 +72,12 @@ open class SchemaUtils {
                 return postParse(workStr.trimEnd(), required, zeroplus, oneplus, indexed)
             }
 
-            @JvmStatic fun fromTypeName(elmName: String, typeStr: String): TypeDef =
+            @JvmStatic fun fromTypeName(elmName: String, typeStr: String, forcedType: ElementType? = null): TypeDef =
                 genericFrom(typeStr) { str, required, zeroplus, oneplus, indexed ->
-                    if( str !in validSchemaDefTypes )
+                    if( forcedType == null && str !in validSchemaDefTypes )
                         throw StatusException(406, "$elmName defines an invalid type '$str'. " +
                                 "The valid types are: ${validSchemaDefTypes.keys.joinToString(", ")}")
-                    TypeDef(validSchemaDefTypes[str]!!, required, zeroplus, oneplus, indexed)
+                    TypeDef(forcedType ?: validSchemaDefTypes[str]!!, required, zeroplus, oneplus, indexed)
                 }!!
 
             @JvmStatic fun fromEnumValue(elmName: String, enumVal: String): TypeDef? =
@@ -185,6 +190,21 @@ open class SchemaUtils {
     }
 
 
+    fun validateAndCompile(roleName: String, jsonStr: String
+        , rootElmName: String = "\$"
+        , seenRoles: MutableList<Pair<String, String>>? = null): CompiledSchema
+    {
+        try {
+            val elm0 = JsonParser().parse(jsonStr)
+            require(elm0.isJsonObject) { "$roleName: role schema must be a Json Object (e.g. the {...} thingy)" }
+            return this.validateAndCompile(roleName, elm0.asJsonObject, rootElmName, seenRoles)
+        } catch(x: JsonParseException) {
+            logger.warn { "failed validating/compiling schema for role $roleName: ${x.message}" }
+            throw StatusException(x, 406)
+        }
+    }
+
+
     /**
      * Convert JSON String representation of a role schema to compiled form
      *
@@ -193,23 +213,37 @@ open class SchemaUtils {
      * names serving as keys.
      * Full attribute name comprise of the full path from the root to the node.
      */
-    fun validateAndCompile(roleName: String, jsonStr: String
+    fun validateAndCompile(roleName: String, rootJsonObj: JsonObject
         , rootElmName: String = "\$"
-        , seenRoles: MutableList<Pair<String, String>>? = null): CompiledSchema
+        , seenRoles: MutableList<Pair<String, String>>? = null
+        , seenNodes: MutableMap<String, ASTNode>? = null): CompiledSchema
     {
-        logger.info { "validating/compiling schema for role $roleName" }
-        val compiledNodes: MutableMap<String, ASTNode> = mutableMapOf()
+        logger.info { "validating/compiling schema for role $roleName, root $rootElmName" }
+        val compiledNodes = seenNodes ?: mutableMapOf()
 
         try {
-            val elm0 = JsonParser().parse(jsonStr)
-            require(elm0.isJsonObject) { "Role Schema must be a Json Object (e.g. the {...} thingy)" }
-
-            walkJson(rootElmName, elm0.asJsonObject,
+            walkJson(rootElmName, rootJsonObj,
                 onNull   = { name -> throw StatusException(406, "$name is null, what is it supposed to define?") }
               , onObject = { name, elm ->
                     if( elm.size() == 0 )
                         throw StatusException(406, "$name: no members defined")
-                    compiledNodes.put(name, ASTNode(name, TypeDef(ElementType.OBJECT)))
+                    try {
+                        val attrStr = elm.getAsJsonPrimitive(attributeNodeName)?.asString
+                        val tpd = if(attrStr == null) TypeDef(ElementType.OBJECT)
+                                  else TypeDef.fromTypeName(name, attrStr, ElementType.OBJECT)
+                        compiledNodes.putIfAbsent(name, ASTNode(name, tpd))
+
+                        if( tpd.multiple && elm != rootJsonObj ) {
+                            val pluralName = "$name[]"
+                            compiledNodes.put(pluralName, ASTNode(pluralName, TypeDef(ElementType.OBJECT)))
+                            validateAndCompile(roleName, elm, rootElmName = pluralName,
+                                    seenRoles = seenRoles, seenNodes = compiledNodes)
+                            return@walkJson false
+                        }
+
+                    } catch(x: Exception) {
+                        throw StatusException(406, "$name: processing $attributeNodeName: ${x.message}")
+                    }
                     true
                 }
 
@@ -258,9 +292,11 @@ open class SchemaUtils {
                     if( !prm.isString )
                         throw StatusException(406, "Wrong type of $name, should be string")
 
-                    if( prm.asString.startsWith('@'))  {
+                    if( name.endsWith("."+attributeNodeName) ) {
+                        // do nothing, already processed when encounterd the object
+                    } else if( prm.asString.startsWith('@')) {
                         val rfRoleNameWithFlags = prm.asString.substring(1)
-                        if( rfRoleNameWithFlags.isBlank() )
+                        if(rfRoleNameWithFlags.isBlank())
                             throw StatusException(406, "$name defines an empty reference '@'")
 
                         var rfRoleName = rfRoleNameWithFlags
@@ -269,7 +305,7 @@ open class SchemaUtils {
                             TypeDef(ElementType.OBJECT, required, zeroplus, oneplus, indexed)
                         }!!
 
-                        if( rfRoleName == roleName )
+                        if(rfRoleName == roleName)
                             throw StatusException(406, "$name references the same role $roleName")
 
                         val seeenRoles = seenRoles ?: mutableListOf(Pair("$", roleName))
@@ -278,11 +314,11 @@ open class SchemaUtils {
                             throw StatusException(406, "$name: cycle in role references. Role $rfRoleName was referenced by ${seeenRoles[prevIdx].first}")
 
                         seeenRoles.add(Pair(name, rfRoleName))
-                        val rfSchemaStr = loadSchemaFromDb(rfRoleName) ?:
-                                throw StatusException(406, "$name references unknown role '$rfRoleName'")
+                        val rfSchemaStr = loadSchemaFromDb(rfRoleName)
+                                ?: throw StatusException(406, "$name references unknown role '$rfRoleName'")
 
                         // NB: recursive call
-                        val subAttrRoot = if( typeDef.multiple ) "$name[]" else name
+                        val subAttrRoot = if(typeDef.multiple) "$name[]" else name
                         compiledNodes.put(name, ASTNode(name, typeDef))
                         compiledNodes.putIfAbsent(subAttrRoot, ASTNode(subAttrRoot, TypeDef(typeDef.typeCode)))
                         val rfSchemas = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = subAttrRoot, seenRoles = seeenRoles)
