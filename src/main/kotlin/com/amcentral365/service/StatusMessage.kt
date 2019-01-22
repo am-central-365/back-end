@@ -3,7 +3,7 @@ package com.amcentral365.service
 import com.google.gson.JsonObject
 
 
-internal class StatusMessage(val code: Int, val msg: String) {
+class StatusMessage(val code: Int, val msg: String) {
 
     companion object {
         val OK = StatusMessage(200, "ok")

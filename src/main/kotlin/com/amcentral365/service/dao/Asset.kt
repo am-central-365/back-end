@@ -10,7 +10,7 @@ import com.amcentral365.pl4kotlin.Table
 
 
 @Table("assets")
-class Asset(): Entity() {
+open class Asset(): Entity() {
     @Column("asset_id", pkPos = 1, onInsert = Generated.OneTheClientWhenNull) var assetId: UUID? = null
     @Column("name")        var name:        String? = null
     @Column("description") var description: String? = null

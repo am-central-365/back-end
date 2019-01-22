@@ -7,6 +7,7 @@ import com.amcentral365.pl4kotlin.Table
 import java.sql.Timestamp
 import java.util.UUID
 
+@Deprecated("use com.amcentral365.service.builtins.roles.Script", level = DeprecationLevel.ERROR)
 @Table("scripts")
 class Script: Entity() {
     enum class Uncompress { Dont, Zip }

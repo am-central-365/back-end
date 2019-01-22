@@ -1,0 +1,7 @@
+{
+  "protocol":       ["!", "ssh", "localhost"],
+  "as-user":        "string",
+  "as-credentials": ["password", "keyfile"],
+  "as-method":      ["!","sudo"],
+  "base-dir":       "string!"
+}

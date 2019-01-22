@@ -131,6 +131,12 @@ components:
 
 
 paths:
+  /devcall:
+   get:
+     summary: Used to invoke code under development. Remove it.
+     tags: [Other]
+     produces:  [text/plain]
+
   /publicKey:
    get:
      summary: Get amcentral365 public key as plain text

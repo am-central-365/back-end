@@ -17,7 +17,7 @@ const val DBERR_DUP_VAL_ON_INDEX = 1062
 class DatabaseStore {
     companion object: KLogging()
 
-    internal fun getGoodConnection(): Connection {
+    fun getGoodConnection(): Connection {
         while( keepRunning ) {
             try {
                 logger.debug { "connecting to ${config.dbUrl} as ${config.dbUsr}" }

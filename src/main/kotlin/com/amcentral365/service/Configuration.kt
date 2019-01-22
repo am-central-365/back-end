@@ -17,7 +17,7 @@ private val logger = KotlinLogging.logger {}
 
 class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-service") {
     val DBSTORE_RECONNECT_DELAY_SEC: Int = 2
-
+    val SystemTempDirName = System.getProperty("java.io.tmpdir")
 
     val verbosity: Int by option("-v", "--verbosity").int().default(2).validate {
         if( it < 0 || it > 4 )
@@ -69,6 +69,26 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
         if( it < 100 )
             fail("schema-cache-size-in-nodes must be 100 or greater")
     }
+
+    val localScriptExecBaseDir: String by option("--local-script-exec-base--dir",
+            help = "Base directory for running scripts meant to be executed on the am-centrral worker machine")
+            .default("/tmp")
+
+    val defaultScriptExecTimeoutSec: Long by option("--default-script-exec-timeout-msec",
+            help = "How long, in seconds, a script is allowed to run before it is cancelled. Zero for no limit.")
+            .long()
+            .default(0)
+
+    val defaultScriptIdleTimeoutSec: Long by option("--default-script-idle-timeout-msec",
+            help = "How long, in seconds, a script is allowed to run without producing output. Zero for no limit.")
+            .long()
+            .default(0)
+
+    val scriptOutputPollIntervalMsec: Long by option("--script-output-poll-interval-msec",
+            help = "How frequent do we check for script output, in milliseconds")
+            .long()
+            .default(200)
+
 
     override fun run() {
 

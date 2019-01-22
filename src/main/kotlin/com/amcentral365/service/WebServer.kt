@@ -41,6 +41,9 @@ class WebServer {
         // TODO: Always gzip responses
         // spark.Spark.after("*", fun(_: Request, rsp: Response) = rsp.header("Content-Encoding", "gzip"))
 
+        // development-time call to initiate dev functionality. Remove it.
+        spark.Spark.get("$API_BASE/devcall", fun(req, rsp) = this._devcall(req, rsp))
+
         // ------------------------------- the API
         spark.Spark.get("$API_BASE/publicKey", fun(req, rsp) = this.getPublicKey(req, rsp))
 
@@ -101,6 +104,7 @@ class WebServer {
         rsp.type("text/plain")
         return Resources.toString(Resources.getResource("ssh-key.pub"), Charsets.US_ASCII)
     }
+
 
     @VisibleForTesting
     internal fun listDaoEntities() = gson.toJson(Meta.entities.map { Meta.tableName(it) })
@@ -225,4 +229,13 @@ class WebServer {
             closeIfCan(conn)
         }
     }
+
+
+    internal fun _devcall(req: Request, rsp: Response): String {
+        logger.debug { "devcall from ${req.ip()}" }
+        rsp.type("text/plain")
+        _devcall()
+        return "Nada"
+    }
+
 }
