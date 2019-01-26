@@ -53,5 +53,5 @@ class StringOutputStream: OutputStream() {
 
     override fun write(b: Int) = byteStream.write(b)
 
-    fun getString() = this.byteStream.toString("UTF-8")!!
+    fun getString() = this.byteStream.toString(config.charSetName)!!
 }

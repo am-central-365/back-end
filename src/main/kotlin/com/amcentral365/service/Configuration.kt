@@ -7,10 +7,12 @@ import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.convert
 import com.github.ajalt.clikt.parameters.options.multiple
+import com.github.ajalt.clikt.parameters.options.versionOption
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
 
 import mu.KotlinLogging
+import java.nio.charset.Charset
 
 
 private val logger = KotlinLogging.logger {}
@@ -89,6 +91,12 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             .long()
             .default(200)
 
+    lateinit var charSet: Charset private set
+    val charSetName: String by option("--charset", help = "Character Set used for almost everything")
+            .default("UTF-8")
+            .validate {
+                charSet = Charset.forName(it)  // throws IllegalCharsetNameException if charSetName is invalid
+            }
 
     override fun run() {
 
@@ -132,6 +140,7 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
     }
 
     init {
+        this.versionOption("0.0.1")
         this.main(args)    // calls run() if everything is ok
 
         logger.info { """

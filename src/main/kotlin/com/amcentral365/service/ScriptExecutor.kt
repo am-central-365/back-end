@@ -4,15 +4,16 @@ import mu.KotlinLogging
 
 import com.amcentral365.service.builtins.roles.Script
 import com.google.common.base.Stopwatch
+import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 import kotlin.reflect.jvm.jvmName
 
 private val logger = KotlinLogging.logger {}
 
-open class ScriptExecutor(val threadId: String, val script: Script, val target: ExecutionTarget) {
+open class ScriptExecutor(private val threadId: String) {
 
-    fun run(outputStream: OutputStream) {
+    fun run(script: Script, target: ExecutionTarget, outputStream: OutputStream, inputStream: InputStream? = null) {
         var connected = false
         try {
             logger.info { "${this.threadId}: connecting to target ${target.name}" }
@@ -31,7 +32,7 @@ open class ScriptExecutor(val threadId: String, val script: Script, val target: 
             try {
                 logger.info { "${this.threadId}: executing script ${script.name} on target ${target.name}" }
                 val w = Stopwatch.createStarted()
-                target.execute(script, outputStream)
+                target.execute(script, outputStream, inputStream)
                 logger.info { "${this.threadId}: executed in ${w.elapsed(TimeUnit.MILLISECONDS)} msec" }
             } finally {
                 logger.info { "${this.threadId}: cleaning up after script ${script.name} on target ${target.name}" }
