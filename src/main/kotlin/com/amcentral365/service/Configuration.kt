@@ -1,5 +1,6 @@
 package com.amcentral365.service
 
+import com.amcentral365.service.builtins.AMCWorkerAssetId
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.default
@@ -7,12 +8,14 @@ import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.convert
 import com.github.ajalt.clikt.parameters.options.multiple
+import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.versionOption
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
 
 import mu.KotlinLogging
 import java.nio.charset.Charset
+import java.util.UUID
 
 
 private val logger = KotlinLogging.logger {}
@@ -47,7 +50,7 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
     val clusterNodeNames: MutableList<Pair<String, Short>> = mutableListOf()
     private val rawClusterNodeNames: List<String> by option("-n", "--node", "--nodes",
             help = """
-                |Comma-separated list of amcentral365 cluster nodes.
+                |Comma-separated list of the worker nodes.
                 |The parameter may be specified multiple times, all values are combined into a single list.
                 |When omitted, the values are obtained by resolving --cluster-fqdn.
                 |
@@ -62,10 +65,15 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                 |Passed as the callback address to the user scripts.
                 |When omitted, the invoking node address is used.
                 |
-                |The format is FQDN[:port], port defaults to --bind-port value.
+                |The format is FQDN[:port], the port defaults to the --bind-port value.
                 """.trimMargin()
             ).default("")
 
+
+    lateinit var assetId: UUID
+    private val rawAssetId: UUID? by option("--asset-id", help="this worker asset id")
+            .convert { UUID.fromString(it) }
+            .default(AMCWorkerAssetId)
 
     val schemaCacheSizeInNodes: Long by option("--schema-cache-size-in-nodes").long().default(1000).validate {
         if( it < 100 )
@@ -76,14 +84,14 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             help = "Base directory for running scripts meant to be executed on the am-centrral worker machine")
             .default("/tmp")
 
-    val defaultScriptExecTimeoutSec: Long by option("--default-script-exec-timeout-msec",
+    val defaultScriptExecTimeoutSec: Int by option("--default-script-exec-timeout-sec",
             help = "How long, in seconds, a script is allowed to run before it is cancelled. Zero for no limit.")
-            .long()
+            .int()
             .default(0)
 
-    val defaultScriptIdleTimeoutSec: Long by option("--default-script-idle-timeout-msec",
+    val defaultScriptIdleTimeoutSec: Int by option("--default-script-idle-timeout-msec",
             help = "How long, in seconds, a script is allowed to run without producing output. Zero for no limit.")
-            .long()
+            .int()
             .default(0)
 
     val scriptOutputPollIntervalMsec: Long by option("--script-output-poll-interval-msec",
@@ -136,7 +144,6 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             }
             logger.info { "${this.clusterFQDN} resolved to: ${resolved.joinToString(", ")}" }
         }
-
     }
 
     init {

@@ -55,6 +55,9 @@ with special symbols '!', '*', '+' and '^' for `required`, `zero-or-more`,
 * `+` a non-empty array. But unless `!` was specified, the entire attribute may missing or null
 * `^` will be "indexed", but currently ignored.
 
+TODO:
+* `#` encrypted, used for passwords and other sensitive data.
+
 E.g:
 - `string`:   denotes an optional single string value
 - `string!`:  denotes a required single string value

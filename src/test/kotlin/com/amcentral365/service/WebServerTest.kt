@@ -34,6 +34,6 @@ internal class WebServerTest {
         val daos = WebServer().listDaoEntities()
         assertNotNull(daos)
         assertTrue(daos.length > 0)
-        assertTrue(daos.indexOf("script_stores") >= 0)
+        assertTrue(daos.indexOf("asset_role_values") >= 0)
     }
 }

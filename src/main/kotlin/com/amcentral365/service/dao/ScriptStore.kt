@@ -8,7 +8,7 @@ import com.amcentral365.service.authUser
 import java.sql.Timestamp
 import java.util.UUID
 
-@Deprecated("gone")
+@Deprecated("gone", level = DeprecationLevel.ERROR)
 @Table("script_stores")
 class ScriptStore: Entity() {
     enum class StoreType { LocalFile, GitHub, Nexus }

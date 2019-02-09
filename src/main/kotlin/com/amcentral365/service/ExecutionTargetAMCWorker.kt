@@ -18,8 +18,8 @@ private val logger = KotlinLogging.logger {}
 class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget {
     private var workDirName: String? = null
     private var content: String? = null
-    private var execTimeoutSec: Long = 0
-    private var idleTimeoutSec: Long = 0
+    private var execTimeoutSec: Int = 0
+    private var idleTimeoutSec: Int = 0
 
     override var asset: Asset? = null
     override val name get() = if( this.asset?.name == null ) "not defined" else this.asset!!.name!!
@@ -161,13 +161,25 @@ Asset:
    {"pk": {"asset_id": "8b0f7f5e-569d-462a-baac-f2f16e982c2a"}, "optLock": {"modified_ts": "2019-01-26 17:36:30.0"}}
 
 
-Asset role: pwd script:
-
+pwd script:
 {"role_name": "script", "asset_vals": {
     "location":     { "content": {"body": "pwd", "version": "1.0.0"}},
     "target-role": "script-target-host"}}
 =>
    {"pk": {"asset_id": "8b0f7f5e-569d-462a-baac-f2f16e982c2a", "role_name": "script"}, "optLock": {"modified_ts": "2019-01-26 17:40:43.0"}}
+
+cat :
+Asset:  {"name": "script-test-fs-1", "description": "Testing /usr/bin/id"} =>
+   {"pk": {"asset_id": "6d7169ca-d6b0-47ba-b298-1f3a45bbcea1"}, "optLock": {"modified_ts": "2019-01-27 18:08:30.0"}}
+
+Script:
+    {"role_name": "script", "asset_vals": {
+        "location":   {"fileSystemPath": "/usr/bin/id"},
+        "scriptMain", {"main": "/usr/bin/id", "params": ["-G", "n"], "sudo_as": "root" },
+        "target-role": "script-target-host"}}
+    =>
+       {"pk": {"asset_id": "8b0f7f5e-569d-462a-baac-f2f16e982c2a", "role_name": "script"}, "optLock": {"modified_ts": "2019-01-26 17:40:43.0"}}
+
 */
 
     try {

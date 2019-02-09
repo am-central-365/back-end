@@ -34,8 +34,8 @@ data class ScriptMain(
     val params:      Array<String>? = null,
     val sudo_as:     String? = null,
     val workdir:     String? = null,
-    val execTimeoutSec: Long? = null,
-    val idleTimeoutSec: Long? = null
+    val execTimeoutSec: Int? = null,
+    val idleTimeoutSec: Int? = null
 ) {
     constructor(): this(null)
 

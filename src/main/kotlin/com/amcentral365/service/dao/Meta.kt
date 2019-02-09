@@ -12,7 +12,7 @@ class Meta {
             Role::class
           , Asset::class
           , AssetRoleValues::class
-          , ScriptStore::class
+        //, ScriptStore::class
         ).sortedBy { Meta.tableName(it) }
 
         fun tableName(clazz: KClass<out Entity>) = clazz.findAnnotation<Table>()!!.tableName
