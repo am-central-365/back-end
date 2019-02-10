@@ -1,0 +1,83 @@
+components:
+  requestBodies:
+    update_asset:
+      description: The asset properties, see table ASSETS.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              asset_name:  {type: string, maximum: 100, required: true}
+              description: {type: string, maximum: 64000}
+              modified_ts: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
+
+
+root:
+  get:
+    tags: [Execute]
+    summary: List executions
+    produces: [application/json]
+    parameters:
+   #- { in: query, name: q,     schema: {type: string}, description: "JSON query as described in the docs"}
+    - { in: query, name: script_name_like, schema: {type: string}, description: "a SQL LIKE pattern to match against script name. Ex: 'maintenance%'"}
+    - { in: query, name: target_name_like, schema: {type: string}, description: "a SQL LIKE pattern to match against target name. Ex: 'webserver%'"}
+    - { in: query, name: skip,      schema: {type: integer, default: 0}, description: "Number of items to skip"}
+    - { in: query, name: limit,     schema: {type: integer, default: 0}, description: "Limit the number of items returned. 0 for no limit."}
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+  post:
+    tags: [Execute]
+    summary: Execute a script synchronously
+    description: Executes a script for the specified target. The execution is synchronous, the call does not
+                 return until it is finished. While the target is a single asset, it could be a composite one,
+                 such as a cluster. It is up to the script to handle such targets properly.
+
+    requestBody:
+      description: Asset properties, see table ASSETS.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              script_key:  {type: string, maximum: 100, required: true, description: "asset id or name of the script"}
+              target_key:  {type: string, maximum: 100, required: true, description: "asset id or name of the target"}
+             #channel_key: {type: string, maximum: 100, description: "asset id or name of the channel where the output is posted in real time"}
+             #tags:        {type: array, items: {type: string, maximum: 100} }
+              comment: {type: string, maximum: 4000, description: "invocation notes, if any"}
+
+    responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/start_resource'}] }
+
+
+$execute:
+  get:
+    tags: [Execute]
+    summary: Get execute info
+    description: Get status, start/finish times, log and output URLs, etc
+    produces: [application/json]
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+    parameters:
+    - { in: path, name: execute_id, required: true, schema: {type: string, format: uuid}, description: "asset id of the execute"}
+
+$execute_log:
+  get:
+    tags: [Execute]
+    summary: Get execute log
+    produces: [text/plain]
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+    parameters:
+    - { in: path, name: execute_id, required: true, schema: {type: string, format: uuid}, description: "asset id of the execute"}
+
+
+$execute_output:
+  get:
+    tags: [Execute]
+    summary: Get output of the script
+    produces: [text/plain]
+    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
+
+    parameters:
+    - { in: path, name: execute_id, required: true, schema: {type: string, format: uuid}, description: "asset id of the execute"}

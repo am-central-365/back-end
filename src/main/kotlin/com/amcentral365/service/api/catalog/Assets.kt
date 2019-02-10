@@ -26,7 +26,7 @@ import com.amcentral365.service.schemaUtils
 private val logger = KotlinLogging.logger {}
 
 
-class Assets {
+class Assets { companion object {
 
     private fun assetIdByKey(assetIdOrName: String): UUID? {
         return try {
@@ -334,4 +334,4 @@ class Assets {
         }
     }
 
-}
+}}

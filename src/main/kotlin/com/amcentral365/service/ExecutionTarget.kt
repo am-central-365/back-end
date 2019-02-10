@@ -9,7 +9,7 @@ import java.io.OutputStream
 
 interface ExecutionTarget {
     var asset: Asset?
-    val name: String
+    val name: String get() = if( this.asset?.name == null ) "not defined" else this.asset!!.name!!
 
     /**
      * ssh to the remote host, connect to the database, or the like.

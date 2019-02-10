@@ -15,6 +15,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.amcentral365.pl4kotlin.Entity
 import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.pl4kotlin.closeIfCan
+import com.amcentral365.service.api.Executes
 
 import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.api.catalog.Roles
@@ -59,27 +60,32 @@ class WebServer {
             spark.Spark.delete("$apiBaseForAdminData/$tn", fun(req, rsp) = this.restCallForPersistentObject(req, rsp, it))
         }
 
-        val roles = Roles()
-        spark.Spark.get   ("$API_BASE/catalog/roles",            fun(req, rsp) = roles.listRoles(req, rsp))
-        spark.Spark.post  ("$API_BASE/catalog/roles",            fun(req, rsp) = roles.createRole(req, rsp))
-        spark.Spark.get   ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.listRoles(req, rsp))
-        spark.Spark.post  ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.updateRole(req, rsp))
-        spark.Spark.delete("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = roles.deleteRole(req, rsp))
+        spark.Spark.get   ("$API_BASE/catalog/roles",            fun(req, rsp) = Roles.listRoles(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/roles",            fun(req, rsp) = Roles.createRole(req, rsp))
+        spark.Spark.get   ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = Roles.listRoles(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = Roles.updateRole(req, rsp))
+        spark.Spark.delete("$API_BASE/catalog/roles/:role_name", fun(req, rsp) = Roles.deleteRole(req, rsp))
 
-        val assets = Assets()
-        spark.Spark.get("$API_BASE/catalog/assets",                              fun(req, rsp) = assets.listAssets(req, rsp))
-        spark.Spark.get("$API_BASE/catalog/assets/:asset_key",                   fun(req, rsp) = assets.getAssetById(req, rsp))
-        spark.Spark.get("$API_BASE/catalog/assets/:asset_key/roles",             fun(req, rsp) = assets.listAssetRoles(req, rsp))
-        spark.Spark.get("$API_BASE/catalog/assets/:asset_key/roles/:role_name",  fun(req, rsp) = assets.getAssetByIdAndRole(req, rsp))
+        spark.Spark.get("$API_BASE/catalog/assets",                              fun(req, rsp) = Assets.listAssets(req, rsp))
+        spark.Spark.get("$API_BASE/catalog/assets/:asset_key",                   fun(req, rsp) = Assets.getAssetById(req, rsp))
+        spark.Spark.get("$API_BASE/catalog/assets/:asset_key/roles",             fun(req, rsp) = Assets.listAssetRoles(req, rsp))
+        spark.Spark.get("$API_BASE/catalog/assets/:asset_key/roles/:role_name",  fun(req, rsp) = Assets.getAssetByIdAndRole(req, rsp))
 
-        spark.Spark.post  ("$API_BASE/catalog/assets",                             fun(req, rsp) = assets.createAsset(req, rsp))
-        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_key",                  fun(req, rsp) = assets.updateAsset(req, rsp))
-        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_key/roles",            fun(req, rsp) = assets.addAssetRole(req, rsp))
-        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_key/roles/:role_name", fun(req, rsp) = assets.updateAssetRole(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/assets",                             fun(req, rsp) = Assets.createAsset(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_key",                  fun(req, rsp) = Assets.updateAsset(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_key/roles",            fun(req, rsp) = Assets.addAssetRole(req, rsp))
+        spark.Spark.post  ("$API_BASE/catalog/assets/:asset_key/roles/:role_name", fun(req, rsp) = Assets.updateAssetRole(req, rsp))
 
-        spark.Spark.delete("$API_BASE/catalog/assets/:asset_key",                  fun(req, rsp) = assets.deleteAsset(req, rsp))
-        spark.Spark.delete("$API_BASE/catalog/assets/:asset_key/roles",            fun(req, rsp) = assets.deleteAssetRoles(req, rsp))
-        spark.Spark.delete("$API_BASE/catalog/assets/:asset_key/roles/:role_name", fun(req, rsp) = assets.deleteAssetRole(req, rsp))
+        spark.Spark.delete("$API_BASE/catalog/assets/:asset_key",                  fun(req, rsp) = Assets.deleteAsset(req, rsp))
+        spark.Spark.delete("$API_BASE/catalog/assets/:asset_key/roles",            fun(req, rsp) = Assets.deleteAssetRoles(req, rsp))
+        spark.Spark.delete("$API_BASE/catalog/assets/:asset_key/roles/:role_name", fun(req, rsp) = Assets.deleteAssetRole(req, rsp))
+
+        spark.Spark.get ("$API_BASE/executes",                    fun(req, rsp) = Executes.list(req, rsp))
+        spark.Spark.post("$API_BASE/executes",                    fun(req, rsp) = Executes.start(req, rsp))
+        spark.Spark.get ("$API_BASE/executes/:execute_id",        fun(req, rsp) = Executes.getInfo(req, rsp))
+        spark.Spark.get ("$API_BASE/executes/:execute_id/log",    fun(req, rsp) = Executes.getLog(req, rsp))
+        spark.Spark.get ("$API_BASE/executes/:execute_id/output", fun(req, rsp) = Executes.getOutput(req, rsp))
+
     }
 
     private fun handleCORS() {

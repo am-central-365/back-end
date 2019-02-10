@@ -20,7 +20,8 @@ import com.amcentral365.service.dao.Role
 private val logger = KotlinLogging.logger {}
 
 
-class Roles {
+class Roles { companion object {
+
     private val restToColDef = Role().allCols.map { it.restParamName to it }.toMap()
 
     fun listRoles(req: Request, rsp: Response): String {
@@ -46,14 +47,14 @@ class Roles {
         when {
             field.isNotEmpty() -> {
 
-                require( this.restToColDef.contains(field))
+                require( this.restToColDef.contains(field) )
                     { throw StatusException(400, "parameter '$field' is not a valid REST parameter for Role") }
                 selStmt.select(this.restToColDef.getValue(field).columnName)
 
             }
             fields.isNotEmpty() -> selStmt.select(
                     fields.split(',').map { restParam ->
-                        require(this.restToColDef.contains(restParam))
+                        require( this.restToColDef.contains(restParam) )
                             { throw StatusException(400, "parameter '$restParam' is not a valid REST parameter for Role") }
                         this.restToColDef.getValue(restParam)
                     }
@@ -66,7 +67,7 @@ class Roles {
         return try {
 
             conn = databaseStore.getGoodConnection()
-            val defs = selStmt.iterate(conn).asSequence().filterIndexed{k, _ -> k >= skipCount}.take(fetchLimit).toList()
+            val defs = selStmt.iterate(conn).asSequence().filterIndexed { k, _ -> k >= skipCount }.take(fetchLimit).toList()
 
             if( role.roleName != null ) {  // A concrete role GET
                 if( defs.isEmpty() )
@@ -79,7 +80,7 @@ class Roles {
             return toJsonArray(defs, if( field.isNotEmpty() ) this.restToColDef.getValue(field).columnName else null)
 
         } catch(x: Exception) {
-            logger.error{ "error querying role ${role.roleName}: ${x.message}" }
+            logger.error { "error querying role ${role.roleName}: ${x.message}" }
             formatResponse(rsp, x)
         } finally {
             closeIfCan(conn)
@@ -142,7 +143,7 @@ class Roles {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req)
             role.assignFrom(paramMap)
-            if(role.roleName == null)
+            if( role.roleName == null )
                 return formatResponse(rsp, 400, "parameters 'role_name' is required")
 
             logger.info { "deleting role '${role.roleName}'" }
@@ -154,4 +155,4 @@ class Roles {
             return formatResponse(rsp, x)
         }
     }
-}
+}}

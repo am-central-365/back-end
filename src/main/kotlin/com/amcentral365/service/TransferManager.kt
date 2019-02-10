@@ -1,7 +1,5 @@
-package com.amcentral365.service.builtins.roles
+package com.amcentral365.service
 
-import com.amcentral365.service.StatusException
-import com.amcentral365.service.config
 import mu.KotlinLogging
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -77,7 +75,7 @@ class TransferManager(private val threadId: String) {
 
 class SenderOfInlineContent(private val content: String): TransferManager.Sender() {
     override fun getIterator(): Iterator<TransferManager.Item> = listOf(
-            TransferManager.Item(pathStr="", inputStream = ByteArrayInputStream(content.toByteArray(config.charSet)))
+            TransferManager.Item(pathStr = "", inputStream = ByteArrayInputStream(content.toByteArray(config.charSet)))
         ).iterator()
 
 }
@@ -85,7 +83,7 @@ class SenderOfInlineContent(private val content: String): TransferManager.Sender
 
 class SenderOfFileSystemPath(private val pathStr: String): TransferManager.Sender() {
     override fun getIterator(): Iterator<TransferManager.Item> = listOf(
-            TransferManager.Item(pathStr=this.pathStr, verifyPathExists = true)
+            TransferManager.Item(pathStr = this.pathStr, verifyPathExists = true)
         ).iterator()
 }
 

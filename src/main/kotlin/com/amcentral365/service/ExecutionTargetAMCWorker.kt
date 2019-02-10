@@ -1,6 +1,5 @@
 package com.amcentral365.service
 
-import com.amcentral365.service.builtins.roles.ReceiverLocalhost
 import java.io.File
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
@@ -8,7 +7,6 @@ import java.util.UUID
 
 import mu.KotlinLogging
 import com.amcentral365.service.builtins.roles.Script
-import com.amcentral365.service.builtins.roles.TransferManager
 import com.amcentral365.service.dao.Asset
 import java.io.InputStream
 import kotlin.reflect.jvm.jvmName
@@ -16,13 +14,12 @@ import kotlin.reflect.jvm.jvmName
 private val logger = KotlinLogging.logger {}
 
 class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget {
+    override var asset: Asset? = null
+
     private var workDirName: String? = null
     private var content: String? = null
     private var execTimeoutSec: Int = 0
     private var idleTimeoutSec: Int = 0
-
-    override var asset: Asset? = null
-    override val name get() = if( this.asset?.name == null ) "not defined" else this.asset!!.name!!
 
     override fun connect() = true
     override fun disconnect() {}

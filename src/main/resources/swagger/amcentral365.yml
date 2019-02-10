@@ -129,6 +129,12 @@ components:
       400: { $ref: '#/components/responses/400_bad_input' }
       500: { $ref: '#/components/responses/500_server_error' }
 
+    start_resource:
+      201: { $ref: '#/components/responses/201_started' }
+      406: { $ref: '#/components/responses/406_not_acceptable' }
+      400: { $ref: '#/components/responses/400_bad_input' }
+      500: { $ref: '#/components/responses/500_server_error' }
+
 
 paths:
   /devcall:
@@ -175,7 +181,21 @@ paths:
     $ref: 'api/catalog_assets.yml#$asset_role'
 
 
+  # ------------------- scripts and tasks
+  /executes:
+    $ref: 'api/executes.yml#root'
 
+  /executes/{execute_id}:
+    $ref: 'api/executes.yml#$execute'
+
+  /executes/{execute_id}/log:
+    $ref: 'api/executes.yml#$execute_log'
+
+  /executes/{execute_id}/output:
+    $ref: 'api/executes.yml#$execute_output'
+
+
+  # *********************************************** Random thoughts
 
 
   /catalog/assets/$asset_id/roles/$role_name:
