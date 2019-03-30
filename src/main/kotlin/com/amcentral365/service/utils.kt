@@ -5,7 +5,6 @@ import mu.KotlinLogging
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.net.Inet4Address
-import java.util.Enumeration
 import java.net.NetworkInterface
 import java.net.SocketException
 

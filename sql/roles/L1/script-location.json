@@ -1,5 +1,5 @@
 {
-  "role_name": "script-location",
+  "roleName": "script-location",
   "class": "location",
   "description": "Where the script files are located. Only one attribute must be present",
   "role_schema": {

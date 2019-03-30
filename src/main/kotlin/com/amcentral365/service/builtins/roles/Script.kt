@@ -1,30 +1,31 @@
 package com.amcentral365.service.builtins.roles
 
-import java.sql.Connection
 import java.util.UUID
-import com.google.gson.GsonBuilder
 
 import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.service.SenderOfFileSystemPath
 import com.amcentral365.service.SenderOfInlineContent
 import com.amcentral365.service.StatusException
 import com.amcentral365.service.TransferManager
+import com.amcentral365.service.builtins.RoleName
 import com.amcentral365.service.dao.Asset
-import com.amcentral365.service.dao.AssetRoleValues
+import com.amcentral365.service.dao.getAssetObjectByRole
+import com.amcentral365.service.dao.loadRoleObjectFromDB
 import com.amcentral365.service.databaseStore
+import javax.annotation.Generated
 
 /*
    Roles:
     {
-      "role_name": "script-main",
+      "roleName": "script-main",
       "class": "script",
       "description": "Defines script invocation details",
-      "role_schema": {
+      "roleSchema": {
         "main":        "string!",
         "interpreter": "string+",
         "params":      "string+",
-        "sudo_as":     "string",
-        "workdir":     "string",
+        "sudoAs":     "string",
+        "workDir":     "string",
         "exec_timeout_sec": "number",
         "idle_timeout_sec": "number"
       }
@@ -35,15 +36,13 @@ data class ScriptMain(
     val main:        String? = null,
     val interpreter: Array<String>? = null,   // e.g. ["python", "-u"]
     val params:      Array<String>? = null,
-    val sudo_as:     String? = null,
-    val workdir:     String? = null,
-    val execTimeoutSec: Int? = null,
-    val idleTimeoutSec: Int? = null
+    val sudoAs:      String? = null,
+    val workDir:     String? = null
 ) {
-    constructor(): this(null)
+    constructor(): this(null)  // used by Gson deserializer
 
     /**
-     * sudo -u sudo_as interpreter params
+     * sudo -u sudoAs interpreter params
      *
      * # sudo -u root /bin/sh -c 'pwd && /usr/bin/id && echo $PATH'
      *   only idis correct
@@ -54,8 +53,8 @@ data class ScriptMain(
 
         val ret = mutableListOf<String>()
 
-        if( !this.sudo_as.isNullOrBlank() )
-            ret.addAll(listOf("sudo", "-u", this.sudo_as))
+        if( !this.sudoAs.isNullOrBlank() )
+            ret.addAll(listOf("sudo", "-u", this.sudoAs))
 
         if( this.interpreter != null )
             ret.addAll(this.interpreter.map { this.quoteParam(it) })
@@ -67,14 +66,16 @@ data class ScriptMain(
         return ret
     }
 
+
     private fun quoteParam(param: String) =
         when {
             param.startsWith('\'') -> param
             param.startsWith('"')  -> param
-            !param.contains(' ')   -> param
-            else -> "'$param'"
+           !param.contains(' ')    -> param
+            else                   -> "'$param'"
         }
 
+    @Generated("IntelliJ")
     override fun equals(other: Any?): Boolean {
         if(this === other) return true
         if(javaClass != other?.javaClass) return false
@@ -90,22 +91,19 @@ data class ScriptMain(
             if(other.params == null) return false
             if(!params.contentEquals(other.params)) return false
         } else if(other.params != null) return false
-        if(sudo_as != other.sudo_as) return false
-        if(workdir != other.workdir) return false
-        if(execTimeoutSec != other.execTimeoutSec) return false
-        if(idleTimeoutSec != other.idleTimeoutSec) return false
+        if(sudoAs != other.sudoAs) return false
+        if(workDir != other.workDir) return false
 
         return true
     }
 
+    @Generated("IntelliJ")
     override fun hashCode(): Int {
         var result = main?.hashCode() ?: 0
         result = 31 * result + (interpreter?.contentHashCode() ?: 0)
         result = 31 * result + (params?.contentHashCode() ?: 0)
-        result = 31 * result + (sudo_as?.hashCode() ?: 0)
-        result = 31 * result + (workdir?.hashCode() ?: 0)
-        result = 31 * result + (execTimeoutSec?.hashCode() ?: 0)
-        result = 31 * result + (idleTimeoutSec?.hashCode() ?: 0)
+        result = 31 * result + (sudoAs?.hashCode() ?: 0)
+        result = 31 * result + (workDir?.hashCode() ?: 0)
         return result
     }
 }
@@ -182,7 +180,10 @@ class ScriptLocation
 data class Script(
     var scriptMain:     ScriptMain?,
     var location:       ScriptLocation?,
-    var targetRoleName: String?
+    var targetRoleName: String?,
+    var execTimeoutSec: Int? = null,
+    var idleTimeoutSec: Int? = null,
+    var runOnAmc:       Boolean? = null
 ) {
     var asset: Asset? = null
 
@@ -213,15 +214,6 @@ data class Script(
 
 
     companion object {
-        private inline fun <reified T> getAssetObjectByRole(assetId: UUID, roleName: String, conn: Connection): T? {
-            val dao = AssetRoleValues(assetId, roleName)
-            val cnt = SelectStatement(dao).select(dao.allCols).byPk().run(conn)
-            if( cnt != 1 )
-                return null
-
-            return GsonBuilder().create().fromJson<T>(dao.assetVals, T::class.java)
-        }
-
         fun fromDB(assetId: UUID): Script? {
             val script1 = Script(null, null, null)
 
@@ -231,15 +223,17 @@ data class Script(
                 if( cnt != 1 )
                     return null
 
-                val script2 = getAssetObjectByRole<Script>(assetId, "script", conn) ?: return null
+                val script2 = getAssetObjectByRole<Script>(assetId, RoleName.Script, conn) ?: return null
 
                 script1.targetRoleName = script2.targetRoleName
                 script1.location = script2.location
                 script1.scriptMain = script2.scriptMain
                 return script1
             }
-
         }
+
+
+        fun fromDB(asset: Asset): Script = loadRoleObjectFromDB(asset, RoleName.Script) { it.asset = asset }
     }
 }
 

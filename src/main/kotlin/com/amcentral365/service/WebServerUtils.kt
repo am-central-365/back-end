@@ -52,7 +52,7 @@ internal fun formatResponse(rsp: Response, code: Int, message: String, jsonIfOk:
     else                                WebServer.logger.error { "$code: $message" }
 
     val jsonMsg =
-        if( jsonIfOk && (code == 200 || code == 201) ) message
+        if( jsonIfOk && code >= 200 && code < 300 ) message
         else  """{"code": $code, "message": "${quoteJsonChars(message)}"}"""
 
     rsp.status(code)

@@ -1,21 +1,21 @@
 package com.amcentral365.service
 
 import java.io.File
+import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
 import java.util.UUID
 
-import mu.KotlinLogging
-import com.amcentral365.service.builtins.roles.Script
-import com.amcentral365.service.dao.Asset
-import java.io.InputStream
 import kotlin.reflect.jvm.jvmName
+import mu.KotlinLogging
+
+import com.amcentral365.service.builtins.roles.ExecutionTarget
+import com.amcentral365.service.builtins.roles.Script
+
 
 private val logger = KotlinLogging.logger {}
 
-class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget {
-    override var asset: Asset? = null
-
+class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget() {
     private var workDirName: String? = null
     private var content: String? = null
     private var execTimeoutSec: Int = 0
@@ -24,9 +24,10 @@ class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget {
     override fun connect() = true
     override fun disconnect() {}
 
+
     override fun prepare(script: Script): Boolean {
-        this.execTimeoutSec = script.scriptMain?.execTimeoutSec ?: config.defaultScriptExecTimeoutSec
-        this.idleTimeoutSec = script.scriptMain?.idleTimeoutSec ?: config.defaultScriptIdleTimeoutSec
+        this.execTimeoutSec = script.execTimeoutSec ?: config.defaultScriptExecTimeoutSec
+        this.idleTimeoutSec = script.idleTimeoutSec ?: config.defaultScriptIdleTimeoutSec
 
         val sender = script.getSender()
         if( sender == null ) {
@@ -34,19 +35,21 @@ class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget {
             return false
         }
 
-        if( script.needsWorkDir )
-            this.workDirName = this.execAndGetOutput(listOf(
-                    "/bin/mktemp", "-dp", config.localScriptExecBaseDir, "amc.XXXXXX"))
+        if( script.needsWorkDir ) {
+            val commandToCreateWorkDir = this.getCmdToCreateWorkDir()
+            this.workDirName = this.execAndGetOutput(commandToCreateWorkDir)
+        }
 
         val receiver = ReceiverLocalhost(this.workDirName)
 
-        logger.info { "${this.threadId}: transfering ${script.name} file to ${this.name}" }
+        logger.info { "${this.threadId}: transferring ${script.name} file to ${this.name}" }
         val transferManager = TransferManager(this.threadId)
         val success = transferManager.transfer(sender, receiver)
         this.content = receiver.content
 
         return success
     }
+
 
     override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage {
         if( this.content != null )
@@ -56,6 +59,7 @@ class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget {
         return this.realExec(commands, outputStream = outputStream, inputStream = inputStream)
     }
 
+
     override fun cleanup(script: Script) {
         if( this.workDirName.isNullOrBlank() )
             return
@@ -64,11 +68,13 @@ class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget {
         this.execAndGetOutput(listOf("/bin/rm", "-r", this.workDirName!!))
     }
 
+
     private fun execAndGetOutput(commands: List<String>, inputStream: InputStream? = null): String =
         StringOutputStream().let {
             this.realExec(commands, inputStream = inputStream, outputStream = it)
             it.getString().trimEnd('\r', '\n')
         }
+
 
     private fun realExec(commands: List<String>, inputStream: InputStream? = null, outputStream: OutputStream): StatusMessage {
         val workDirName = this.workDirName ?: config.SystemTempDirName

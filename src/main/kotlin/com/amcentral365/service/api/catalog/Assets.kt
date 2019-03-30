@@ -2,7 +2,6 @@ package com.amcentral365.service.api.catalog
 
 import com.amcentral365.pl4kotlin.DeleteStatement
 import java.lang.Exception
-import java.lang.IllegalArgumentException
 import java.sql.Connection
 import java.util.UUID
 
@@ -22,6 +21,7 @@ import com.amcentral365.service.formatResponse
 import com.amcentral365.service.toJsonArray
 import com.amcentral365.service.databaseStore
 import com.amcentral365.service.schemaUtils
+import java.lang.IllegalArgumentException
 
 private val logger = KotlinLogging.logger {}
 
@@ -41,7 +41,7 @@ class Assets { companion object {
     private fun extractAssetIdOrDie(paramMap: MutableMap<String, String>): UUID {
         val pkParam = "asset_key"
         val pkKey = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }.trim()
-        val pkId = this.assetIdByKey(pkKey) ?: throw StatusException(400, "asset with name '$pkKey' was not found")
+        val pkId = assetIdByKey(pkKey) ?: throw StatusException(400, "asset with name '$pkKey' was not found")
         paramMap.remove(pkParam)
 
         return pkId
@@ -83,29 +83,47 @@ class Assets { companion object {
         }
     }
 
+    private fun getAsset(idForMsg: Any, init: (assetToInit: Asset) -> Unit): Asset {
+        databaseStore.getGoodConnection().use { conn ->
+            val asset = Asset()
+            init(asset)
+            val cnt = SelectStatement(asset).select(asset.allCols).by(asset::assetId).run(conn)
+            logger.info { "quering Assets $idForMsg returned $cnt rows" }
+
+            if( cnt == 1 )
+                return asset
+        }
+
+        throw StatusException(404, "Asset '$idForMsg' not found")
+    }
+
+
+    fun getAssetByKey(assetKey: String): Asset = getAsset(assetKey) { asset ->
+            try {
+                asset.assetId = UUID.fromString(assetKey)
+                logger.debug { "querying asset by id: ${asset.assetId}" }
+            } catch(x: IllegalArgumentException) {
+                asset.name = assetKey
+                logger.debug { "querying asset by name: ${asset.name}" }
+            }
+    }
+
+
+    fun getAssetById(assetId: UUID): Asset = getAsset(assetId) { assetToIinit -> assetToIinit.assetId = assetId }
+
 
     fun getAssetById(req: Request, rsp: Response): String {
-        val asset = Asset()
+        rsp.type("application/json")
         try {
-            rsp.type("application/json")
             val paramMap = combineRequestParams(req)
-            asset.assetId = this.extractAssetIdOrDie(paramMap)
-            asset.assignFrom(paramMap)
-            logger.info { "querying asset ${asset.assetId}" }
-
-            val cnt = SelectStatement(asset, databaseStore::getGoodConnection)
-                                        .select(asset.allCols).byPresentValues().run()
-            if( cnt == 0 )
-                return formatResponse(rsp, 404, "asset '${asset.assetId}' was not found")
-
+            val pkParam = "asset_key"
+            val assetKey = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }.trim()
+            val asset = this.getAssetByKey(assetKey)
             return asset.asJsonStr()
-
         } catch(x: Exception) {
-            logger.error { "error querying ${asset.name}: ${x.message}" }
             return formatResponse(rsp, x)
         }
     }
-
 
     fun listAssetRoles(req: Request, rsp: Response): String {
         val assetRoleValues = AssetRoleValues()

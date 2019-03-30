@@ -1,10 +1,14 @@
 {
-  "role_name": "script",
+  "roleName": "script",
   "class": "script",
   "description": "Code executable on a host or another target",
-  "role_schema": {
-    "scriptMain":  "@script-main",
-    "location":    "@script-location",
-    "target-role": "string!"
+  "roleSchema": {
+    "scriptMain": "@script-main",
+    "location":   "@script-location",
+
+    "targetRoleName": "string!",
+    "execTimeoutSec": "number",
+    "idleTimeoutSec": "number",
+    "runOnAmc":       "boolean"
   }
 }

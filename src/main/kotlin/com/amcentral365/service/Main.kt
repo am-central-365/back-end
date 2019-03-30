@@ -1,6 +1,8 @@
 package com.amcentral365.service
 
 import com.amcentral365.service.api.SchemaUtils
+import com.amcentral365.service.api.catalog.Assets
+import com.amcentral365.service.dao.Asset
 import mu.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -8,12 +10,14 @@ private val logger = KotlinLogging.logger {}
 internal var config = Configuration(emptyArray())
 internal var authUser: AuthenticatedUser = AuthenticatedUser("amcentral365", "none@amcentral365.com", "Internal User")
 internal val authorizer: Authorization = Authorization()
+internal lateinit var thisWorkerAsset: Asset
 
 var keepRunning = true  /** Global 'lights out' flag */
 
 val databaseStore = DatabaseStore()
 val webServer     = WebServer()
 val schemaUtils   = SchemaUtils()
+
 
 fun main(args: Array<String>) {
 
@@ -30,3 +34,9 @@ fun main(args: Array<String>) {
 
 
 fun callMeFromJavaForHighFive(p1: Int) = p1 + 5
+
+
+// No try/catch failures are fatal at this stage
+private fun initialize() {
+    thisWorkerAsset = Assets.getAssetById(config.assetId)
+}

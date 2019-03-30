@@ -13,7 +13,7 @@ private val logger = KotlinLogging.logger {}
 
 open class ScriptExecutor(private val threadId: String) {
 
-    fun run(script: Script, target: ExecutionTarget, outputStream: OutputStream, inputStream: InputStream? = null) {
+    fun run(script: Script, target: ScriptExecutorFlow, outputStream: OutputStream, inputStream: InputStream? = null) {
         var connected = false
         try {
             logger.info { "${this.threadId}: connecting to target ${target.name}" }
@@ -52,12 +52,4 @@ open class ScriptExecutor(private val threadId: String) {
                 }
         }
     }
-
-    companion object {
-
-        fun transferFiles(script: Script, target: ExecutionTarget) {
-
-        }
-    }
-
 }

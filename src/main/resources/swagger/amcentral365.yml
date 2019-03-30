@@ -182,17 +182,17 @@ paths:
 
 
   # ------------------- scripts and tasks
-  /executes:
-    $ref: 'api/executes.yml#root'
+  /execute:
+    $ref: 'api/execute.yml#root'
 
-  /executes/{execute_id}:
-    $ref: 'api/executes.yml#$execute'
+  /execute/{execute_id}:
+    $ref: 'api/execute.yml#$execute'
 
-  /executes/{execute_id}/log:
-    $ref: 'api/executes.yml#$execute_log'
+  /execute/{execute_id}/log:
+    $ref: 'api/execute.yml#$execute_log'
 
-  /executes/{execute_id}/output:
-    $ref: 'api/executes.yml#$execute_output'
+  /execute/{execute_id}/output:
+    $ref: 'api/execute.yml#$execute_output'
 
 
   # *********************************************** Random thoughts

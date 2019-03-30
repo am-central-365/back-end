@@ -4,12 +4,14 @@ import com.amcentral365.service.builtins.roles.Script
 import java.io.InputStream
 
 import com.amcentral365.service.dao.Asset
+import com.amcentral365.service.dao.loadRoleObjectFromDB
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 
-interface ExecutionTarget {
+interface ScriptExecutorFlow {
     var asset: Asset?
-    val name: String get() = if( this.asset?.name == null ) "not defined" else this.asset!!.name!!
+    val name: String get() = this.asset?.name ?: "not-defined"
+                    //if( this.asset?.name == null ) "not defined" else this.asset!!.name!!
 
     /**
      * ssh to the remote host, connect to the database, or the like.
@@ -46,7 +48,6 @@ interface ExecutionTarget {
      */
     fun disconnect()
 }
-
 
 class StringOutputStream: OutputStream() {
     private val byteStream = ByteArrayOutputStream()

@@ -15,7 +15,7 @@ class StatusMessage(val code: Int, val msg: String) {
     constructor(x: Throwable, prefixMsg: String, code: Int=500):
         this((x as? StatusException)?.code ?: code, "$prefixMsg ${x.javaClass.name} ${x.message}")
 
-    val isOk: Boolean get() = this.code == StatusMessage.OK.code
+    val isOk: Boolean get() = this.code >= 200 && this.code < 300
 }
 
 
@@ -30,7 +30,7 @@ class StatusException : Exception {
     internal constructor(x: Exception, code: Int) : super(x) { this.code = code;  this.setCause(x) }
     internal constructor(x: Exception, attr: Map<String, String>) : this(x) { this.attr = attr }
 
-    internal constructor(code: Int, msg: String) : super(msg) { this.code = code }
+             constructor(code: Int, msg: String) : super(msg) { this.code = code }
     internal constructor(code: Int, attr: Map<String, String>, msg: String): this(code, msg) { this.attr = attr }
 
     private fun merge(otherAttr: Map<String, String>): StatusException {

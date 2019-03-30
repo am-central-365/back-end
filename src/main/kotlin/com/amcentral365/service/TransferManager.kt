@@ -123,12 +123,12 @@ class ReceiverLocalhost(baseDir: String? = null): TransferManager.Receiver(baseD
 
             val dir = this.baseDirFile!!.resolve(dirToCreate)
             if( !dir.exists() ) {
-                logger.debug { "Creating directory ${dir.getPath()}" }
+                logger.debug { "Creating directory path ${dir.getPath()}" }
                 if( !dir.mkdirs() )
                     throw StatusException(500, "Failed to create directory path $dir")
             }
 
-        // Create a file and write inputStream ito it
+        // Create a file and write inputStream into it
         } else {
             if( this.baseDirFile == null )
                 throw StatusException(500, "Bug: no baseDir was provided in the constructor")
@@ -145,8 +145,8 @@ class ReceiverLocalhost(baseDir: String? = null): TransferManager.Receiver(baseD
             val file = this.baseDirFile!!.resolve(relFile)
             logger.debug { "writing to ${file.getPath()}" }
             var copiedbytes: Long = 0
-            FileOutputStream(file).use {
-                copiedbytes = item.inputStream.copyTo(it)
+            FileOutputStream(file).use { outputStream ->
+                copiedbytes = item.inputStream.copyTo(outputStream)
             }
 
             logger.debug { "wrote $copiedbytes to ${file.getPath()}" }

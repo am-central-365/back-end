@@ -1,10 +1,12 @@
 {
-  "role_name": "script-main",
+  "roleName": "script-main",
   "class": "script",
   "description": "Defines script invocation details",
-  "role_schema": {
+  "roleSchema": {
     "main":        "string",
     "interpreter": "string",
-    "sudo_as":     "string"
+    "sudoAs":     "string",
+    "passAllTargetsAtOnce": "boolean",
+    "targetParamPrefix": "string"
   }
 }
