@@ -109,7 +109,7 @@ class Assets { companion object {
     }
 
 
-    fun getAssetById(assetId: UUID): Asset = getAsset(assetId) { assetToIinit -> assetToIinit.assetId = assetId }
+    fun getAssetById(assetId: UUID): Asset = getAsset(assetId) { it.assetId = assetId }
 
 
     fun getAssetById(req: Request, rsp: Response): String {
@@ -148,6 +148,12 @@ class Assets { companion object {
         }
     }
 
+    fun getAssetRoleValues(assetId: UUID, roleName: String): AssetRoleValues? {
+        val assetRoleValues = AssetRoleValues(assetId, roleName)
+        val cnt = SelectStatement(assetRoleValues, databaseStore::getGoodConnection)
+                                    .select(assetRoleValues.allColsButPk!!).byPk().run()
+        return if( cnt == 0 ) null else assetRoleValues
+    }
 
     fun getAssetByIdAndRole(req: Request, rsp: Response): String {
         val assetRoleValues = AssetRoleValues()

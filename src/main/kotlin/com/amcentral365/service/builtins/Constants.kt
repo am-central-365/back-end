@@ -13,4 +13,5 @@ enum class RoleName(_unused: String) {
     AMCCluster  ("amc-cluster"),
     AMCWorker   ("amc-worker"),
     ExecutionTarget("execution-target"),
+    ScriptExecutorAMC("script-executor-amc"),
 }

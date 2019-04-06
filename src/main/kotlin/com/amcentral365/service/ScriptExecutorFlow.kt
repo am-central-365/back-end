@@ -4,7 +4,6 @@ import com.amcentral365.service.builtins.roles.Script
 import java.io.InputStream
 
 import com.amcentral365.service.dao.Asset
-import com.amcentral365.service.dao.loadRoleObjectFromDB
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 

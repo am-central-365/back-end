@@ -9,9 +9,15 @@ import spark.Response
 import com.amcentral365.service.StatusException
 import com.amcentral365.service.StatusMessage
 import com.amcentral365.service.ScriptExecutor
+import com.amcentral365.service.ScriptExecutorFlow
+import com.amcentral365.service.api.catalog.AssetRoleValues
 import com.amcentral365.service.api.catalog.Assets
+import com.amcentral365.service.builtins.RoleName
+import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
 import com.amcentral365.service.combineRequestParams
+import com.amcentral365.service.dao.Asset
+import com.amcentral365.service.dao.fromDB
 import com.amcentral365.service.formatResponse
 
 
@@ -26,6 +32,7 @@ class Execute { companion object {
 
 
     fun start(req: Request, rsp: Response): String {
+        val thisThreadId = Thread.currentThread().name;
         try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req, parseJsonBody = true)
@@ -33,25 +40,46 @@ class Execute { companion object {
             val scriptKey = paramMap.getOrElse("script_key") { throw StatusException(400, "parameter 'script_key' is required") }.trim()
             val targetKey = paramMap.getOrElse("target_key") { throw StatusException(400, "parameter 'target_key' is required") }.trim()
 
-            val scriptAsset = Assets.getAssetByKey(scriptKey)
-            val targetAsset = Assets.getAssetByKey(targetKey)
+            val script = fromDB<Script>(scriptKey, RoleName.Script.name)
+            val executorRoleName = script.executorRoleName ?:
+                    return formatResponse(rsp, StatusMessage(400, "script ${script.name} has no executorRoleName"))
+            val targetRoleName = script.targetRoleName ?:
+                    return formatResponse(rsp, StatusMessage(400, "script ${script.name} has no targetRoleName"))
 
-            val thisThreadId = Thread.currentThread().name;
-            val script = Script.fromDB(scriptAsset)
-            val target =
-                if( script.runOnAmc ?: false ) ExecutionTargetAMCWorker(thisThreadId)
-                else ExecutionTargetSSHHost(thisThreadId, targetAsset)  // targetAsset
+            val targetAsset = Assets.getAssetByKey(targetKey)
+            if( !AssetRoleValues.hasRole(targetAsset.assetId!!, targetRoleName) )
+                return formatResponse(rsp, StatusMessage(404, "asset $targetKey has no requested target role $targetRoleName"))
+
+            val scriptExecutorImplementation = getScriptExecutorFlow(thisThreadId, executorRoleName, targetAsset)
+            val outputStream = System.out  // FIXME: send to the log, to the message channel, maybe to more recipients
 
             val scriptExecutor = ScriptExecutor(thisThreadId)
-            scriptExecutor.run(script, target, System.out /* FIXME */)
+            scriptExecutor.run(script, scriptExecutorImplementation, outputStream)
             return formatResponse(rsp, StatusMessage.OK)  // FIXME: should contain the output parameter
 
         } catch(x: Exception) {
-            logger.error { "error runing script ${sc} assets: ${x.message}" }
+            logger.error { "$thisThreadId: error running script: ${x.message}" }
             return formatResponse(rsp, x)
         }
     }
 
+
+    fun getScriptExecutorFlow(thisThreadId: String, executorRoleName: String, targetAsset: Asset): ScriptExecutorFlow {
+        if( executorRoleName == RoleName.ScriptExecutorAMC.name )
+            return ExecutionTargetAMCWorker(thisThreadId)
+
+        // TODO: allow scripts run not only on the target asset, but on its closest parent, having executorRoleName
+        // Say, we have an Oracle SqlPlus script. Target would be an Oracle instance,
+        // but the script is executed by sqlplus on the host machine running the instance.
+        // To achieve this, we set executorRole to "host-with-sqlplus". Oracle instance dousn't have it,
+        // but its hosting environment (a VM, a Docker container, or whatever) does have this role.
+        // we should be able to go up the parent/child chain, find it, and use as the execution asset.
+        //
+        // Problem: what defines the parent/child hierarchy?
+
+        // For now, we just return the target.
+        return ExecutionTargetSSHHost(thisThreadId, targetAsset)
+    }
 
     fun getInfo(req: Request, rsp: Response): String {
         rsp.type("application/json")

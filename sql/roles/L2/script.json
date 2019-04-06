@@ -6,9 +6,9 @@
     "scriptMain": "@script-main",
     "location":   "@script-location",
 
-    "targetRoleName": "string!",
-    "execTimeoutSec": "number",
-    "idleTimeoutSec": "number",
-    "runOnAmc":       "boolean"
+    "executorRoleName": "string!",
+    "targetRoleName":   "string!",
+    "execTimeoutSec":   "number",
+    "idleTimeoutSec":   "number"
   }
 }

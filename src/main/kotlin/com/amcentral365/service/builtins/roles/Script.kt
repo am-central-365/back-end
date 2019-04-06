@@ -9,7 +9,7 @@ import com.amcentral365.service.StatusException
 import com.amcentral365.service.TransferManager
 import com.amcentral365.service.builtins.RoleName
 import com.amcentral365.service.dao.Asset
-import com.amcentral365.service.dao.getAssetObjectByRole
+import com.amcentral365.service.dao.getAssetObjectForRole
 import com.amcentral365.service.dao.loadRoleObjectFromDB
 import com.amcentral365.service.databaseStore
 import javax.annotation.Generated
@@ -153,39 +153,14 @@ class ScriptLocation
 */
 }
 
-
-/*
-    {
-      "role_name": "script",
-      "class": "script",
-      "description": "Code executable on a host or another target",
-      "role_schema": {
-        "scriptMain":  "@script-main",
-        "location":    "@script-location",
-        "target-role": "string!"
-      }
-    }
-
-    {
-      "role_name": "script-target-host",
-      "class": "script-target",
-      "description": "A host, capable of executing scripts",
-      "role_schema": {
-        "baseExecDir":  "string!"
-      }
-    }
-
-*/
-
 data class Script(
-    var scriptMain:     ScriptMain?,
-    var location:       ScriptLocation?,
-    var targetRoleName: String?,
-    var execTimeoutSec: Int? = null,
-    var idleTimeoutSec: Int? = null,
-    var runOnAmc:       Boolean? = null
-) {
-    var asset: Asset? = null
+    var scriptMain:       ScriptMain?,
+    var location:         ScriptLocation?,
+    var executorRoleName: String?,
+    var targetRoleName:   String?,
+    var execTimeoutSec:   Int? = null,
+    var idleTimeoutSec:   Int? = null
+): AnAsset() {
 
     val name get() = this.asset?.name
     val needsWorkDir get() = this.location?.needsWorkDir ?: false
@@ -212,29 +187,25 @@ data class Script(
         }
     }
 
-
+/*
     companion object {
         fun fromDB(assetId: UUID): Script? {
-            val script1 = Script(null, null, null)
-
             databaseStore.getGoodConnection().use { conn ->
-                script1.asset = Asset(assetId)
-                val cnt = SelectStatement(script1.asset!!).select(script1.asset!!.allCols).byPk().run(conn)
+                val scriptAsset = Asset(assetId)
+
+                val cnt = SelectStatement(scriptAsset).select(scriptAsset.allCols).byPk().run(conn)
                 if( cnt != 1 )
                     return null
 
-                val script2 = getAssetObjectByRole<Script>(assetId, RoleName.Script, conn) ?: return null
-
-                script1.targetRoleName = script2.targetRoleName
-                script1.location = script2.location
-                script1.scriptMain = script2.scriptMain
-                return script1
+                val script = getAssetObjectForRole<Script>(assetId, RoleName.Script, conn) ?: return null
+                return script
             }
         }
 
 
-        fun fromDB(asset: Asset): Script = loadRoleObjectFromDB(asset, RoleName.Script) { it.asset = asset }
+        //fun fromDB(asset: Asset): Script = loadRoleObjectFromDB(asset, RoleName.Script) { it.asset = asset }
     }
+*/
 }
 
 class ScriptBundleNode(

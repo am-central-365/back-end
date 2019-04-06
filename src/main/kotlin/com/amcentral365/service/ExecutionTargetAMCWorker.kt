@@ -1,5 +1,6 @@
 package com.amcentral365.service
 
+import com.amcentral365.service.builtins.RoleName
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
@@ -11,6 +12,7 @@ import mu.KotlinLogging
 
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
+import com.amcentral365.service.dao.fromDB
 
 
 private val logger = KotlinLogging.logger {}
@@ -64,8 +66,9 @@ class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget() 
         if( this.workDirName.isNullOrBlank() )
             return
 
-        logger.debug { "removing work directory ${this.workDirName}" }
-        this.execAndGetOutput(listOf("/bin/rm", "-r", this.workDirName!!))
+        val commandToRemoveWorkDir = this.getCmdToRemoveWorkDir(this.workDirName!!)
+        logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
+        this.execAndGetOutput(commandToRemoveWorkDir)
     }
 
 
@@ -186,7 +189,7 @@ Script:
 */
 
     try {
-        val script: Script = Script.fromDB(UUID.fromString("8b0f7f5e-569d-462a-baac-f2f16e982c2a"))!!
+        val script: Script = fromDB<Script>(UUID.fromString("8b0f7f5e-569d-462a-baac-f2f16e982c2a"), RoleName.Script.name)
         val target = ExecutionTargetAMCWorker("_devcall")
         val se = ScriptExecutor("_devcall")
 
