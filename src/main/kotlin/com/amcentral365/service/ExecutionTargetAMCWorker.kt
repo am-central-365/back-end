@@ -189,7 +189,7 @@ Script:
 */
 
     try {
-        val script: Script = fromDB<Script>(UUID.fromString("8b0f7f5e-569d-462a-baac-f2f16e982c2a"), RoleName.Script.name)
+        val script: Script = fromDB<Script>(UUID.fromString("8b0f7f5e-569d-462a-baac-f2f16e982c2a"), RoleName.Script)
         val target = ExecutionTargetAMCWorker("_devcall")
         val se = ScriptExecutor("_devcall")
 

@@ -1,0 +1,8 @@
+{
+  "roleName": "script-executor-amc",
+  "class": "script",
+  "description": "Scripts executed on AMC hosts",
+  "role_schema": {
+    "os": ["!", "linux", "darwin", "windows"]
+  }
+}

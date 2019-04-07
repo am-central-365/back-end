@@ -13,7 +13,6 @@ import com.amcentral365.service.ScriptExecutorFlow
 import com.amcentral365.service.api.catalog.AssetRoleValues
 import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.builtins.RoleName
-import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
 import com.amcentral365.service.combineRequestParams
 import com.amcentral365.service.dao.Asset
@@ -38,19 +37,21 @@ class Execute { companion object {
             val paramMap = combineRequestParams(req, parseJsonBody = true)
 
             val scriptKey = paramMap.getOrElse("script_key") { throw StatusException(400, "parameter 'script_key' is required") }.trim()
-            val targetKey = paramMap.getOrElse("target_key") { throw StatusException(400, "parameter 'target_key' is required") }.trim()
+            val targetKey = paramMap.get("target_key")
 
-            val script = fromDB<Script>(scriptKey, RoleName.Script.name)
+            val script = fromDB<Script>(scriptKey, RoleName.Script)
             val executorRoleName = script.executorRoleName ?:
                     return formatResponse(rsp, StatusMessage(400, "script ${script.name} has no executorRoleName"))
             val targetRoleName = script.targetRoleName ?:
                     return formatResponse(rsp, StatusMessage(400, "script ${script.name} has no targetRoleName"))
 
-            val targetAsset = Assets.getAssetByKey(targetKey)
-            if( !AssetRoleValues.hasRole(targetAsset.assetId!!, targetRoleName) )
-                return formatResponse(rsp, StatusMessage(404, "asset $targetKey has no requested target role $targetRoleName"))
-
-            val scriptExecutorImplementation = getScriptExecutorFlow(thisThreadId, executorRoleName, targetAsset)
+            var targetAsset: Asset? = null
+            if( targetKey != null && targetKey.isNotEmpty() ) {
+                targetAsset = Assets.getAssetByKey(targetKey)
+                if(!AssetRoleValues.hasRole(targetAsset.assetId!!, targetRoleName))
+                    return formatResponse(rsp, StatusMessage(404, "asset $targetKey has no requested target role $targetRoleName"))
+            }
+            val scriptExecutorImplementation = getScriptExecutorImplementation(thisThreadId, executorRoleName, targetAsset)
             val outputStream = System.out  // FIXME: send to the log, to the message channel, maybe to more recipients
 
             val scriptExecutor = ScriptExecutor(thisThreadId)
@@ -64,8 +65,8 @@ class Execute { companion object {
     }
 
 
-    fun getScriptExecutorFlow(thisThreadId: String, executorRoleName: String, targetAsset: Asset): ScriptExecutorFlow {
-        if( executorRoleName == RoleName.ScriptExecutorAMC.name )
+    fun getScriptExecutorImplementation(thisThreadId: String, executorRoleName: String, targetAsset: Asset?): ScriptExecutorFlow {
+        if( executorRoleName == RoleName.ScriptExecutorAMC )
             return ExecutionTargetAMCWorker(thisThreadId)
 
         // TODO: allow scripts run not only on the target asset, but on its closest parent, having executorRoleName
@@ -78,6 +79,7 @@ class Execute { companion object {
         // Problem: what defines the parent/child hierarchy?
 
         // For now, we just return the target.
+        require(targetAsset != null)
         return ExecutionTargetSSHHost(thisThreadId, targetAsset)
     }
 

@@ -94,7 +94,7 @@ class Roles { companion object {
         try {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req, parseJsonBody = true)
-            role.assignFrom(paramMap)
+            role.assignFrom(paramMap);
             logger.info { "creating role '${role.roleName}'" }
 
             if( role.roleName == null )
@@ -103,7 +103,7 @@ class Roles { companion object {
                 schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
 
             val msg = databaseStore.insertObjectAsRow(role)
-            logger.info { "create role ${role.roleName}: ${msg.msg}" }
+            logger.info { "created role ${role.roleName}: ${msg.msg}" }
             return formatResponse(rsp, msg, jsonIfOk = true)
 
         } catch(x: Exception) {

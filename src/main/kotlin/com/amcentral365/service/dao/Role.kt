@@ -9,7 +9,7 @@ import java.sql.Timestamp
 
 @Table("roles")
 class Role(): Entity() {
-    @Column("name", pkPos = 1, restParamName = "role_name")  var roleName: String? = null
+    @Column("name", pkPos = 1, restParamName = "role_name") var roleName: String? = null
     @Column("class")                      var roleClass:     String? = null
     @Column("role_schema", isJson = true) var roleSchema:    String? = null
     @Column("description")                var description:   String? = null

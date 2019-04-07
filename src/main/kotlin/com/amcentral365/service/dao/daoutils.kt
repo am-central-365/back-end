@@ -12,8 +12,8 @@ import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.builtins.RoleName
 import com.amcentral365.service.builtins.roles.AnAsset
 
-inline fun <reified T> getAssetObjectForRole(assetId: UUID, roleName: RoleName, conn: Connection): T? {
-    val dao = AssetRoleValues(assetId, roleName.name)
+inline fun <reified T> getAssetObjectForRole(assetId: UUID, roleName: String, conn: Connection): T? {
+    val dao = AssetRoleValues(assetId, roleName)
     val cnt = SelectStatement(dao).select(dao.allCols).byPk().run(conn)
     if( cnt != 1 )
         return null
@@ -22,7 +22,7 @@ inline fun <reified T> getAssetObjectForRole(assetId: UUID, roleName: RoleName, 
 }
 
 
-inline fun <reified T> loadRoleObjectFromDB(asset: Asset, roleName: RoleName, Initializer: (obj: T)-> Unit): T {
+inline fun <reified T> loadRoleObjectFromDB(asset: Asset, roleName: String, Initializer: (obj: T)-> Unit): T {
     databaseStore.getGoodConnection().use { conn ->
         val obj = getAssetObjectForRole<T>(asset.assetId!!, roleName, conn)
             ?: throw StatusException(404, "Asset ${asset.assetId} has no role '$roleName'")

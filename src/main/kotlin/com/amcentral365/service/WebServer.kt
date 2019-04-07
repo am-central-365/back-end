@@ -80,11 +80,11 @@ class WebServer {
         spark.Spark.delete("$API_BASE/catalog/assets/:asset_key/roles",            fun(req, rsp) = Assets.deleteAssetRoles(req, rsp))
         spark.Spark.delete("$API_BASE/catalog/assets/:asset_key/roles/:role_name", fun(req, rsp) = Assets.deleteAssetRole(req, rsp))
 
-        spark.Spark.get ("$API_BASE/execute",                    fun(req, rsp) = Execute.list(req, rsp))
-        spark.Spark.post("$API_BASE/execute",                    fun(req, rsp) = Execute.start(req, rsp))
-        spark.Spark.get ("$API_BASE/execute/:execute_id",        fun(req, rsp) = Execute.getInfo(req, rsp))
-        spark.Spark.get ("$API_BASE/execute/:execute_id/log",    fun(req, rsp) = Execute.getLog(req, rsp))
-        spark.Spark.get ("$API_BASE/execute/:execute_id/output", fun(req, rsp) = Execute.getOutput(req, rsp))
+        spark.Spark.get ("$API_BASE/executes",                    fun(req, rsp) = Execute.list(req, rsp))
+        spark.Spark.post("$API_BASE/executes",                    fun(req, rsp) = Execute.start(req, rsp))
+        spark.Spark.get ("$API_BASE/executes/:execute_id",        fun(req, rsp) = Execute.getInfo(req, rsp))
+        spark.Spark.get ("$API_BASE/executes/:execute_id/log",    fun(req, rsp) = Execute.getLog(req, rsp))
+        spark.Spark.get ("$API_BASE/executes/:execute_id/output", fun(req, rsp) = Execute.getOutput(req, rsp))
 
     }
 

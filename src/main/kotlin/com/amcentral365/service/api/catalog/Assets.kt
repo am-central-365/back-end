@@ -87,7 +87,7 @@ class Assets { companion object {
         databaseStore.getGoodConnection().use { conn ->
             val asset = Asset()
             init(asset)
-            val cnt = SelectStatement(asset).select(asset.allCols).by(asset::assetId).run(conn)
+            val cnt = SelectStatement(asset).select(asset.allCols).byPresentValues().run(conn)
             logger.info { "quering Assets $idForMsg returned $cnt rows" }
 
             if( cnt == 1 )
