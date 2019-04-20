@@ -8,9 +8,9 @@ components:
           schema:
             type: object
             properties:
-              role_name:   {type: string, maximum: 100, required: true}
+              roleName:    {type: string, maximum: 100, required: true}
               class:       {type: string, maximum: 100}
-              role_schema: {type: object, required: true, description: "schema definition"}
+              roleSchema:  {type: object, required: true, description: "schema definition"}
               description: {type: string, maximum: 64000}
     update_role:
       description: A role object, see table ROLES.
@@ -21,9 +21,9 @@ components:
             type: object
             properties:
               class:       {type: string, maximum: 100}
-              role_schema: {type: object, description: "schema definition"}
+              roleSchema: {type: object, description: "schema definition"}
               description: {type: string, maximum: 64000}
-              modified_ts: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
+              modifiedTs: {type: string, format:  timestamp, required: true} #, description: "OptLock value, gets overwritten by the database"
 
 
 root:
@@ -41,7 +41,7 @@ root:
   post:
     tags: [Core - Roles]
     summary: Create a role object
-    description: modified_ts is ignored. Returns PK + Optimistic Lock
+    description: modifiedTs is ignored. Returns PK + Optimistic Lock
 
     requestBody: { $ref: '#/components/requestBodies/create_role' }
     responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/create_resource'}] }
@@ -55,7 +55,7 @@ $role_name:
     responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
 
     parameters:
-    - { in: path, name: role_name, required: true, schema: {type: string, maximum: 100}, description: "name of the role to query"}
+    - { in: path, name: roleName, required: true, schema: {type: string, maximum: 100}, description: "name of the role to query"}
 
   post:
     tags: [Core - Roles]
@@ -63,7 +63,7 @@ $role_name:
     description: Only specified fields are updated. Returns PK + Optimistic Lock
 
     parameters:
-    - { in: path, name: role_name, required: true, schema: {type: string, maximum: 100}, description: "name of the role to update"}
+    - { in: path, name: roleName, required: true, schema: {type: string, maximum: 100}, description: "name of the role to update"}
     requestBody: { $ref: '#/components/requestBodies/update_role' }
     responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/update_resource'}] }
 
@@ -72,8 +72,8 @@ $role_name:
     tags: [Core - Roles]
     produces: application/json]
     parameters:
-    - { in: path,  name: role_name,   required: true, schema: {type: string, maximum: 100}, description: "name of the role to delete"}
-    - { in: query, name: modified_ts, required: true, schema: {type: string, format: timestamp}, description: "The OptLock value, as obtained by GET"}
+    - { in: path,  name: roleName,   required: true, schema: {type: string, maximum: 100}, description: "name of the role to delete"}
+    - { in: query, name: modifiedTs, required: true, schema: {type: string, format: timestamp}, description: "The OptLock value, as obtained by GET"}
 
     # NB: DELETE, GET, and HEAD have no body as per RFC 7231
     #requestBody: { $ref: '#/components/requestBodies/delete_role' }

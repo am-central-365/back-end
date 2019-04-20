@@ -27,9 +27,8 @@ class Script: Entity() {
     @Column("sudo")        var sudo:        Boolean     = false
     @Column("target_type") var targetType:  TargetType? = null
 
-    @Column("created_by")  var createdBy:  String = ""
-    @Column("modified_by") var modifiedBy: String = ""
-    @Column("created_ts",  onInsert = Generated.OnTheDbAlways)  var createdTs:  Timestamp? = null
-    @Column("modified_ts", onInsert = Generated.OnTheDbAlways, isOptimisticLock = true)
-    var modifiedTs: Timestamp? = null
+    @Column("created_by",  restParamName = "createdBy")  var createdBy:  String? = null
+    @Column("modified_by", restParamName = "modifiedBy") var modifiedBy: String? = null
+    @Column("created_ts",  restParamName = "createdTs",  onInsert = Generated.OnTheDbAlways)                          var createdTs:  Timestamp? = null
+    @Column("modified_ts", restParamName = "modifiedTs", onInsert = Generated.OnTheDbAlways, isOptimisticLock = true) var modifiedTs: Timestamp? = null
 }

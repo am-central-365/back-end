@@ -164,20 +164,20 @@ paths:
   /catalog/roles:
     $ref: 'api/catalog_roles.yml#root'
 
-  /catalog/roles/{role_name}:
+  /catalog/roles/{roleName}:
     $ref: 'api/catalog_roles.yml#$role_name'
 
   # ------------------- catalog assets
   /catalog/assets:
     $ref: 'api/catalog_assets.yml#root'
 
-  /catalog/assets/{asset_key}:
+  /catalog/assets/{assetKey}:
     $ref: 'api/catalog_assets.yml#$asset'
 
-  /catalog/assets/{asset_key}/roles:
+  /catalog/assets/{assetKey}/roles:
     $ref: 'api/catalog_assets.yml#$asset_roles'
 
-  /catalog/assets/{asset_key}/roles/{role_name}:
+  /catalog/assets/{assetKey}/roles/{roleName}:
     $ref: 'api/catalog_assets.yml#$asset_role'
 
 
@@ -185,20 +185,20 @@ paths:
   /execute:
     $ref: 'api/execute.yml#root'
 
-  /execute/{execute_id}:
+  /execute/{executeId}:
     $ref: 'api/execute.yml#$execute'
 
-  /execute/{execute_id}/log:
+  /execute/{executeId}/log:
     $ref: 'api/execute.yml#$execute_log'
 
-  /execute/{execute_id}/output:
+  /execute/{executeId}/output:
     $ref: 'api/execute.yml#$execute_output'
 
 
   # *********************************************** Random thoughts
 
 
-  /catalog/assets/$asset_id/roles/$role_name:
+  /catalog/assets/$assetKey/roles/$roleName:
    get:
      summary: Not supported
 
@@ -214,7 +214,7 @@ paths:
      description: All role attributes are removed as well.
 
 
-  /catalog/assets/$asset_id/roles/$role_name/attributes:
+  /catalog/assets/$assetKey/roles/$roleName/attributes:
    head:
      summary: List names of all attributes currently associated with the role
 
@@ -223,13 +223,13 @@ paths:
 
    # post/put:
    #   could be used to add an attribute, but for that we should use
-   #   /catalog/assets/$asset_id/roles/$role_name/attributes/$attr_name
+   #   /catalog/assets/$assetId/roles/$roleName/attributes/$attrName
    # delete:
    #   is disabled becase passing an empty attr_name by accident would delete all attributes
    #   and that is too unsafe. To delete all attributes, remove role from the asset.
 
 
-  /catalog/assets/{asset_id}/roles/{role_name}/attributes/${dra_id}:
+  /catalog/assets/{assetId}/roles/{roleName}/attributes/${draId}:
    get:
      summary: Get specific attribute value
      description: All attributes marked as required in declared_role_attributes

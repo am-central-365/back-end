@@ -36,8 +36,8 @@ class Execute { companion object {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req, parseJsonBody = true)
 
-            val scriptKey = paramMap.getOrElse("script_key") { throw StatusException(400, "parameter 'script_key' is required") }.trim()
-            val targetKey = paramMap.get("target_key")
+            val scriptKey = paramMap.getOrElse("scriptKey") { throw StatusException(400, "parameter 'scriptKey' is required") }.trim()
+            val targetKey = paramMap.get("targetKey")
 
             val script = fromDB<Script>(scriptKey, RoleName.Script)
             val executorRoleName = script.executorRoleName ?:

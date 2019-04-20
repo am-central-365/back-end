@@ -98,7 +98,7 @@ class Roles { companion object {
             logger.info { "creating role '${role.roleName}'" }
 
             if( role.roleName == null )
-                return formatResponse(rsp, 400, "parameter 'role_name' is required")
+                return formatResponse(rsp, 400, "parameter 'roleName' is required")
             if( role.roleSchema != null )
                 schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
 
@@ -122,7 +122,7 @@ class Roles { companion object {
             logger.info { "updating role '${role.roleName}'" }
 
             if( role.roleName == null )
-                return formatResponse(rsp, 400, "parameter 'role_name' is required")
+                return formatResponse(rsp, 400, "parameter 'roleName' is required")
             if( role.roleSchema != null )
                 schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
 
@@ -144,7 +144,7 @@ class Roles { companion object {
             val paramMap = combineRequestParams(req)
             role.assignFrom(paramMap)
             if( role.roleName == null )
-                return formatResponse(rsp, 400, "parameters 'role_name' is required")
+                return formatResponse(rsp, 400, "parameters 'roleName' is required")
 
             logger.info { "deleting role '${role.roleName}'" }
             val msg = databaseStore.deleteObjectRow(role)

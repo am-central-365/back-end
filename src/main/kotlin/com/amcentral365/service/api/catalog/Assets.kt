@@ -39,7 +39,7 @@ class Assets { companion object {
     }
 
     private fun extractAssetIdOrDie(paramMap: MutableMap<String, String>): UUID {
-        val pkParam = "asset_key"
+        val pkParam = "assetKey"
         val pkKey = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }.trim()
         val pkId = assetIdByKey(pkKey) ?: throw StatusException(400, "asset with name '$pkKey' was not found")
         paramMap.remove(pkParam)
@@ -57,7 +57,7 @@ class Assets { companion object {
             rsp.type("application/json")
             val paramMap = combineRequestParams(req)
 
-            val nameLike  = paramMap.getOrDefault("name_like", "").trim()
+            val nameLike  = paramMap.getOrDefault("nameLike", "").trim()
             val skipCount = paramMap.getOrDefault("skip",  "0").toInt()
             val limit     = paramMap.getOrDefault("limit", "0").toInt()
             val fetchLimit = if( limit > 0 ) limit else Int.MAX_VALUE
@@ -116,7 +116,7 @@ class Assets { companion object {
         rsp.type("application/json")
         try {
             val paramMap = combineRequestParams(req)
-            val pkParam = "asset_key"
+            val pkParam = "assetKey"
             val assetKey = paramMap.getOrElse(pkParam) { throw StatusException(400, "parameter '$pkParam' is required") }.trim()
             val asset = this.getAssetByKey(assetKey)
             return asset.asJsonStr()
@@ -138,7 +138,7 @@ class Assets { companion object {
             conn = databaseStore.getGoodConnection()
             val defs = SelectStatement(assetRoleValues)
                                         .select(AssetRoleValues::roleName).byPresentValues().iterate(conn).asSequence().toList()
-            return toJsonArray(defs, "role_name")
+            return toJsonArray(defs, "roleName")
 
         } catch(x: Exception) {
             logger.info { "error querying roles of asset ${assetRoleValues.assetId} succeeded: ${x.message}" }
@@ -165,7 +165,7 @@ class Assets { companion object {
             logger.info { "querying role '${assetRoleValues.roleName}' of asset '${assetRoleValues.assetId}'" }
 
             if( assetRoleValues.roleName == null )
-                return formatResponse(rsp, 400, "parameter 'role_name' is required")
+                return formatResponse(rsp, 400, "parameter 'roleName' is required")
 
             val cnt = SelectStatement(assetRoleValues, databaseStore::getGoodConnection)
                                         .select(assetRoleValues.allCols).byPresentValues().run()
@@ -233,9 +233,9 @@ class Assets { companion object {
             logger.info { "adding role '${assetRoleValues.roleName}' to asset '${assetRoleValues.assetId}'" }
 
             if( assetRoleValues.roleName == null )
-                return formatResponse(rsp, 400, "parameter 'role_name' is required")
+                return formatResponse(rsp, 400, "parameter 'roleName' is required")
             if( assetRoleValues.assetVals == null )
-                return formatResponse(rsp, 400, "parameter 'asset_vals' is required")
+                return formatResponse(rsp, 400, "parameter 'assetVals' is required")
 
             schemaUtils.validateAssetValue(assetRoleValues.roleName!!, assetRoleValues.assetVals!!)
 
@@ -259,9 +259,9 @@ class Assets { companion object {
             logger.info { "adding role '${assetRoleValues.roleName}' to asset '${assetRoleValues.assetId}'" }
 
             if( assetRoleValues.roleName == null )
-                return formatResponse(rsp, 400, "parameter 'role_name' is required")
+                return formatResponse(rsp, 400, "parameter 'roleName' is required")
             if( assetRoleValues.assetVals == null )
-                return formatResponse(rsp, 400, "parameter 'asset_vals' is required")
+                return formatResponse(rsp, 400, "parameter 'assetVals' is required")
 
             schemaUtils.validateAssetValue(assetRoleValues.roleName!!, assetRoleValues.assetVals!!)
             logger.info { "updating role ${assetRoleValues.roleName} of asset ${assetRoleValues.assetId}" }
@@ -290,7 +290,7 @@ class Assets { companion object {
             logger.info { "deleting asset '${asset.assetId}', name '${asset.name}', cascade='$cascade'" }
 
             if( asset.modifiedTs == null )
-                return formatResponse(rsp, 400, "the OptLock value modify_ts must be supplied to Delete")
+                return formatResponse(rsp, 400, "the OptLock value modifyTs must be supplied to Delete")
 
             conn = databaseStore.getGoodConnection()
             if( cascade ) {
@@ -301,7 +301,7 @@ class Assets { companion object {
 
             val cnt = DeleteStatement(asset).by(asset::assetId).run(conn)
             if( cnt == 0 )
-                return formatResponse(rsp, 400, "asset with id ${asset.assetId} and modify_ts ${asset.modifiedTs} was not found")
+                return formatResponse(rsp, 400, "asset with id ${asset.assetId} and modifyTs ${asset.modifiedTs} was not found")
 
             logger.info { "deleted asset '${asset.assetId}', name '${asset.name}'" }
             formatResponse(rsp, StatusMessage.OK)
