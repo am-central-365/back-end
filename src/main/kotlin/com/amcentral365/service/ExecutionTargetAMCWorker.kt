@@ -42,21 +42,17 @@ class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget() 
             this.workDirName = this.execAndGetOutput(commandToCreateWorkDir)
         }
 
-        val receiver = ReceiverLocalhost(this.workDirName)
+        val receiver = ReceiverLocalhost(script, this.workDirName)
 
         logger.info { "${this.threadId}: transferring ${script.name} file to ${this.name}" }
         val transferManager = TransferManager(this.threadId)
         val success = transferManager.transfer(sender, receiver)
-        this.content = receiver.content
 
         return success
     }
 
 
     override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage {
-        if( this.content != null )
-            return this.realExec(listOf(this.content!!), outputStream = outputStream, inputStream = inputStream)
-
         val commands = script.getCommand()!!
         return this.realExec(commands, outputStream = outputStream, inputStream = inputStream)
     }

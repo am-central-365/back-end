@@ -18,6 +18,7 @@ import com.amcentral365.service.combineRequestParams
 import com.amcentral365.service.dao.Asset
 import com.amcentral365.service.dao.fromDB
 import com.amcentral365.service.formatResponse
+import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
 
 
 private val logger = KotlinLogging.logger {}
@@ -52,11 +53,13 @@ class Execute { companion object {
                     return formatResponse(rsp, StatusMessage(404, "asset $targetKey has no requested target role $targetRoleName"))
             }
             val scriptExecutorImplementation = getScriptExecutorImplementation(thisThreadId, executorRoleName, targetAsset)
-            val outputStream = System.out  // FIXME: send to the log, to the message channel, maybe to more recipients
+            val outputStream = ByteOutputStream()  // FIXME: send to the log, to the message channel, maybe to more recipients
 
             val scriptExecutor = ScriptExecutor(thisThreadId)
-            scriptExecutor.run(script, scriptExecutorImplementation, outputStream)
-            return formatResponse(rsp, StatusMessage.OK)  // FIXME: should contain the output parameter
+            val statusMessage = scriptExecutor.run(script, scriptExecutorImplementation, outputStream)
+            if( statusMessage.isOk )
+                return formatResponse(rsp, StatusMessage.OK.code, outputStream.toString().trimEnd(), false)
+            return formatResponse(rsp, statusMessage)
 
         } catch(x: Exception) {
             logger.error { "$thisThreadId: error running script: ${x.message}" }

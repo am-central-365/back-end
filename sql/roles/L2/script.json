@@ -3,8 +3,9 @@
   "class": "script",
   "description": "Code executable on a host or another target",
   "roleSchema": {
-    "scriptMain": "@script-main",
     "location":   "@script-location",
+    "scriptMain": "@script-main",
+    "scriptArgs": "string*",
 
     "executorRoleName": "string!",
     "targetRoleName":   "string!",

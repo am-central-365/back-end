@@ -5,6 +5,7 @@ import java.util.UUID
 import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.service.SenderOfFileSystemPath
 import com.amcentral365.service.SenderOfInlineContent
+import com.amcentral365.service.SenderOfMain
 import com.amcentral365.service.StatusException
 import com.amcentral365.service.TransferManager
 import com.amcentral365.service.builtins.RoleName
@@ -13,6 +14,15 @@ import com.amcentral365.service.dao.getAssetObjectForRole
 import com.amcentral365.service.dao.loadRoleObjectFromDB
 import com.amcentral365.service.databaseStore
 import javax.annotation.Generated
+
+private fun quoteParam(param: String) =
+    when {
+        param.startsWith('\'') -> param
+        param.startsWith('"')  -> param
+       !param.contains(' ')    -> param
+        else                   -> "'$param'"
+    }
+
 
 /*
    Roles:
@@ -33,7 +43,7 @@ import javax.annotation.Generated
 */
 
 data class ScriptMain(
-    val main:        String? = null,
+    var main:        String? = null,
     val interpreter: Array<String>? = null,   // e.g. ["python", "-u"]
     val params:      Array<String>? = null,
     val sudoAs:      String? = null,
@@ -57,23 +67,15 @@ data class ScriptMain(
             ret.addAll(listOf("sudo", "-u", this.sudoAs))
 
         if( this.interpreter != null )
-            ret.addAll(this.interpreter.map { this.quoteParam(it) })
+            ret.addAll(this.interpreter.map { quoteParam(it) })
 
-        ret.add(this.main)
+        ret.add(this.main!!)
         if( this.params != null )
-            ret.addAll(this.params.map { this.quoteParam(it) })
+            ret.addAll(this.params) //.map { quoteParam(it) })
 
         return ret
     }
 
-
-    private fun quoteParam(param: String) =
-        when {
-            param.startsWith('\'') -> param
-            param.startsWith('"')  -> param
-           !param.contains(' ')    -> param
-            else                   -> "'$param'"
-        }
 
     @Generated("IntelliJ")
     override fun equals(other: Any?): Boolean {
@@ -139,23 +141,24 @@ class ScriptLocation
     data class Content(var body: String, var version: String) { constructor():this("", "1.0.0") }
 
     val needsWorkDir get() = content == null && fileSystemPath == null
-/*
+
     init {
+        // Ensure all are null, or only one is not null
         if( content != null )
             require(githubUrl == null && fileSystemPath == null && nexusUrl == null)
         else if( githubUrl != null )
             require(fileSystemPath == null && nexusUrl == null)
         else if( fileSystemPath != null )
             require(nexusUrl == null)
-        else
-            require(nexusUrl != null)
+        //else  Either the last one is not null, or all are null, we're good either way
     }
-*/
+
 }
 
 data class Script(
-    var scriptMain:       ScriptMain?,
     var location:         ScriptLocation?,
+    var scriptMain:       ScriptMain?,
+    var scriptArgs:       Array<String>?,
     var executorRoleName: String?,
     var targetRoleName:   String?,
     var execTimeoutSec:   Int? = null,
@@ -165,10 +168,19 @@ data class Script(
     val name get() = this.asset?.name
     val needsWorkDir get() = this.location?.needsWorkDir ?: false
 
-    fun getCommand(): List<String>? = this.scriptMain?.getCommand()
+    val hasMain get() = this.scriptMain?.main?.isNotBlank() == true
+
+    fun getCommand(): List<String>? {
+        val lst = mutableListOf<String>()
+        lst.addAll(this.scriptMain?.getCommand()!!.asIterable())
+        this.scriptArgs?.forEach {
+            lst.add(quoteParam(it))
+        }
+        return lst
+    }
 
     fun getSender(): TransferManager.Sender? {
-        val loc = this.location ?: return null
+        val loc = this.location ?: return SenderOfMain()
 
         return when {
             loc.content != null -> {
@@ -185,6 +197,13 @@ data class Script(
             else ->
                 throw StatusException(415, "Script '${this.name}': the Location has no known non-null properties. This shouldn't happen.")
         }
+    }
+
+    fun assignMain(main: String) {
+        if( scriptMain == null )
+            this.scriptMain = ScriptMain(main)
+        if( this.scriptMain!!.main.isNullOrBlank() )
+            this.scriptMain!!.main = main
     }
 
 /*
@@ -207,9 +226,3 @@ data class Script(
     }
 */
 }
-
-class ScriptBundleNode(
-    val name: String,
-    val content: String? = null,
-    val children: List<ScriptBundleNode>? = null
-)

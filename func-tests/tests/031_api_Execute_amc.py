@@ -18,15 +18,13 @@ test_rec_count = 5
 
 expected_output = "amc script execution is working"
 
-script_command = "/bin/echo '"+expected_output+"'"
+#script_command = "/bin/echo '"+expected_output+"'"
 #script_command = "pwd"
 
 script_role_value = {
-    "location": {
-      "content": {
-        "body": script_command,
-        "version": "1.0.0"
-      }
+    "scriptMain": {
+        "main":   "/bin/echo",
+        "params": [expected_output]
     },
     "targetRoleName": "script-target-host",
     "executorRoleName": "script-executor-amc"
@@ -39,7 +37,7 @@ def main(cfg):
     logger.log("Testing Executes API, api path: %s", api_path)
     conn = db.connect(cfg)
 
-    test_asset_name = "script-test-inline-1x"
+    test_asset_name = "script-test-sp-echo"
 
     _delete(conn, test_asset_name)
 
@@ -48,7 +46,12 @@ def main(cfg):
         add_role(cfg, asset_id, "script", json.dumps(script_role_value))
         add_role(cfg, asset_id, "script-executor-amc", {"os": "linux"})
 
-        actual_output = execute(cfg, asset_id)
+        rsp_msg = execute(cfg, asset_id)
+        rsp_msg_json = json.loads(rsp_msg)
+        if rsp_msg_json["code"] != 200:
+            return logger.failed("unexpected error: "+rsp_msg)
+
+        actual_output = str(rsp_msg_json["message"]).rstrip()
         if actual_output != expected_output:
             return logger.failed("expected: '"+expected_output+"', actual: '"+actual_output+"'")
 

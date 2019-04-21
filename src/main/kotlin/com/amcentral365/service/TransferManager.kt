@@ -1,5 +1,6 @@
 package com.amcentral365.service
 
+import com.amcentral365.service.builtins.roles.Script
 import mu.KotlinLogging
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -11,7 +12,6 @@ import java.nio.charset.Charset
 private val logger = KotlinLogging.logger {}
 
 class TransferManager(private val threadId: String) {
-
     data class Item(
             val pathStr:      String,
             val inputStream:  InputStream? = null,
@@ -26,14 +26,14 @@ class TransferManager(private val threadId: String) {
         abstract fun getIterator(): Iterator<Item>
     }
 
-    abstract class Receiver(val baseDir: String? = null) {
+    abstract class Receiver(val script: Script, val baseDir: String? = null) {
         open fun begin() {}
         open fun end(successful: Boolean) {}
 
         abstract fun apply(item: Item)
     }
 
-    fun safeExec(blockName: String, block: () -> Unit): Boolean {
+    private fun safeExec(blockName: String, block: () -> Unit): Boolean {
         try {
             block()
         } catch(x: Exception) {
@@ -73,11 +73,15 @@ class TransferManager(private val threadId: String) {
 }
 
 
+class SenderOfMain(): TransferManager.Sender() {
+    override fun getIterator(): Iterator<TransferManager.Item> = emptyList<TransferManager.Item>().iterator()
+}
+
+
 class SenderOfInlineContent(private val content: String): TransferManager.Sender() {
     override fun getIterator(): Iterator<TransferManager.Item> = listOf(
             TransferManager.Item(pathStr = "", inputStream = ByteArrayInputStream(content.toByteArray(config.charSet)))
         ).iterator()
-
 }
 
 
@@ -88,13 +92,21 @@ class SenderOfFileSystemPath(private val pathStr: String): TransferManager.Sende
 }
 
 
-class ReceiverLocalhost(baseDir: String? = null): TransferManager.Receiver(baseDir) {
-    var content: String? = null
+class ReceiverLocalhost(script: Script, baseDir: String? = null): TransferManager.Receiver(script, baseDir) {
+    private var fileCount = 0
     private var baseDirFile: File? = null
 
     init {
         if( this.baseDir != null )
             this.baseDirFile = File(baseDir)
+    }
+
+    private fun copy(inputStream:  InputStream, outputFile: File): Long {
+            FileOutputStream(outputFile).use { outputStream ->
+                val copiedByteCount = inputStream.copyTo(outputStream)
+                logger.debug { "wrote $copiedByteCount to ${outputFile.getPath()}" }
+                return copiedByteCount
+            }
     }
 
     override fun apply(item: TransferManager.Item) {
@@ -105,9 +117,14 @@ class ReceiverLocalhost(baseDir: String? = null): TransferManager.Receiver(baseD
 
         // When there is no path, we read inputStream into inline content
         } else if( item.pathStr.isBlank() ) {
+            if( script.hasMain )
+                throw StatusException(412, "Ambiguity: the script both defines main and has inline content")
             if( item.inputStream == null )
                 throw StatusException(412, "The path is empty and there is no input")
-            this.content = item.inputStream.readBytes().toString(Charset.forName(config.charSetName))
+            val contentFile = File.createTempFile("amc_", "", this.baseDirFile)
+            contentFile.deleteOnExit()
+            this.copy(item.inputStream, contentFile)
+            this.script.assignMain(contentFile.name)
 
         // When path is a directory, create it and all parent directories on the way
         } else if( item.isDirectory ) {
@@ -138,18 +155,19 @@ class ReceiverLocalhost(baseDir: String? = null): TransferManager.Receiver(baseD
             if( item.inputStream == null )
                 throw StatusException(400, "The input stream is required, got null")
 
+            if( !this.script.hasMain ) {
+                if( this.fileCount > 0 )
+                    throw StatusException(400, "Ambiguity: the script has more than one file and no 'main' defined")
+                this.script.assignMain(item.pathStr)
+            }
+
             val relFile = File(item.pathStr)
             if( relFile.isAbsolute )
                 throw StatusException(412, "Absolute paths are not allowed: ${item.pathStr}")
 
             val file = this.baseDirFile!!.resolve(relFile)
             logger.debug { "writing to ${file.getPath()}" }
-            var copiedbytes: Long = 0
-            FileOutputStream(file).use { outputStream ->
-                copiedbytes = item.inputStream.copyTo(outputStream)
-            }
-
-            logger.debug { "wrote $copiedbytes to ${file.getPath()}" }
+            this.copy(item.inputStream, file)
         }
     }
 
