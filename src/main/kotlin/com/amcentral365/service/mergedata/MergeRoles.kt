@@ -1,7 +1,7 @@
-package com.amcentral365.service.data
+package com.amcentral365.service.mergedata
 
 class MergeRoles { companion object {
-    fun merge() {
+    fun merge(baseDirName: String) {
 
     }
 }}

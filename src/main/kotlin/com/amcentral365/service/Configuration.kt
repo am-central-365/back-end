@@ -106,6 +106,10 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                 charSet = Charset.forName(it)  // throws IllegalCharsetNameException if charSetName is invalid
             }
 
+    val mergeRoles:  Boolean by option("--merge-roles") .flag("--no-merge-roles",  default = false)
+    val mergeAssets: Boolean by option("--merge-assets").flag("--no-merge-assets", default = false)
+
+
     override fun run() {
 
         fun addressPortToPair(ap: String): Pair<String, Short> {

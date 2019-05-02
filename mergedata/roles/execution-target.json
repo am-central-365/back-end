@@ -1,0 +1,10 @@
+{
+  "roleName": "execution-target",
+  "class": "target",
+  "description": "Describes the hosting environment for script execution. Host is the most commonly used, but can be other",
+  "role_schema": {
+    "workDirBase": "string",
+    "commandToCreateWorkDir": "string!+",
+    "commandToRemoveWorkDir": "string!+"
+  }
+}

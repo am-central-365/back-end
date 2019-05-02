@@ -1,0 +1,10 @@
+{
+  "roleName": "script-main",
+  "class": "script",
+  "description": "Defines script invocation details",
+  "roleSchema": {
+    "main":        "string",
+    "interpreter": "string*",
+    "sudoAs":      "string"
+  }
+}

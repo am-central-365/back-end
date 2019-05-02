@@ -3,11 +3,12 @@ package com.amcentral365.service
 import com.amcentral365.service.api.SchemaUtils
 import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.dao.Asset
+import com.amcentral365.service.mergedata.MergeRoles
 import mu.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
 
-internal var config = Configuration(emptyArray())
+internal lateinit var config: Configuration
 internal var authUser: AuthenticatedUser = AuthenticatedUser("amcentral365", "none@amcentral365.com", "Internal User")
 internal val authorizer: Authorization = Authorization()
 internal lateinit var thisWorkerAsset: Asset
@@ -16,7 +17,7 @@ var keepRunning = true  /** Global 'lights out' flag */
 
 val databaseStore = DatabaseStore()
 val webServer     = WebServer()
-val schemaUtils   = SchemaUtils()
+lateinit var schemaUtils: SchemaUtils
 
 
 fun main(args: Array<String>) {
@@ -26,6 +27,13 @@ fun main(args: Array<String>) {
     logger.info { "parsing arguments" }
     config = Configuration(args)
 
+    logger.info { "initializing globals" }
+    schemaUtils = SchemaUtils()
+
+    if( config.mergeRoles )
+        MergeRoles.merge("roles")
+
+    logger.info { "starting the Web server" }
     webServer.start(config.bindPort)
 
     Thread.sleep(500)  // give the web server some breath time
