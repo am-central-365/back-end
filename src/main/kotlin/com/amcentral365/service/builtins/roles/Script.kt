@@ -1,18 +1,10 @@
 package com.amcentral365.service.builtins.roles
 
-import java.util.UUID
-
-import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.service.SenderOfFileSystemPath
 import com.amcentral365.service.SenderOfInlineContent
 import com.amcentral365.service.SenderOfMain
 import com.amcentral365.service.StatusException
 import com.amcentral365.service.TransferManager
-import com.amcentral365.service.builtins.RoleName
-import com.amcentral365.service.dao.Asset
-import com.amcentral365.service.dao.getAssetObjectForRole
-import com.amcentral365.service.dao.loadRoleObjectFromDB
-import com.amcentral365.service.databaseStore
 import javax.annotation.Generated
 
 private fun quoteParam(param: String) =
@@ -45,9 +37,7 @@ private fun quoteParam(param: String) =
 data class ScriptMain(
     var main:        String? = null,
     val interpreter: Array<String>? = null,   // e.g. ["python", "-u"]
-    val params:      Array<String>? = null,
-    val sudoAs:      String? = null,
-    val workDir:     String? = null
+    val sudoAs:      String? = null
 ) {
     constructor(): this(null)  // used by Gson deserializer
 
@@ -70,8 +60,6 @@ data class ScriptMain(
             ret.addAll(this.interpreter.map { quoteParam(it) })
 
         ret.add(this.main!!)
-        if( this.params != null )
-            ret.addAll(this.params) //.map { quoteParam(it) })
 
         return ret
     }
@@ -89,12 +77,7 @@ data class ScriptMain(
             if(other.interpreter == null) return false
             if(!interpreter.contentEquals(other.interpreter)) return false
         } else if(other.interpreter != null) return false
-        if(params != null) {
-            if(other.params == null) return false
-            if(!params.contentEquals(other.params)) return false
-        } else if(other.params != null) return false
         if(sudoAs != other.sudoAs) return false
-        if(workDir != other.workDir) return false
 
         return true
     }
@@ -103,9 +86,7 @@ data class ScriptMain(
     override fun hashCode(): Int {
         var result = main?.hashCode() ?: 0
         result = 31 * result + (interpreter?.contentHashCode() ?: 0)
-        result = 31 * result + (params?.contentHashCode() ?: 0)
         result = 31 * result + (sudoAs?.hashCode() ?: 0)
-        result = 31 * result + (workDir?.hashCode() ?: 0)
         return result
     }
 }

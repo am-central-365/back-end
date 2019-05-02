@@ -4,9 +4,7 @@
   "description": "Defines script invocation details",
   "roleSchema": {
     "main":        "string",
-    "interpreter": "string",
-    "sudoAs":     "string",
-    "passAllTargetsAtOnce": "boolean",
-    "targetParamPrefix": "string"
+    "interpreter": "string*",
+    "sudoAs":      "string"
   }
 }
