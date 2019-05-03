@@ -1,6 +1,7 @@
 package com.amcentral365.service
 
 import com.amcentral365.service.builtins.AMCWorkerAssetId
+import com.amcentral365.service.mergedata.MergeDirectory
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.default
@@ -14,6 +15,7 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
 
 import mu.KotlinLogging
+import java.lang.Math.max
 import java.nio.charset.Charset
 import java.util.UUID
 
@@ -106,11 +108,28 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                 charSet = Charset.forName(it)  // throws IllegalCharsetNameException if charSetName is invalid
             }
 
-    val mergeRoles:  Boolean by option("--merge-roles") .flag("--no-merge-roles",  default = false)
-    val mergeAssets: Boolean by option("--merge-assets").flag("--no-merge-assets", default = false)
+    val mergeRoles:  Boolean by option("--merge-roles", help="Scan mergedata/roles and update the cataloged roles")
+                              .flag("--no-merge-roles",  default = false)
+    val mergeAssets: Boolean by option("--merge-assets", help="Scan mergedata/assets and update the cataloged assets")
+                              .flag("--no-merge-assets", default = false)
+
+    var mergeThreads: Int = 0
+        private set
+    private val rawMergeThreads: Int by option("--merge-threads",
+            help="How many threads merge should use. When 0, the number of cores less one is used."+
+                 "Note that priority order is not guaranteed with multiple threads.")
+            .int()
+            .default(0)
+
+    val mergeTimeLimitSec: Long by option("--merge-time-limit-sec",
+            help = "Limit merge operation time to the number of seconds. 0 for no limit")
+            .long()
+            .default(0)
 
 
     override fun run() {
+        mergeThreads = if( rawMergeThreads > 0 ) rawMergeThreads
+                     else max(1, Runtime.getRuntime().availableProcessors()-1)
 
         fun addressPortToPair(ap: String): Pair<String, Short> {
             val p = ap.indexOf(':')
@@ -118,7 +137,6 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                    else        Pair(ap.substring(0, p), ap.substring(p+1).toInt().toShort())
         }
 
-        //
         this.clusterFQDN = addressPortToPair(
             if( this.rawClusterFQDN.isNotBlank() )
                 this.rawClusterFQDN
@@ -161,8 +179,12 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                 db:           $dbUrl as $dbUsr
                 nodes:        ${this.clusterNodeNames.joinToString(", ")}
                 cluster FQDN: $clusterFQDN
+
+                merge roles, assets:  $mergeRoles, $mergeAssets
+                  threads to use:     $mergeThreads
+                  time limit (sec):   $mergeTimeLimitSec
             """
-                .trimIndent()
+            .trimIndent()
         }
 
     }

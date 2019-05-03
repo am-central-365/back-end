@@ -1,6 +1,8 @@
 package com.amcentral365.service.api
 
+import com.amcentral365.service.Configuration
 import com.amcentral365.service.StatusException
+import com.amcentral365.service.config
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 
 import org.junit.jupiter.api.Test
@@ -14,7 +16,12 @@ import org.junit.jupiter.api.Assertions.assertFalse
 
 internal class SchemaUtilsTest {
 
-    var schemaUtils = SchemaUtils()
+    val schemaUtils: SchemaUtils
+
+    init {
+        config = Configuration(emptyArray())
+        schemaUtils = SchemaUtils()
+    }
 
     @Test fun `schema - simple, valid`() {
         val nodes = this.schemaUtils.validateAndCompile("r1",

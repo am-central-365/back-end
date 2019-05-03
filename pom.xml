@@ -12,6 +12,8 @@
         <kotlin.compiler.incremental>true</kotlin.compiler.incremental>
         <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
 
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
         <main.class>com.amcentral365.service.MainKt</main.class>
     </properties>
 
@@ -210,7 +212,7 @@
                   <descriptorRef>jar-with-dependencies</descriptorRef>
                 </descriptorRefs>
                 <finalName>amcentral365-service</finalName>
-                <appendAssemblyId>false</appendAssemblyId>
+                <appendAssemblyId>true</appendAssemblyId>
               </configuration>
             </execution>
           </executions>
