@@ -196,10 +196,10 @@ open class SchemaUtils {
     {
         try {
             val elm0 = JsonParser().parse(jsonStr)
-            require(elm0.isJsonObject) { "$roleName: role schema must be a Json Object (e.g. the {...} thingy)" }
+            require(elm0.isJsonObject) { "$roleName: role schema must be a Json Object (i.e. the {...} thingy)" }
             return this.validateAndCompile(roleName, elm0.asJsonObject, rootElmName, seenRoles)
         } catch(x: JsonParseException) {
-            logger.warn { "failed validating/compiling schema for role $roleName: ${x.message}" }
+            logger.warn { "failed while validating/compiling schema for role $roleName: ${x.message}" }
             throw StatusException(x, 406)
         }
     }

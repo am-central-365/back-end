@@ -11,7 +11,7 @@ import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-private const val MERGE_DATA_ROOT_DIR = "mergedata"
+const val MERGE_DATA_ROOT_DIR = "mergedata"
 private const val PRIORITY_LIST_FILE_NAME = "_priority_list.txt"
 
 class MergeDirectory { companion object {
@@ -72,7 +72,12 @@ class MergeDirectory { companion object {
 
 
     data class Stats(val all: Int) {
-        var processed = AtomicInteger(0)
+        val failed    = AtomicInteger(0)
+        var processed = AtomicInteger(0)  // processed + failed == all
+
+        val inserted  = AtomicInteger(0)  // inserted + updated + unchanged == processed
+        val updated   = AtomicInteger(0)
+        val unchanged = AtomicInteger(0)
     }
 
     fun process(files: List<File>, processFile: (file: File, processedFiles: MutableSet<File>, stats: Stats) -> Unit ): Stats {
