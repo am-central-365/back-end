@@ -192,18 +192,19 @@ open class SchemaUtils {
 
     fun validateAndCompile(roleName: String, jsonStr: String
         , rootElmName: String = "\$"
-        , seenRoles: MutableList<Pair<String, String>>? = null): CompiledSchema
+        , seenRoles: MutableList<Pair<String, String>>? = null
+        , getSchemaStrByRoleName: (roleName: String) -> String? = ::loadSchemaFromDb
+    ): CompiledSchema
     {
         try {
             val elm0 = JsonParser().parse(jsonStr)
             require(elm0.isJsonObject) { "$roleName: role schema must be a Json Object (i.e. the {...} thingy)" }
-            return this.validateAndCompile(roleName, elm0.asJsonObject, rootElmName, seenRoles)
+            return this.validateAndCompile(roleName, elm0.asJsonObject, rootElmName, seenRoles, getSchemaStrByRoleName = getSchemaStrByRoleName)
         } catch(x: JsonParseException) {
             logger.warn { "failed while validating/compiling schema for role $roleName: ${x.message}" }
             throw StatusException(x, 406)
         }
     }
-
 
     /**
      * Convert JSON String representation of a role schema to compiled form
@@ -216,7 +217,9 @@ open class SchemaUtils {
     fun validateAndCompile(roleName: String, rootJsonObj: JsonObject
         , rootElmName: String = "\$"
         , seenRoles: MutableList<Pair<String, String>>? = null
-        , seenNodes: MutableMap<String, ASTNode>? = null): CompiledSchema
+        , seenNodes: MutableMap<String, ASTNode>? = null
+        , getSchemaStrByRoleName: (roleName: String) -> String? = ::loadSchemaFromDb
+    ): CompiledSchema
     {
         logger.info { "validating/compiling schema for role $roleName, root $rootElmName" }
         val compiledNodes = seenNodes ?: mutableMapOf()
@@ -237,7 +240,8 @@ open class SchemaUtils {
                             val pluralName = "$name[]"
                             compiledNodes.put(pluralName, ASTNode(pluralName, TypeDef(ElementType.OBJECT)))
                             validateAndCompile(roleName, elm, rootElmName = pluralName,
-                                    seenRoles = seenRoles, seenNodes = compiledNodes)
+                                    seenRoles = seenRoles, seenNodes = compiledNodes,
+                                    getSchemaStrByRoleName = getSchemaStrByRoleName)
                             return@walkJson false
                         }
 
@@ -314,14 +318,16 @@ open class SchemaUtils {
                             throw StatusException(406, "$name: cycle in role references. Role $rfRoleName was referenced by ${seeenRoles[prevIdx].first}")
 
                         seeenRoles.add(Pair(name, rfRoleName))
-                        val rfSchemaStr = loadSchemaFromDb(rfRoleName)
+                        val rfSchemaStr = getSchemaStrByRoleName(rfRoleName)
                                 ?: throw StatusException(406, "$name references unknown role '$rfRoleName'")
 
                         // NB: recursive call
                         val subAttrRoot = if(typeDef.multiple) "$name[]" else name
                         compiledNodes.put(name, ASTNode(name, typeDef))
                         compiledNodes.putIfAbsent(subAttrRoot, ASTNode(subAttrRoot, TypeDef(typeDef.typeCode)))
-                        val rfSchemas = validateAndCompile(rfRoleName, rfSchemaStr, rootElmName = subAttrRoot, seenRoles = seeenRoles)
+                        val rfSchemas = validateAndCompile(rfRoleName, rfSchemaStr,
+                                rootElmName = subAttrRoot, seenRoles = seeenRoles,
+                                getSchemaStrByRoleName = getSchemaStrByRoleName)
                         rfSchemas.forEach() { compiledNodes.putIfAbsent(it.key, it.value) }
 
                     } else {
@@ -354,6 +360,7 @@ open class SchemaUtils {
         logger.info { "successfully validated and cached schema for role $roleName" }
         return compiledNodes
     }
+
 
 
     fun checkValueType(typeCode: ElementType, elm: JsonElement) {

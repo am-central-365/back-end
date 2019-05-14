@@ -21,16 +21,17 @@ class MergeDirectory { companion object {
     fun list(baseDirPath: Path): List<File> {
         val priorityList = readPriorityList(baseDirPath)
         val sortedDirTree = sortDirTree(readDirTree(baseDirPath))
-        return combineLists(priorityList, sortedDirTree)
+        return combineLists(priorityList, sortedDirTree, baseDirPath.toString())
     }
 
-    fun combineLists(priorityList: List<String>, files: MutableList<File>): List<File> {
+    fun combineLists(priorityList: List<String>, files: MutableList<File>, baseDirPrefix: String = ""): List<File> {
         if( priorityList.isEmpty() )
             return files
 
+        val baseDirPrefixRx = Regex("^$baseDirPrefix/")
         val combinedList = mutableListOf<File>()
         for(pattern in priorityList) {                // O(priorityList size * files size)
-            val matchedFileIndexes = matchFiles(files, Regex(pattern))
+            val matchedFileIndexes = matchFiles(files, Regex(pattern), baseDirPrefixRx )
             combinedList.addAll(matchedFileIndexes.map { idx -> files[idx] })       // scan forward, preserve the order
             matchedFileIndexes.asReversed().forEach { idx -> files.removeAt(idx) }  // reversed, so previous indexes do not shift
         }
@@ -39,8 +40,10 @@ class MergeDirectory { companion object {
         return combinedList
     }
 
-    private fun matchFiles(files: List<File>, rx: Regex): List<Int> =
-            files.withIndex().filter { rx.find(it.value.path) != null }.map { it.index }
+    private fun matchFiles(files: List<File>, patternRx: Regex, baseDirPrefixRx : Regex): List<Int> =
+            files.withIndex()
+                 .filter { patternRx.find((it.value.path.replace(baseDirPrefixRx , ""))) != null }
+                 .map { it.index }
 
     private fun readDirTree(baseDirPath: Path): Sequence<File> {
         val priorityFilePathStr = baseDirPath.resolve(PRIORITY_LIST_FILE_NAME).toFile().path
@@ -63,8 +66,8 @@ class MergeDirectory { companion object {
     private fun readPriorityList(baseDirPath: Path): List<String> {
         return try {
             Files.readAllLines(baseDirPath.resolve(PRIORITY_LIST_FILE_NAME))
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() && !it.startsWith('#') }
+                 .map { it.trim() }
+                 .filter { it.isNotEmpty() && !it.startsWith('#') }
         } catch(_: NoSuchFileException) {
             emptyList()
         }
@@ -80,14 +83,13 @@ class MergeDirectory { companion object {
         val unchanged = AtomicInteger(0)
     }
 
-    fun process(files: List<File>, processFile: (file: File, processedFiles: MutableSet<File>, stats: Stats) -> Unit ): Stats {
+    fun process(files: List<File>, processFile: (file: File, stats: Stats) -> Unit ): Stats {
         val stats = Stats(files.size)
         if( files.isEmpty() )
             return stats
 
-        val processedFiles = mutableSetOf<File>()
         val pool = ForkJoinPool(Math.min(config.mergeThreads, files.size))
-        val filetask = { file: File -> processFile(file, processedFiles, stats) }
+        val filetask = { file: File -> processFile(file, stats) }
 
         if( config.mergeThreads == 1 )
             files.forEach(filetask)

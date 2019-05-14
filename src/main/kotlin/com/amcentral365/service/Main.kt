@@ -30,8 +30,13 @@ fun main(args: Array<String>) {
     logger.info { "initializing globals" }
     schemaUtils = SchemaUtils()
 
-    if( config.mergeRoles )
-        MergeRoles.merge("roles")
+    if( config.mergeRoles ) {
+        val failures = MergeRoles.merge("roles")
+        if( failures > 0 ) {
+            logger.error { "Roles merge failed with $failures error(s). Can't start until all problems are fixed. To bypass the merge, use --no-merge-roles parameter" }
+            return
+        }
+    }
 
     logger.info { "starting the Web server" }
     webServer.start(config.bindPort)
