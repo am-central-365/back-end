@@ -114,9 +114,7 @@ internal class SchemaUtilsTest {
     }
 
     @Test fun `schema - ref - unknown role`() {
-        val su = object : SchemaUtils() {
-            override fun loadSchemaFromDb(roleName: String): String? = null
-        }
+        val su = SchemaUtils { null }
 
         val x = assertThrows<StatusException> { su.validateAndCompile("r1", """{"a": "@r2"}""") }
         assertEquals(406, x.code)
@@ -125,9 +123,7 @@ internal class SchemaUtilsTest {
 
 
     @Test fun `schema - ref - recursive call`() {
-        val su = object : SchemaUtils() {
-            override fun loadSchemaFromDb(roleName: String): String? = """{ "b": "boolean+" }"""
-        }
+        val su = SchemaUtils { """{ "b": "boolean+" }""" }
 
         val nodes = su.validateAndCompile("r1", """{"a": "@r2!"}""")
         assertEquals(4, nodes.size)
@@ -152,14 +148,11 @@ internal class SchemaUtilsTest {
     }
 
     @Test fun `schema - ref - circular role`() {
-        val su = object : SchemaUtils() {
-            val roles = mapOf(
-                "r2" to """{ "b": "@r3" }""",
-                "r3" to """{ "c": "@r2" }"""
-            )
-
-            override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
-        }
+        val roles = mapOf(
+            "r2" to """{ "b": "@r3" }""",
+            "r3" to """{ "c": "@r2" }"""
+        )
+        val su = SchemaUtils { roleName -> roles[roleName] }
 
         val x = assertThrows<StatusException> { su.validateAndCompile("r1", """{"a": "@r2"}""") }
         assertEquals(406, x.code)
@@ -268,26 +261,24 @@ internal class SchemaUtilsTest {
     private val roleSchemaNested2   = """{ "name2":   "string!", "n3":   "@nested3!" }"""
     private val roleSchemaNested3   = """{ "name3":   "string!", "val3":  "number!+" }"""
 
-    private val schemaUtils2 = object : SchemaUtils() {
-        val roles = mapOf(
-            "compute"    to roleSchemaCompute,
-            "disk_drive" to roleSchemaDiskDrive,
-            "watchers"   to roleSchemaWatchers,
-            "nested1"    to roleSchemaNested1,
-            "nested2"    to roleSchemaNested2,
-            "nested3"    to roleSchemaNested3
-        )
+    private val roles = mapOf(
+        "compute"    to roleSchemaCompute,
+        "disk_drive" to roleSchemaDiskDrive,
+        "watchers"   to roleSchemaWatchers,
+        "nested1"    to roleSchemaNested1,
+        "nested2"    to roleSchemaNested2,
+        "nested3"    to roleSchemaNested3
+    )
 
+    private val schemaUtils2 = object : SchemaUtils({ roleName -> roles[roleName] }) {
         init {
-            this.validateAndCompile("nested3",    roleSchemaNested3)
-            this.validateAndCompile("nested2",    roleSchemaNested2)
-            this.validateAndCompile("nested1",    roleSchemaNested1)
-            this.validateAndCompile("watchers",   roleSchemaDiskDrive)
+            this.validateAndCompile("nested3", roleSchemaNested3)
+            this.validateAndCompile("nested2", roleSchemaNested2)
+            this.validateAndCompile("nested1", roleSchemaNested1)
+            this.validateAndCompile("watchers", roleSchemaDiskDrive)
             this.validateAndCompile("disk_drive", roleSchemaDiskDrive)
-            this.validateAndCompile("compute",    roleSchemaCompute)
+            this.validateAndCompile("compute", roleSchemaCompute)
         }
-
-        override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
     }
 
     @Test fun `asset - validate - throws`() {
@@ -404,28 +395,6 @@ internal class SchemaUtilsTest {
         this.schemaUtils2.validateAssetValue("compute", assetJsonStr)
     }
 
-
-    private val schemaUtils3 = object : SchemaUtils() {
-        val roles = mapOf(
-            "compute"    to roleSchemaCompute,
-            "disk_drive" to roleSchemaDiskDrive,
-            "watchers"   to roleSchemaWatchers,
-            "nested1"    to roleSchemaNested1,
-            "nested2"    to roleSchemaNested2,
-            "nested3"    to roleSchemaNested3
-        )
-
-        init {
-            this.validateAndCompile("nested3",    roleSchemaNested3)
-            this.validateAndCompile("nested2",    roleSchemaNested2)
-            this.validateAndCompile("nested1",    roleSchemaNested1)
-            this.validateAndCompile("watchers",   roleSchemaDiskDrive)
-            this.validateAndCompile("disk_drive", roleSchemaDiskDrive)
-            this.validateAndCompile("compute",    roleSchemaCompute)
-        }
-
-        override fun loadSchemaFromDb(roleName: String): String? = roles[roleName]
-    }
 
     @Test fun `asset - validate - anonymous schema`() {
         val su = object : SchemaUtils() {

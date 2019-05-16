@@ -38,7 +38,20 @@ private const val attributeNodeName = "_attr"
 typealias CompiledSchema = Map<String, SchemaUtils.ASTNode>
 
 
-open class SchemaUtils {
+/**
+ * Load schema definition from the database
+ *
+ * @return schema as a JSON string or null if [roleName] wasn't found.
+ */
+fun loadSchemaFromDb(roleName: String): String? {
+    val role = Role(roleName)
+    val lst = databaseStore.fetchRowsAsObjects(role, limit = 1)
+    require(lst.size < 2)
+    return if( lst.size == 1 ) (lst[0] as Role).roleSchema else null
+}
+
+
+open class SchemaUtils(val loadSchema: (roleName: String) -> String? = ::loadSchemaFromDb) {
 
     enum class ElementType { STRING, NUMBER, BOOLEAN, MAP, ENUM, OBJECT }
 
@@ -129,39 +142,6 @@ open class SchemaUtils {
         }
     }
 
-
-    /**
-     * Guava Cache of compiled role schemas, by role name.
-     *
-     * Cache size is --schema-cache-size-in-nodes [ASTNode]s. When value isn't found in the
-     * cache or the database, a [StatusException] is thrown with value 404.
-     */
-    val schemaCache = CacheBuilder.newBuilder()
-            .maximumWeight(config.schemaCacheSizeInNodes)
-            .weigher { key: String, value: CompiledSchema -> value.size }
-            .build(object: CacheLoader<String, CompiledSchema>() {
-                override fun load(roleName: String): CompiledSchema {
-                    logger.info { "caching schema for role $roleName" }
-                    val roleSchema = schemaUtils.loadSchemaFromDb(roleName)
-                                  ?: throw StatusException(404, "role '$roleName' was not found")
-                    return schemaUtils.validateAndCompile(roleName, roleSchema)
-                }
-            })
-
-
-    /**
-     * Load schema definition from the database
-     *
-     * @return schema as a JSON string or null if [roleName] wasn't found.
-     */
-    @VisibleForTesting open fun loadSchemaFromDb(roleName: String): String? {
-        val role = Role(roleName)
-        val lst = databaseStore.fetchRowsAsObjects(role, limit = 1)
-        require(lst.size < 2)
-        return if( lst.size == 1 ) (lst[0] as Role).roleSchema else null
-    }
-
-
     /**
      * Walk schema json top down, calling handlers.
      */
@@ -193,18 +173,18 @@ open class SchemaUtils {
     fun validateAndCompile(roleName: String, jsonStr: String
         , rootElmName: String = "\$"
         , seenRoles: MutableList<Pair<String, String>>? = null
-        , getSchemaStrByRoleName: (roleName: String) -> String? = ::loadSchemaFromDb
     ): CompiledSchema
     {
         try {
             val elm0 = JsonParser().parse(jsonStr)
             require(elm0.isJsonObject) { "$roleName: role schema must be a Json Object (i.e. the {...} thingy)" }
-            return this.validateAndCompile(roleName, elm0.asJsonObject, rootElmName, seenRoles, getSchemaStrByRoleName = getSchemaStrByRoleName)
+            return this.validateAndCompile(roleName, elm0.asJsonObject, rootElmName, seenRoles)
         } catch(x: JsonParseException) {
             logger.warn { "failed while validating/compiling schema for role $roleName: ${x.message}" }
             throw StatusException(x, 406)
         }
     }
+
 
     /**
      * Convert JSON String representation of a role schema to compiled form
@@ -218,7 +198,6 @@ open class SchemaUtils {
         , rootElmName: String = "\$"
         , seenRoles: MutableList<Pair<String, String>>? = null
         , seenNodes: MutableMap<String, ASTNode>? = null
-        , getSchemaStrByRoleName: (roleName: String) -> String? = ::loadSchemaFromDb
     ): CompiledSchema
     {
         logger.info { "validating/compiling schema for role $roleName, root $rootElmName" }
@@ -240,8 +219,7 @@ open class SchemaUtils {
                             val pluralName = "$name[]"
                             compiledNodes.put(pluralName, ASTNode(pluralName, TypeDef(ElementType.OBJECT)))
                             validateAndCompile(roleName, elm, rootElmName = pluralName,
-                                    seenRoles = seenRoles, seenNodes = compiledNodes,
-                                    getSchemaStrByRoleName = getSchemaStrByRoleName)
+                                    seenRoles = seenRoles, seenNodes = compiledNodes)
                             return@walkJson false
                         }
 
@@ -318,7 +296,7 @@ open class SchemaUtils {
                             throw StatusException(406, "$name: cycle in role references. Role $rfRoleName was referenced by ${seeenRoles[prevIdx].first}")
 
                         seeenRoles.add(Pair(name, rfRoleName))
-                        val rfSchemaStr = getSchemaStrByRoleName(rfRoleName)
+                        val rfSchemaStr = this.loadSchema(rfRoleName)
                                 ?: throw StatusException(406, "$name references unknown role '$rfRoleName'")
 
                         // NB: recursive call
@@ -326,8 +304,7 @@ open class SchemaUtils {
                         compiledNodes.put(name, ASTNode(name, typeDef))
                         compiledNodes.putIfAbsent(subAttrRoot, ASTNode(subAttrRoot, TypeDef(typeDef.typeCode)))
                         val rfSchemas = validateAndCompile(rfRoleName, rfSchemaStr,
-                                rootElmName = subAttrRoot, seenRoles = seeenRoles,
-                                getSchemaStrByRoleName = getSchemaStrByRoleName)
+                                rootElmName = subAttrRoot, seenRoles = seeenRoles)
                         rfSchemas.forEach() { compiledNodes.putIfAbsent(it.key, it.value) }
 
                     } else {
@@ -360,6 +337,24 @@ open class SchemaUtils {
         logger.info { "successfully validated and cached schema for role $roleName" }
         return compiledNodes
     }
+
+    /**
+     * Guava Cache of compiled role schemas, by role name.
+     *
+     * Cache size is --schema-cache-size-in-nodes [ASTNode]s. When value isn't found in the
+     * cache or the database, a [StatusException] is thrown with value 404.
+     */
+    val schemaCache = CacheBuilder.newBuilder()
+            .maximumWeight(config.schemaCacheSizeInNodes)
+            .weigher { key: String, value: CompiledSchema -> value.size }
+            .build(object: CacheLoader<String, CompiledSchema>() {
+                override fun load(roleName: String): CompiledSchema {
+                    logger.info { "caching schema for role $roleName" }
+                    val roleSchema = this@SchemaUtils.loadSchema(roleName)
+                            ?: throw StatusException(404, "role '$roleName' was not found")
+                    return schemaUtils.validateAndCompile(roleName, roleSchema)
+                }
+            })
 
 
 

@@ -5,6 +5,7 @@ import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.pl4kotlin.UpdateStatement
 import com.amcentral365.service.StatusException
 import com.amcentral365.service.api.SchemaUtils
+import com.amcentral365.service.api.loadSchemaFromDb
 import mu.KotlinLogging
 
 import com.google.gson.Gson
@@ -16,11 +17,9 @@ import java.io.IOException
 import java.lang.UnsupportedOperationException
 
 import com.amcentral365.service.config
-import com.amcentral365.service.schemaUtils
 import com.amcentral365.service.dao.Role
-import com.amcentral365.service.dao.loadRoleObjectFromDB
 import com.amcentral365.service.databaseStore
-import com.amcentral365.service.mergedata.MergeRoles.Companion.getSchemaForRole
+
 
 
 private val logger = KotlinLogging.logger {}
@@ -34,6 +33,7 @@ open class MergeRoles { companion object {
     private var baseDirName: String = ""  // set once by `merge`
     private var processedFiles = mutableSetOf<File>()   // read and updated by all threads
     private lateinit var files: List<File>   // set and populated by `merge` once, read by all threads
+    private val schemaUtils = SchemaUtils(::loadSchemaFromFile)
 
     /**
      * Merge role definitions into the database
@@ -126,18 +126,18 @@ open class MergeRoles { companion object {
     private fun schemasMatch(fileSchema: Any, dbSchema: String): Boolean = parseJson(dbSchema) == fileSchema
 
 
-    private fun getSchemaForRole(roleName: String): String? {
+    private fun loadSchemaFromFile(roleName: String): String? {
         val roleFile = findRoleFile(roleName)
                 ?: throw StatusException(404, "could not identify file for role '$roleName'")
         logger.info { "$id: file for role $roleName is ${roleFile.path}" }
 
         if( roleFile in this.processedFiles )
-            return schemaUtils.loadSchemaFromDb(roleName)
+            return loadSchemaFromDb(roleName)
 
         logger.debug { "$id: trying to lock on ${roleFile.path}" }
         synchronized(roleFile) {
             if( roleFile in this.processedFiles )   // could have been processed while we were waiting for the lock
-                return schemaUtils.loadSchemaFromDb(roleName)
+                return loadSchemaFromDb(roleName)
 
             val (role, _) = readRoleObjectFromFile(roleFile, ::parseJson)
             return role.roleSchema
@@ -183,7 +183,7 @@ open class MergeRoles { companion object {
             val dbRole = readRoleFromDb(role.roleName!!)
             if( dbRole == null ) {
                 // throws an exception on failure
-                schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!, getSchemaStrByRoleName = ::getSchemaForRole)
+                schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
 
                 databaseStore.getGoodConnection().use { conn ->
                     val cnt = InsertStatement(role).run(conn)
@@ -208,7 +208,7 @@ open class MergeRoles { companion object {
                 if( schemasMatch(roleSchemaMap, dbRole.roleSchema!!) ) {
                     logger.info("$id:    the schemas match")
                 } else {
-                    schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!, getSchemaStrByRoleName = ::getSchemaForRole)
+                    schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
 
                     stmt.update(role::roleSchema)
                     logger.info("$id:    updating role schema")
