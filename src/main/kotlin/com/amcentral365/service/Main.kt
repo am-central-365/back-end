@@ -31,7 +31,7 @@ fun main(args: Array<String>) {
     schemaUtils = SchemaUtils()
 
     if( config.mergeRoles ) {
-        val failures = MergeRoles.merge("roles")
+        val failures = MergeRoles("roles").merge()
         if( failures > 0 ) {
             logger.error { "Roles merge failed with $failures error(s). Can't start until all problems are fixed. To bypass the merge, use --no-merge-roles parameter" }
             return

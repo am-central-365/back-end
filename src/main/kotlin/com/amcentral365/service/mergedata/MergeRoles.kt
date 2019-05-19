@@ -3,7 +3,6 @@ package com.amcentral365.service.mergedata
 import com.amcentral365.pl4kotlin.InsertStatement
 import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.pl4kotlin.UpdateStatement
-import com.amcentral365.service.StatusException
 import com.amcentral365.service.api.SchemaUtils
 import com.amcentral365.service.api.loadSchemaFromDb
 import mu.KotlinLogging
@@ -19,21 +18,20 @@ import java.lang.UnsupportedOperationException
 import com.amcentral365.service.config
 import com.amcentral365.service.dao.Role
 import com.amcentral365.service.databaseStore
-
+import com.google.common.annotations.VisibleForTesting
+import java.util.Stack
 
 
 private val logger = KotlinLogging.logger {}
 
 
-open class MergeRoles { companion object {
+open class MergeRoles(private val baseDirName: String) {
 
     // All variables are shared between threads
     private val id get() = Thread.currentThread().name     // a function, unique value for each thread
     private val gson = Gson()  // thread safe
-    private var baseDirName: String = ""  // set once by `merge`
     private var processedFiles = mutableSetOf<File>()   // read and updated by all threads
     private lateinit var files: List<File>   // set and populated by `merge` once, read by all threads
-    private val schemaUtils = SchemaUtils(::loadSchemaFromFile)
 
     /**
      * Merge role definitions into the database
@@ -45,20 +43,14 @@ open class MergeRoles { companion object {
      *
      * @return the number of failures
      */
-    fun merge(baseDirName: String): Int {
+    fun merge(): Int {
         this.files = MergeDirectory.list(baseDirName)
-        this.baseDirName = baseDirName
         val stats = MergeDirectory.process(this.files) { file, stats ->
             if( file in processedFiles )
                 logger.info { "$id: skipping already processed ${file.path}" }
             else {
                 //logger.info { "$id: starting processing ${file.path}" }
-                logger.debug { "$id: attempting to lock on ${file.path}" }
-                val succeeded = synchronized(file) {
-                    if( file in processedFiles )
-                        logger.info { "$id: processed while in wait, skipping ${file.path}" }
-                    this.process(file, stats)
-                }
+                val succeeded = this.process(file, stats)
 
                 //logger.info { "$id: finished processing ${file.path}" }
                 this.processedFiles.add(file)
@@ -72,7 +64,7 @@ open class MergeRoles { companion object {
 
         with(stats) {
             logger.info { "Merge completed for $all roles with $processed processed successfully and $failed failed" }
-            logger.info { "  process stats: skipped $unchanged unchanged, added $inserted, updated $updated" }
+            logger.info { "  process stats: added $inserted, updated $updated, skipped $unchanged unchanged" }
         }
 
         return stats.failed.get()
@@ -105,10 +97,19 @@ open class MergeRoles { companion object {
             .replace('/', '.')
 
 
-    private fun findRoleFile(roleName: String): File? {
-        return File("$MERGE_DATA_ROOT_DIR/$baseDirName/${roleName}.json")  // FIXME: scan `files` to find the file in subdirs, allow other extensions
-    }
+    private fun roleNameToInvariantPath(roleName: String) =
+            "$MERGE_DATA_ROOT_DIR/$baseDirName/" + roleName.replace('.', '/')
 
+
+    @VisibleForTesting fun findRoleFile(roleName: String, files: List<File>): File? =
+        this.roleNameToInvariantPath(roleName).let { rolePath ->
+            files.find {
+                it.invariantSeparatorsPath.substring(0, it.invariantSeparatorsPath.lastIndexOf('.')) == rolePath
+            }
+        }
+
+
+    private fun findRoleFile(roleName: String): File? = findRoleFile(roleName, this.files)
 
     protected fun readRoleFromDb(roleName: String): Role? {
         val role = Role(roleName = roleName)
@@ -120,34 +121,13 @@ open class MergeRoles { companion object {
         return role
     }
 
-
     protected fun serializeToJsonObj(v: Any): String = gson.toJson(v)
 
-    private fun schemasMatch(fileSchema: Any, dbSchema: String): Boolean = parseJson(dbSchema) == fileSchema
+    private fun schemasMatch(fileSchema: String, dbSchema: String): Boolean =
+            parseJson(fileSchema) == parseJson(dbSchema)
 
 
-    private fun loadSchemaFromFile(roleName: String): String? {
-        val roleFile = findRoleFile(roleName)
-                ?: throw StatusException(404, "could not identify file for role '$roleName'")
-        logger.info { "$id: file for role $roleName is ${roleFile.path}" }
-
-        if( roleFile in this.processedFiles )
-            return loadSchemaFromDb(roleName)
-
-        logger.debug { "$id: trying to lock on ${roleFile.path}" }
-        synchronized(roleFile) {
-            if( roleFile in this.processedFiles )   // could have been processed while we were waiting for the lock
-                return loadSchemaFromDb(roleName)
-
-            val (role, _) = readRoleObjectFromFile(roleFile, ::parseJson)
-            return role.roleSchema
-        }
-    }
-
-
-    data class ParsedRoleObj(val role: Role, val roleSchemaMap: Any)
-
-    private fun readRoleObjectFromFile(file: File, parser: (fileText: String) -> Map<String, Any>): ParsedRoleObj {
+    private fun readRoleObjectFromFile(file: File, parser: (fileText: String) -> Map<String, Any>): Role {
         val fileText = readFile(file)
         val fileObj = parser(fileText)
         val roleSchemaMap = fileObj["roleSchema"]
@@ -167,88 +147,55 @@ open class MergeRoles { companion object {
         role.description = fileObj.getOrDefault("description", "").toString()
         role.roleSchema  = serializeToJsonObj(roleSchemaMap)
 
-        return ParsedRoleObj(role, roleSchemaMap)
+        return role
     }
+
+    data class RoleAndItsFile(val role: Role, val file: File)
 
 
     private fun processJson(file: File, stats: MergeDirectory.Companion.Stats): Boolean {
-        logger.info { "$id:  processing JSON file ${file.path}" }
+        logger.info { "$id: processing JSON file ${file.path}" }
         try {
-            val (role, roleSchemaMap) = readRoleObjectFromFile(file, ::parseJson)
+            val role = readRoleObjectFromFile(file, ::parseJson)
 
             val roleNameFromFile = fileNameToRoleName(file)
             if( roleNameFromFile != role.roleName )
                 throw Exception("file name '$roleNameFromFile' does not match the role name '${role.roleName}'")
 
-            val dbRole = readRoleFromDb(role.roleName!!)
-            if( dbRole == null ) {
-                // throws an exception on failure
-                schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
+            val dbMergeObjs = Stack<RoleAndItsFile>()
+            dbMergeObjs.push(RoleAndItsFile(role, file))
 
-                databaseStore.getGoodConnection().use { conn ->
-                    val cnt = InsertStatement(role).run(conn)
-                    if( cnt == 0 ) {
-                        conn.rollback()
-                        logger.error { "$id:  failed creating role ${role.roleName}" }
-                        return false
+            SchemaUtils { roleName ->
+                logger.debug { "$id: processing referenced role $roleName" }
+                val roleFile = findRoleFile(roleName)
+                if( roleFile == null ) {
+                    logger.debug { "$id:   role file was not deteced for $roleName, attempting to find in the DB" }
+                    loadSchemaFromDb(roleName)      // the role isn't known, but may be loaded by other means
+                } else {
+                    logger.info { "$id:   file for role $roleName is ${roleFile.path}" }
+                    if( roleFile in this.processedFiles ) {
+                        logger.debug { "$id:   $roleName is already processed, loading from the DB" }
+                        loadSchemaFromDb(roleName)    // already loaded by us or another thread
+                    } else {
+                        logger.debug { "$id:   reading and processing $roleName from file $roleFile" }
+                        val roleFromFile = readRoleObjectFromFile(roleFile, ::parseJson)
+                        dbMergeObjs.push(RoleAndItsFile(roleFromFile, roleFile))
+                        roleFromFile.roleSchema     // return
                     }
-                    conn.commit()
                 }
+            }.validateAndCompile(role.roleName!!, role.roleSchema!!)
 
-                logger.info { "$id:  successfully created role ${role.roleName}" }
-                stats.inserted.incrementAndGet()
-                return true
-
-            } else {
-                role.modifiedTs = dbRole.modifiedTs
-                val stmt = UpdateStatement(role).byPkAndOptLock()
-
-                var hasUpdates = false
-
-                if( schemasMatch(roleSchemaMap, dbRole.roleSchema!!) ) {
-                    logger.info("$id:    the schemas match")
-                } else {
-                    schemaUtils.validateAndCompile(role.roleName!!, role.roleSchema!!)
-
-                    stmt.update(role::roleSchema)
-                    logger.info("$id:    updating role schema")
-                    hasUpdates = true
-                }
-
-                if( dbRole.roleClass == role.roleClass ) {
-                    logger.info("$id:    the classes match")
-                } else {
-                    logger.info("$id:    updating role class")
-                    stmt.update(role::roleClass)
-                    hasUpdates = true
-                }
-
-                if( dbRole.description == role.description ) {
-                    logger.info("$id:    the role descriptions match")
-                } else {
-                    logger.info("$id:    updating role description")
-                    stmt.update(role::description)
-                    hasUpdates = true
-                }
-
-                if( hasUpdates ) {
-                    databaseStore.getGoodConnection().use { conn ->
-                        val cnt = stmt.run(conn)
-                        if( cnt == 0 ) {
-                            conn.rollback()
-                            logger.warn { "$id:  failed to update role ${role.roleName}, likely due to concurrency" }
-                        } else {
-                            conn.commit()
-                            logger.info { "$id:  successfully updated role ${role.roleName}" }
-                            stats.updated.incrementAndGet()
-                        }
+            logger.info { "$id: considering ${dbMergeObjs.size} roles for DB merge" }
+            while(dbMergeObjs.isNotEmpty()) {
+                val (validatedRole, roleFile) = dbMergeObjs.pop()
+                if( roleFile in this.processedFiles )
+                    logger.info { "$id:  role $validatedRole has already been processed, skipping" }
+                else {
+                    val dbChanged = mergeRoleIntoDB(validatedRole, dbMergeObjs.isEmpty(), stats)
+                    if(dbChanged) {
+                        this.processedFiles.add(roleFile)
                     }
-
-                } else {
-                    logger.info("$id:  skipping matching roles")
-                    stats.unchanged.incrementAndGet()
                 }
-
             }
 
         } catch(x: IOException) {
@@ -266,6 +213,80 @@ open class MergeRoles { companion object {
     }
 
 
+    private fun mergeRoleIntoDB(role: Role, isTopLevelRole: Boolean, stats: MergeDirectory.Companion.Stats): Boolean {
+        val dbRole = readRoleFromDb(role.roleName!!)
+        if( dbRole == null ) {
+            logger.info { "$id:  role ${role.roleName} wasn't found in the DB, attempting to insert" }
+            databaseStore.getGoodConnection().use { conn ->
+                val cnt = InsertStatement(role).run(conn)
+                if( cnt == 0 ) {
+                    conn.rollback()
+                    logger.error { "$id:  failed creating role ${role.roleName}" }
+                    return false
+                }
+
+                conn.commit()
+            }
+
+            logger.info { "$id:  successfully created role ${role.roleName}" }
+            stats.inserted.incrementAndGet()
+            return true
+
+        } else {
+            logger.info { "$id:  role ${role.roleName} was found in the DB, checking it for changes" }
+            role.modifiedTs = dbRole.modifiedTs
+            val stmt = UpdateStatement(role).byPkAndOptLock()
+
+            var hasUpdates = false
+
+            if( schemasMatch(role.roleSchema!!, dbRole.roleSchema!!) ) {
+                logger.info("$id:    the schemas match")
+            } else {
+                stmt.update(role::roleSchema)
+                logger.info("$id:    updating role schema")
+                hasUpdates = true
+            }
+
+            if( dbRole.roleClass == role.roleClass ) {
+                logger.info("$id:    the classes match")
+            } else {
+                logger.info("$id:    updating role class")
+                stmt.update(role::roleClass)
+                hasUpdates = true
+            }
+
+            if( dbRole.description == role.description ) {
+                logger.info("$id:    the role descriptions match")
+            } else {
+                logger.info("$id:    updating role description")
+                stmt.update(role::description)
+                hasUpdates = true
+            }
+
+            if( hasUpdates ) {
+                databaseStore.getGoodConnection().use { conn ->
+                    val cnt = stmt.run(conn)
+                    if( cnt == 0 ) {
+                        conn.rollback()
+                        logger.warn { "$id:  optlock failure updating role ${role.roleName}" }
+                    } else {
+                        conn.commit()
+                        logger.info { "$id:  successfully updated role ${role.roleName}" }
+                        stats.updated.incrementAndGet()
+                    }
+                }
+
+            } else {
+                logger.info("$id:  skipping matching role ${role.roleName}")
+                if( isTopLevelRole )
+                    stats.unchanged.incrementAndGet()
+            }
+
+        }
+
+        return false
+    }
+
 
     private fun processYaml(file: File, stats: MergeDirectory.Companion.Stats): Boolean {
         throw UnsupportedOperationException("extension ${file.extension} will be supported later")
@@ -274,4 +295,4 @@ open class MergeRoles { companion object {
     private fun processXml(file: File, stats: MergeDirectory.Companion.Stats): Boolean {
         throw UnsupportedOperationException("extension ${file.extension} will be supported later")
     }
-}}
+}
