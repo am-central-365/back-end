@@ -66,7 +66,7 @@ dependencies {
     compile group: 'org.jetbrains.kotlin',  name: 'kotlin-stdlib-jdk8'
     compile group: 'com.google.guava',      name: 'guava',                version: '27.0.1-jre'
     compile group: 'com.sparkjava',         name: 'spark-core',           version: '2.7.2'
-    compile group: 'mysql',                 name: 'mysql-connector-java', version: '5.1.46'
+    compile group: 'org.mariadb.jdbc',      name: 'mariadb-java-client',  version: '2.4.1'
     compile group: 'com.amcentral365',      name: 'pl4kotlin',            version: '0.3.12'
     compile group: 'io.github.microutils',  name: 'kotlin-logging',       version: '1.5.4'
     compile group: 'org.slf4j',             name: 'slf4j-log4j12',        version: '1.7.26'

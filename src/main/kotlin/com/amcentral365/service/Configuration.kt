@@ -45,9 +45,9 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
     val dbUsr: String by option("-u", "--user", help="database user").default("amcentral365")
     val dbPwd: String by option("-p", "--pass", help="database password").default("a")
     val dbUrl: String by option("-c", "--conn",
-            help = "JDBC connection string for the back-end MySql database. Format: [jdbc:mysql://]host[:port=3306]/database")
-            .convert { if( it.matches(Regex("^jdbc:[^/@]+(//|@).+")) ) it else "jdbc:mysql://$it" }
-            .default("jdbc:mysql://127.0.0.1/amcentral365?useSSL=false")
+            help = "JDBC connection string for the back-end MySql/MariaDB database. Format: [jdbc:mariadb://]host[:port=3306]/database[?param=val&...]")
+            .convert { if( it.matches(Regex("^jdbc:[^/@]+:?(//|@).+")) ) it else "jdbc:mariadb://$it" }
+            .default("jdbc:mariadb://127.0.0.1/amcentral365?useSSL=false")
 
     val clusterNodeNames: MutableList<Pair<String, Short>> = mutableListOf()
     private val rawClusterNodeNames: List<String> by option("-n", "--node", "--nodes",
