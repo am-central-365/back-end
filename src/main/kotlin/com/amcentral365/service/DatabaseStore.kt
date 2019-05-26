@@ -1,5 +1,13 @@
 package com.amcentral365.service
 
+import mu.KLogging
+
+import java.sql.Connection
+import java.sql.SQLException
+
+import javax.sql.DataSource
+import org.mariadb.jdbc.MariaDbPoolDataSource   // don't like
+
 import com.amcentral365.pl4kotlin.Entity
 import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.pl4kotlin.InsertStatement
@@ -7,24 +15,42 @@ import com.amcentral365.pl4kotlin.UpdateStatement
 import com.amcentral365.pl4kotlin.DeleteStatement
 import com.amcentral365.pl4kotlin.closeIfCan
 
-import mu.KLogging
-import java.sql.Connection
-import java.sql.DriverManager
-import java.sql.SQLException
-
 const val DBERR_DUP_VAL_ON_INDEX = 1062
 
 class DatabaseStore {
     companion object: KLogging()
+    private val pool: DataSource
+
+    init {
+        pool = with(MariaDbPoolDataSource(config.dbUrl)) {
+            user = config.dbUsr
+            setPassword(config.dbPwd)
+
+            logger.info {
+              """Database connection pool initialized with URL ${config.dbUrl}:
+               |   user:                 $user
+               |   serverName:           $serverName
+               |   port:                 $port
+               |   databaseName:         $databaseName
+               |   poolName:             $poolName
+               |   min/max poolSize:     $minPoolSize / $maxPoolSize
+               |   maxIdleTime   (sec):  $maxIdleTime
+               |   validMinDelay (msec): $poolValidMinDelay
+            """.trimMargin()
+            }
+
+            this    // the return value
+        }
+    }
 
     fun getGoodConnection(): Connection {
         while( keepRunning ) {
             try {
-                logger.debug { "connecting to ${config.dbUrl} as ${config.dbUsr}" }
-                val conn = DriverManager.getConnection(config.dbUrl, config.dbUsr, config.dbPwd)
+                logger.debug { "getting a pooled db connection" }
+                val conn = this.pool.getConnection()
                 conn.autoCommit = false
                 conn.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
-                logger.debug { "connected" }
+                logger.debug { "obtained connection $conn" }
                 return conn
             } catch(x: SQLException) {
                 logger.warn { "${x.message};  retrying in ${config.DBSTORE_RECONNECT_DELAY_SEC} sec" }

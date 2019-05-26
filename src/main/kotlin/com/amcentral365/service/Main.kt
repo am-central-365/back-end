@@ -5,7 +5,9 @@ import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.dao.Asset
 import com.amcentral365.service.mergedata.MergeRoles
 import mu.KotlinLogging
+import javax.sql.DataSource
 
+private const val VERSION = "0.0.1"
 private val logger = KotlinLogging.logger {}
 
 internal lateinit var config: Configuration
@@ -13,21 +15,23 @@ internal var authUser: AuthenticatedUser = AuthenticatedUser("amcentral365", "no
 internal val authorizer: Authorization = Authorization()
 internal lateinit var thisWorkerAsset: Asset
 
-var keepRunning = true  /** Global 'lights out' flag */
-
-val databaseStore = DatabaseStore()
 val webServer     = WebServer()
+
 lateinit var schemaUtils: SchemaUtils
+lateinit var databaseStore: DatabaseStore
+
+var keepRunning = true  /** Global 'lights out' flag */
 
 
 fun main(args: Array<String>) {
 
-    logger.info { "AM-Central-365 version 0.0.1 is starting" }
+    logger.info { "AM-Central-365 version $VERSION is starting" }
 
     logger.info { "parsing arguments" }
     config = Configuration(args)
 
     logger.info { "initializing globals" }
+    databaseStore = DatabaseStore()
     schemaUtils = SchemaUtils(config.schemaCacheSizeInNodes)
 
     if( config.mergeRoles ) {
