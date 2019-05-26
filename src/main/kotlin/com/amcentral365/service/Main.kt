@@ -28,7 +28,7 @@ fun main(args: Array<String>) {
     config = Configuration(args)
 
     logger.info { "initializing globals" }
-    schemaUtils = SchemaUtils()
+    schemaUtils = SchemaUtils(config.schemaCacheSizeInNodes)
 
     if( config.mergeRoles ) {
         val failures = MergeRoles("roles").merge()

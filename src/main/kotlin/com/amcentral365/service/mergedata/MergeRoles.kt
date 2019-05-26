@@ -18,7 +18,9 @@ import java.lang.UnsupportedOperationException
 import com.amcentral365.service.config
 import com.amcentral365.service.dao.Role
 import com.amcentral365.service.databaseStore
+
 import com.google.common.annotations.VisibleForTesting
+
 import java.sql.SQLException
 import java.util.Stack
 
@@ -86,11 +88,11 @@ open class MergeRoles(private val baseDirName: String) {
 
     // Move basic ops out to protected methods so we can test process() by overriding them
 
-    protected fun readFile(file: File): String = file.readText(config.charSet)
+    private fun readFile(file: File): String = file.readText(config.charSet)
 
-    protected fun parseJson(content: String): Map<String, Any> = gson.fromJson<Map<String, Any>>(content, Map::class.java)
+    private fun parseJson(content: String): Map<String, Any> = gson.fromJson<Map<String, Any>>(content, Map::class.java)
 
-    protected fun fileNameToRoleName(file: File) =
+    private fun fileNameToRoleName(file: File) =
         file.invariantSeparatorsPath
             .replace(Regex("^$MERGE_DATA_ROOT_DIR/$baseDirName/"), "")
             .replace(Regex("\\.${file.extension}$"), "")
@@ -111,7 +113,7 @@ open class MergeRoles(private val baseDirName: String) {
 
     private fun findRoleFile(roleName: String): File? = findRoleFile(roleName, this.files)
 
-    protected fun readRoleFromDb(roleName: String): Role? {
+    private fun readRoleFromDb(roleName: String): Role? {
         val role = Role(roleName = roleName)
         databaseStore.getGoodConnection().use { conn ->
             val cnt = SelectStatement(role).select(role.allColsButPk!!).by(role::roleName).run(conn)
@@ -121,7 +123,7 @@ open class MergeRoles(private val baseDirName: String) {
         return role
     }
 
-    protected fun serializeToJsonObj(v: Any): String = gson.toJson(v)
+    private fun serializeToJsonObj(v: Any): String = gson.toJson(v)
 
     private fun schemasMatch(fileSchema: String, dbSchema: String): Boolean =
             parseJson(fileSchema) == parseJson(dbSchema)
@@ -164,6 +166,8 @@ open class MergeRoles(private val baseDirName: String) {
 
             val dbMergeObjs = Stack<RoleAndItsFile>()
             dbMergeObjs.push(RoleAndItsFile(role, file))
+
+
 
             SchemaUtils { roleName ->
                 logger.debug { "processing referenced role $roleName" }

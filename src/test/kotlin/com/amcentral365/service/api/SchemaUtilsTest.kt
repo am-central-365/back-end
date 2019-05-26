@@ -270,7 +270,7 @@ internal class SchemaUtilsTest {
         "nested3"    to roleSchemaNested3
     )
 
-    private val schemaUtils2 = object : SchemaUtils({ roleName -> roles[roleName] }) {
+    private val schemaUtils2 = object : SchemaUtils(loadSchema = { roleName -> roles[roleName] }) {
         init {
             this.validateAndCompile("nested3", roleSchemaNested3)
             this.validateAndCompile("nested2", roleSchemaNested2)
