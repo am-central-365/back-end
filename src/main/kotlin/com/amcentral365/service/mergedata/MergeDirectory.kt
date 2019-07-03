@@ -46,11 +46,12 @@ class MergeDirectory { companion object {
                  .map { it.index }
 
     private fun readDirTree(baseDirPath: Path): Sequence<File> {
-        val priorityFilePathStr = baseDirPath.resolve(PRIORITY_LIST_FILE_NAME).toFile().path
+        //val priorityFilePathStr = baseDirPath.resolve(PRIORITY_LIST_FILE_NAME).toFile().path
+        val interestingExtensions = setOf("jsn", "json", "yml", "yaml", "xml")
         return baseDirPath.toFile()
             .walkTopDown()
             .filter { it.isFile }
-            .filter { it.path != priorityFilePathStr }
+            .filter { it.extension.toLowerCase() in interestingExtensions }
         }
 
 

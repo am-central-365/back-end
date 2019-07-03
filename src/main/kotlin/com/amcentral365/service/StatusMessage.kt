@@ -28,6 +28,7 @@ class StatusException : Exception {
 
     internal constructor(x: Exception) : super(x) { this.code = this.getCode(x);  this.setCause(x) }
     internal constructor(x: Exception, code: Int) : super(x) { this.code = code;  this.setCause(x) }
+    internal constructor(x: Exception, code: Int, msg: String) : super(msg, x) { this.code = code;  this.setCause(x) }
     internal constructor(x: Exception, attr: Map<String, String>) : this(x) { this.attr = attr }
 
              constructor(code: Int, msg: String) : super(msg) { this.code = code }

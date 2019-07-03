@@ -23,7 +23,7 @@ internal class MergeRolesTest {
         val files = listOf(aL2, bL0, aL1, bL1, aL0, bL2)
 
         com.amcentral365.service.config = Configuration(arrayOf())
-        val merger = MergeRoles(ROLES_DIR)
+        val merger = MergeAssets(ROLES_DIR)
 
         Assertions.assertNull(merger.findRoleFile("x", files))
         Assertions.assertNull(merger.findRoleFile("x.y", files))

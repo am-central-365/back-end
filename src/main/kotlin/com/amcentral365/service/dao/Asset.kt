@@ -22,4 +22,5 @@ open class Asset(): Entity() {
 
     constructor(assetId: UUID): this() { this.assetId = assetId }
     constructor(name: String):  this() { this.name = name }
+    constructor(assetId: UUID?, name: String?): this() { this.assetId = assetId; this.name = name }
 }
