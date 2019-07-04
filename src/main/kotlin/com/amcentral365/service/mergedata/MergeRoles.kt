@@ -65,8 +65,8 @@ open class MergeRoles(private val baseDirName: String) {
         }
 
         with(stats) {
-            logger.info { "Merge completed for $all roles with $processed processed successfully and $failed failed" }
-            logger.info { "  process stats: added $inserted, updated $updated, skipped $unchanged unchanged" }
+            logger.info { "Merge completed for $totalConsidered roles with $processed merged successfully and $failed failed" }
+            logger.info { "  process stats: added $inserted, updated $updated, and skipped $unchanged unchanged" }
         }
 
         return stats.failed.get()
@@ -302,10 +302,12 @@ open class MergeRoles(private val baseDirName: String) {
 
 
     private fun processYaml(file: File, stats: MergeDirectory.Companion.Stats): Boolean {
+        stats.unchanged.incrementAndGet()
         throw UnsupportedOperationException("extension ${file.extension} will be supported later")
     }
 
     private fun processXml(file: File, stats: MergeDirectory.Companion.Stats): Boolean {
+        stats.unchanged.incrementAndGet()
         throw UnsupportedOperationException("extension ${file.extension} will be supported later")
     }
 }

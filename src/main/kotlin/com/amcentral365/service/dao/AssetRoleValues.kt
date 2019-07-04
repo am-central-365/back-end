@@ -22,4 +22,5 @@ class AssetRoleValues(): Entity() {
 
     constructor(assetId: UUID): this() { this.assetId = assetId }
     constructor(assetId: UUID, roleName: String): this() { this.assetId = assetId;  this.roleName = roleName }
+    constructor(assetId: UUID, roleName: String, assetVals: String): this(assetId, roleName) { this.assetVals = assetVals }
 }

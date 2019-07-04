@@ -75,13 +75,16 @@ class MergeDirectory { companion object {
     }
 
 
-    data class Stats(val all: Int) {
+    data class Stats(val estimated: Int) {
         val failed    = AtomicInteger(0)
         var processed = AtomicInteger(0)  // processed + failed == all
 
         val inserted  = AtomicInteger(0)  // inserted + updated + unchanged == processed
         val updated   = AtomicInteger(0)
         val unchanged = AtomicInteger(0)
+
+        val totalConsidered: Int get() = failed.get() + processed.get()
+        val totalMerged:     Int get() = inserted.get() + updated.get()
     }
 
     fun process(files: List<File>, processFile: (file: File, stats: Stats) -> Unit ): Stats {
