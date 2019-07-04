@@ -95,7 +95,7 @@ open class MergeAssets(private val baseDirName: String) {
         with(stats) {
             logger.info { "Merge completed for $totalConsidered assets and role values with $processed processed successfully and $failed failed" }
             logger.info { "  process stats: added $inserted, updated $updated, and skipped $unchanged unchanged" }
-            logger.info { "  in the statistics, Assets and each of their AssetRoleValues are counted individually" }
+            logger.info { "  (this low level stats treats Assets and each of their AssetRoleValues individually)" }
         }
 
         return stats.failed.get()
@@ -397,9 +397,8 @@ open class MergeAssets(private val baseDirName: String) {
             if( cnt != 1 )
                 throw StatusException(409, "optlock failure updating assetRoleVals (${mmARV.assetId}, ${mmARV.roleName}): $cnt rows updated")
             stats.updated.incrementAndGet()
+            logger.info { "updated assetRoleVals with PK (${mmARV.assetId}, ${mmARV.roleName})" }
         }
-
-        logger.info { "updated assetRoleVals with PK (${mmARV.assetId}, ${mmARV.roleName})" }
     }
 
 

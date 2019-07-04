@@ -6,8 +6,8 @@
         "roleName": "script",
         "values": {
           "location":   {"content": {"body": "/bin/echo 'amc script execution is working'", "version": "1.0.0"}},
-          "scriptMain": "",
-          "scriptArgs": "",
+          "scriptMain": { "interpreter":  ["/bin/sh", "-c"] },
+          "scriptArgs": [],
 
           "executorRoleName": "script-executor-amc",
           "targetRoleName":   "script-target-host",
