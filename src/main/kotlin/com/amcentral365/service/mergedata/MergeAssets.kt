@@ -23,6 +23,8 @@ import com.amcentral365.service.databaseStore
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.base.Preconditions
+import com.google.gson.JsonElement
+import com.google.gson.JsonParser
 import java.sql.Connection
 
 import java.sql.SQLException
@@ -152,23 +154,44 @@ open class MergeAssets(private val baseDirName: String) {
     data class RoleValues(val roleName: String, val valuesAsJsonStr: String)
     data class AssetWithRoles(val asset: Asset, val roles: List<RoleValues>)
 
-    private fun readAssetObjectFromFile(file: File): AssetWithRoles {
+    private fun readAssetObjectsFromFile(file: File): List<AssetWithRoles> {
         val fileText = readFile(file)
-        val fileAsset = gson.fromJson(fileText, PermissiveAssetWithRoles::class.java)
+        val rootElm = JsonParser().parse(fileText)
+        val displayFilePath = file.path
+
+        if( rootElm.isJsonObject ) {
+            val singleAsset = readAssetObjectFromElement(rootElm, displayFilePath)
+            return listOf(singleAsset)
+        }
+
+        if( !rootElm.isJsonArray )
+            throw StatusException(400, "Bad data, expected Json Object or Array")
+
+        val assetsWithRoles = mutableListOf<AssetWithRoles>()
+        for(jsonElm in rootElm.asJsonArray) {
+            val fileAsset = readAssetObjectFromElement(jsonElm, displayFilePath)
+            assetsWithRoles.add(fileAsset)
+        }
+
+        return assetsWithRoles
+    }
+
+    private fun readAssetObjectFromElement(jsonElm: JsonElement, displayFilePath: String): AssetWithRoles {
+        val fileAsset = gson.fromJson(jsonElm, PermissiveAssetWithRoles::class.java)
 
         val problem = checkAssetIdAndName(fileAsset.asset)
-        if( problem != null )
+        if(problem != null)
             throw StatusException(412, problem)
 
-        if( fileAsset.roles == null )
+        if(fileAsset.roles == null)
             fileAsset.roles = emptyList()
 
         val collectedRoles = mutableListOf<RoleValues>()
         for(rval in fileAsset.roles!!) {
-            if( rval.roleName.isBlank() )
+            if(rval.roleName.isBlank())
                 throw StatusException(412, "element 'roleName' is blank")
 
-            if( rval.values == null )
+            if(rval.values == null)
                 rval.values = emptyMap()
 
             val valsAsString = this.serializeToJsonObj(rval.values!!)
@@ -176,13 +199,14 @@ open class MergeAssets(private val baseDirName: String) {
             try {
                 this.schemaUtils.validateAssetValue(rval.roleName, valsAsString)
             } catch(x: StatusException) {
-                throw StatusException(x, x.code, "in file ${file.path}}, role ${rval.roleName}: ${x.message}")
+                throw StatusException(x, x.code, "in file $displayFilePath, role ${rval.roleName}: ${x.message}")
             }
 
             collectedRoles.add(RoleValues(rval.roleName, valsAsString))
         }
 
-        return AssetWithRoles(fileAsset.asset, collectedRoles.sortedBy { it.roleName })  // sorting roles protects us from deadlocks
+        // sorting roles protects us from deadlocks
+        return AssetWithRoles(fileAsset.asset, collectedRoles.sortedBy { it.roleName })
     }
 
 
@@ -258,19 +282,21 @@ open class MergeAssets(private val baseDirName: String) {
     private fun processJson(file: File, stats: MergeDirectory.Companion.Stats): Boolean {
         logger.info { "processing JSON file ${file.path}" }
         try {
-            val assetFromFile = readAssetObjectFromFile(file)
+            val assetsFromFile = readAssetObjectsFromFile(file)
 
             if( file in this.processedFiles )
                 return true
 
-            mergeAssetObjIntoDb(assetFromFile.asset, stats)
+            for(assetFromFile in assetsFromFile) {
+                mergeAssetObjIntoDb(assetFromFile.asset, stats)
 
-            // the roles were sorted by name to protect from deadlocks when multiple workers are trying to merge the same asset
-            for(role in assetFromFile.roles) {
-                if( file in this.processedFiles )
-                    return true
+                // the roles were sorted by name to protect from deadlocks when multiple workers are trying to merge the same asset
+                for(role in assetFromFile.roles) {
+                    if(file in this.processedFiles)
+                        return true
 
-                mergeAssetRoleValuesIntoDb(assetFromFile, role, stats)
+                    mergeAssetRoleValuesIntoDb(assetFromFile, role, stats)
+                }
             }
 
         } catch(x: IOException) {
