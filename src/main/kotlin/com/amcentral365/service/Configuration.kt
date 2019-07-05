@@ -112,7 +112,7 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                 charSet = Charset.forName(it)  // throws IllegalCharsetNameException if charSetName is invalid
             }
 
-    val mergeRoles:  Boolean by option("--merge-roles", help="Scan mergedata/roles and update the cataloged roles")
+    val mergeRoles:  Boolean by option("--merge-roles",  help="Scan mergedata/roles and update the cataloged roles")
                               .flag("--no-merge-roles",  default = false)
     val mergeAssets: Boolean by option("--merge-assets", help="Scan mergedata/assets and update the cataloged assets")
                               .flag("--no-merge-assets", default = false)
