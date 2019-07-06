@@ -15,6 +15,7 @@ import com.amcentral365.service.databaseStore
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
+import com.google.gson.Gson
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -31,6 +32,8 @@ private val validSchemaDefTypes = mapOf(
     , "map"     to SchemaUtils.ElementType.MAP
 )
 
+private const val compositeTypeNodeName = "type"
+private const val compositeDefaultNodeName = "default"
 private const val attributeNodeName = "_attr"
 
 typealias CompiledSchema = Map<String, SchemaUtils.ASTNode>
@@ -62,8 +65,35 @@ open class SchemaUtils(
         , val zeroplus: Boolean = false
         , val oneplus:  Boolean = false
         , val indexed:  Boolean = false
+        , val defaultVal: Any? = null
     ) {
         val multiple: Boolean get() = this.zeroplus || this.oneplus
+
+
+        override fun equals(other: Any?): Boolean {
+            if(this === other) return true
+            if(javaClass != other?.javaClass) return false
+
+            other as TypeDef
+            if(typeCode != other.typeCode) return false
+            if(required != other.required) return false
+            if(zeroplus != other.zeroplus) return false
+            if(oneplus != other.oneplus) return false
+            if(indexed != other.indexed) return false
+            if(defaultVal.toString() != other.defaultVal.toString()) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = typeCode.hashCode()
+            result = 31 * result + required.hashCode()
+            result = 31 * result + zeroplus.hashCode()
+            result = 31 * result + oneplus.hashCode()
+            result = 31 * result + indexed.hashCode()
+            result = 31 * result + (defaultVal?.hashCode() ?: 0)
+            return result
+        }
 
         companion object {
 
@@ -106,14 +136,68 @@ open class SchemaUtils(
              * Clone another TypeDef object, optionally altering some of its properties
              */
             @JvmStatic fun from(
-                    tpd:      TypeDef,
-                    typeCode: ElementType = tpd.typeCode,
-                    required: Boolean = tpd.required,
-                    zeroplus: Boolean = tpd.zeroplus,
-                    oneplus:  Boolean = tpd.oneplus,
-                    indexed:  Boolean = tpd.indexed
-            ) = TypeDef(typeCode, required, zeroplus, oneplus, indexed)
+                    tpd:        TypeDef,
+                    typeCode:   ElementType = tpd.typeCode,
+                    required:   Boolean = tpd.required,
+                    zeroplus:   Boolean = tpd.zeroplus,
+                    oneplus:    Boolean = tpd.oneplus,
+                    indexed:    Boolean = tpd.indexed,
+                    defaultVal: Any?    = tpd.defaultVal
+            ) = TypeDef(typeCode, required, zeroplus, oneplus, indexed, defaultVal)
 
+
+            @JvmStatic fun isCompositeTypeDef(obj: JsonObject): Boolean =
+                    obj.size() in 1..2
+                && (obj.has(compositeTypeNodeName) && obj[compositeTypeNodeName].isJsonPrimitive)
+                && (obj.size() == 1 || obj.has(compositeDefaultNodeName))
+
+            @JvmStatic fun fromCompositeObject(elmName: String, jObj: JsonObject): TypeDef {
+                val typeStr = jObj[compositeTypeNodeName].asString
+                val tpd = TypeDef.fromTypeName(elmName, typeStr)
+                if( !jObj.has(compositeDefaultNodeName) )
+                    return tpd
+
+                val defaultVal = defaultValFromJson(elmName, tpd, jObj[compositeDefaultNodeName])
+                return TypeDef.from(tpd, defaultVal = defaultVal)
+            }
+
+            @JvmStatic val gson = Gson()
+
+
+            @JvmStatic fun defaultValFromJson(elmName: String, tpd: TypeDef, elm: JsonElement): Any? {
+                fun checkAndGet(elm: JsonElement, isArray: Boolean, checker: (item: Any?) -> Boolean, converter: (elm: JsonElement) -> Any): Any =
+                        if(isArray) {
+                            val arr = gson.fromJson(elm, List::class.java)
+                            arr.forEachIndexed { index, v ->
+                                if( !checker(v) )
+                                    throw StatusException(406, "$elmName: default value at index $index does not match the element type ${tpd.typeCode}")
+                            }
+                            arr
+                        } else
+                            try {
+                                converter(elm)
+                            } catch(x: JsonParseException) {
+                                throw StatusException(x, 406, "$elmName: default does not match the element type ${tpd.typeCode}")
+                            }
+
+                return when(tpd.typeCode) {
+                    ElementType.STRING  -> checkAndGet(elm, tpd.multiple, {it is String})  { it.asString }
+                    ElementType.BOOLEAN -> checkAndGet(elm, tpd.multiple, {it is Boolean}) { it.asBoolean }
+                    ElementType.NUMBER  -> checkAndGet(elm, tpd.multiple, {it is Number})  { it.asNumber }
+                    ElementType.ENUM    -> {
+                        val v = (checkAndGet(elm, tpd.multiple, { it is String }) { it.asString }).toString()
+                        logger.warn { "TODO: Should have checked if the default value belongs to the Enum" }  // TODO
+                        v
+                    }
+
+                    ElementType.MAP ->
+                        checkAndGet(elm, tpd.multiple, {it is Any}) { gson.fromJson(it, Map::class.java) }
+
+                    ElementType.OBJECT ->
+                        checkAndGet(elm, tpd.multiple, {it is Any}) { gson.fromJson(it, Map::class.java) }
+                }
+
+            }
         }
     }
 
@@ -188,7 +272,7 @@ open class SchemaUtils(
 
 
     /**
-     * Convert JSON String representation of a role schema to compiled form
+     * Convert JSON String representation of a role schema to its compiled form
      *
      * The compiled form has all references to other schemas resolved.
      * Internally it is a [Set] of node definitions [ASTNode] with full attribute
@@ -212,9 +296,19 @@ open class SchemaUtils(
                         throw StatusException(406, "$name: no members defined")
                     try {
                         val attrStr = elm.getAsJsonPrimitive(attributeNodeName)?.asString
-                        val tpd = if(attrStr == null) TypeDef(ElementType.OBJECT)
-                                  else TypeDef.fromTypeName(name, attrStr, ElementType.OBJECT)
+                        val isComposite = TypeDef.isCompositeTypeDef(elm)
+                        var tpd = TypeDef(ElementType.OBJECT)
+                        if( attrStr == null ) {
+                            if( isComposite )
+                                tpd = TypeDef.fromCompositeObject(name, elm)
+                        } else {
+                            tpd = TypeDef.fromTypeName(name, attrStr, ElementType.OBJECT)
+                        }
+
                         compiledNodes.putIfAbsent(name, ASTNode(name, tpd))
+
+                        if( isComposite )
+                            return@walkJson false
 
                         if( tpd.multiple && elm != rootJsonObj ) {
                             val pluralName = "$name[]"

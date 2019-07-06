@@ -1,10 +1,10 @@
 {
-  "roleName": "com.amc.execution-target",
+  "roleName": "com.amc.execution-target.linux",
   "class": "target",
   "description": "Describes the hosting environment for script execution. Host is the most commonly used, but can be other",
   "roleSchema": {
-    "workDirBase": "string",
-    "commandToCreateWorkDir": "string!+",
-    "commandToRemoveWorkDir": "string!+"
+    "workDirBase":            { "type": "string",   "default": "/tmp" },
+    "commandToCreateWorkDir": { "type": "string!+", "default": ["/bin/mktemp", "-dp", "$WorkDirBase", "amc.XXXXXX"] },
+    "commandToRemoveWorkDir": { "type": "string!+", "default": ["/bin/rm", "-r", "$WorkDir"] }
   }
 }

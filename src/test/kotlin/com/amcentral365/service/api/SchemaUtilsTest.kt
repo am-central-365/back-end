@@ -159,6 +159,13 @@ internal class SchemaUtilsTest {
         assertEquals("$.a.b.c: cycle in role references. Role r2 was referenced by $.a", x.message)
     }
 
+    private fun chk(nodes: CompiledSchema, nodeName: String, nodeType: SchemaUtils.TypeDef) {
+        val node = nodes.get(nodeName)
+        assertNotNull(node)
+        assertEquals(nodeName, node!!.attrName)
+        assertEquals(nodeType, node.type)
+    }
+
     @Test fun `schema - anonymous ref`() {
         val nodes = this.schemaUtils.validateAndCompile("r1",
                 """{
@@ -176,19 +183,54 @@ internal class SchemaUtilsTest {
 
         assertEquals(9, nodes.size)
 
-        fun chk(nodeName: String, nodeType: SchemaUtils.TypeDef) {
-            val node = nodes.get(nodeName)
-            assertNotNull(node)
-            assertEquals(nodeName, node!!.attrName)
-            assertEquals(nodeType, node.type)
-        }
+        chk(nodes, "$",         SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.a",       SchemaUtils.TypeDef(SchemaUtils.ElementType.BOOLEAN, oneplus = true))
+        chk(nodes, "$.b",       SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT, required = true, oneplus = true))
+        chk(nodes, "$.b[]",     SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.b[].e",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.b[].e.f", SchemaUtils.TypeDef(SchemaUtils.ElementType.NUMBER, indexed = true))
+    }
 
-        chk("$",         SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
-        chk("$.a",       SchemaUtils.TypeDef(SchemaUtils.ElementType.BOOLEAN, oneplus = true))
-        chk("$.b",       SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT, required = true, oneplus = true))
-        chk("$.b[]",     SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
-        chk("$.b[].e",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
-        chk("$.b[].e.f", SchemaUtils.TypeDef(SchemaUtils.ElementType.NUMBER, indexed = true))
+
+    @Test fun `schema - composite type - basic`() {
+        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": {"type": "string"}}""")
+        assertEquals(2, nodes.size)
+
+        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.STRING))
+    }
+
+
+    @Test fun `schema - composite type - default - string`() {
+        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": { "type": "string", "default": "xx"}}""")
+        assertEquals(2, nodes.size)
+
+        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.STRING, defaultVal = "xx"))
+    }
+
+    @Test fun `schema - composite type - default - number`() {
+        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": { "type": "number", "default": 51.98}}""")
+        assertEquals(2, nodes.size)
+
+        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.NUMBER, defaultVal = 51.98))
+    }
+
+    @Test fun `schema - composite type - default - boolean`() {
+        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": { "type": "boolean", "default": true}}""")
+        assertEquals(2, nodes.size)
+
+        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.BOOLEAN, defaultVal = true))
+    }
+
+    @Test fun `schema - composite type - default - enum`() {
+        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": { "type": ["X", "Y", "Z"], "default": "Y"}}""")
+        assertEquals(2, nodes.size)
+
+        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.ENUM, defaultVal = "Y"))
     }
 
     @Test fun `schema - array - empty`() {
@@ -312,10 +354,8 @@ internal class SchemaUtilsTest {
         check("""{ "hdds": {"x": 1} }""",      "hdds' must be an array")
         check("""{ "hdds": [] }""",            "hdds': at least one array element is required")
 
-        // TODO line 1/4: This should raise "empty objects are not allowed" message.
-        // TODO line 2/4: But currently there is no way to declare that in the schema.
-        // TODO line 3/4: Pattern "hdds": "@ref!+" enforeces a required array of objects,
-        // TODO line 4/4:                  but nothing tells an object can't be empty
+        // TODO: This should raise "empty objects are not allowed for array elements" message.
+        //       But currently there is no way to enforce that the objects must have attributes.
         check("""{ "hdds": [ {} ] }""",        nonRequiredElementPassedMsg)
 
         check("""{ "hdds": [ {"size_mb": true} ] }""",  "isn't NUMBER")
