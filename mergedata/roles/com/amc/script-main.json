@@ -1,5 +1,5 @@
 {
-  "roleName": "script-main",
+  "roleName": "com.amc.script-main",
   "class": "script",
   "description": "Defines script invocation details",
   "roleSchema": {

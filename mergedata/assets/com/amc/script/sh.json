@@ -3,14 +3,14 @@
     "asset": { "name": "com.amc.script.sh", "description": "Script executed by *nix shell /bin/sh" },
     "roles": [
       {
-        "roleName": "script",
+        "roleName": "com.amc.script",
         "values": {
           "location":   {"content": {"body": "/bin/echo 'amc script execution is working'", "version": "1.0.0"}},
           "scriptMain": { "interpreter":  ["/bin/sh", "-c"] },
           "scriptArgs": [],
 
-          "executorRoleName": "script-executor-amc",
-          "targetRoleName":   "script-target-host",
+          "executorRoleName": "com.amc.script-executor-amc",
+          "targetRoleName":   "com.amc.script-target-host",
           "execTimeoutSec":   0,
           "idleTimeoutSec":   20
         }

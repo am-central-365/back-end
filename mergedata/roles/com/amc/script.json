@@ -1,10 +1,10 @@
 {
-  "roleName": "script",
+  "roleName": "com.amc.script",
   "class": "script",
   "description": "Code executable on a host or another target",
   "roleSchema": {
-    "location":   "@script-location",
-    "scriptMain": "@script-main",
+    "location":   "@com.amc.script-location",
+    "scriptMain": "@com.amc.script-main",
     "scriptArgs": "string*",
 
     "executorRoleName": "string!",

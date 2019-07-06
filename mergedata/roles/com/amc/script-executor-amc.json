@@ -1,5 +1,5 @@
 {
-  "roleName": "script-executor-amc",
+  "roleName": "com.amc.script-executor-amc",
   "class": "script",
   "description": "Scripts executed on AMC hosts",
   "roleSchema": {

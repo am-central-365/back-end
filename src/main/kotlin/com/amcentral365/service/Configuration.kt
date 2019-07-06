@@ -75,12 +75,12 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                 """.trimMargin()
             ).default("")
 
-
+/*
     lateinit var assetId: UUID
     private val rawAssetId: UUID? by option("--asset-id", help="this worker asset id")
             .convert { UUID.fromString(it) }
             .default(AMCWorkerAssetId)
-
+*/
     val schemaCacheSizeInNodes: Long by option("--schema-cache-size-in-nodes").long().default(1000).validate {
         if( it < 100 )
             fail("schema-cache-size-in-nodes must be 100 or greater")
