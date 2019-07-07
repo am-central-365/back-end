@@ -201,36 +201,59 @@ internal class SchemaUtilsTest {
     }
 
 
-    @Test fun `schema - composite type - default - string`() {
-        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": { "type": "string", "default": "xx"}}""")
+    private fun chkCompositeDefault(schema: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) {
+        val nodes = this.schemaUtils.validateAndCompile("r1", schema)
         assertEquals(2, nodes.size)
-
         chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
-        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.STRING, defaultVal = "xx"))
+        chk(nodes, "$.a", SchemaUtils.TypeDef(elmType, defaultVal = defaultVal))
+    }
+
+    private fun chkCompositeDefault(elmTypeJson: String, defaultStr: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) =
+        chkCompositeDefault("""{"a": { "type": "$elmTypeJson", "default": $defaultStr}}""", elmType, defaultVal)
+
+    private fun chkCompositeException(elmTypeJson: String, defaultStr: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) {
+        val x = assertThrows<StatusException> { chkCompositeDefault(elmTypeJson, defaultStr, elmType, defaultVal) }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("\$.a.default: "))
+      //assertTrue(x.message!!.contains(" cannot be cast to "))
+        assertTrue(x.message!!.toLowerCase().contains(elmTypeJson.toLowerCase()))
+        assertTrue(x.message!!.toLowerCase().contains(elmType.toString().toLowerCase()))
+    }
+
+    @Test fun `schema - composite type - default - string`() {
+        chkCompositeDefault("string", "\"xx\"", SchemaUtils.ElementType.STRING, "xx")
+
+        chkCompositeException("string", "true",   SchemaUtils.ElementType.STRING, true)
+        chkCompositeException("string", "1234",   SchemaUtils.ElementType.STRING, 1234)
+        chkCompositeException("string", "4.32",   SchemaUtils.ElementType.STRING, 4.32)
     }
 
     @Test fun `schema - composite type - default - number`() {
-        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": { "type": "number", "default": 51.98}}""")
-        assertEquals(2, nodes.size)
+        chkCompositeDefault("number", "28647", SchemaUtils.ElementType.NUMBER, 28647)
+        chkCompositeDefault("number", "51.98", SchemaUtils.ElementType.NUMBER, 51.98)
+        chkCompositeDefault("number", "0.987", SchemaUtils.ElementType.NUMBER, 0.987)
+        chkCompositeDefault("number", "0.9876", SchemaUtils.ElementType.NUMBER, .9876)
 
-        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
-        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.NUMBER, defaultVal = 51.98))
+        chkCompositeException("number", "true",  SchemaUtils.ElementType.NUMBER, null)
+        chkCompositeException("number", "xyzzy", SchemaUtils.ElementType.NUMBER, null)
     }
 
     @Test fun `schema - composite type - default - boolean`() {
-        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": { "type": "boolean", "default": true}}""")
-        assertEquals(2, nodes.size)
+        chkCompositeDefault("boolean",  "true", SchemaUtils.ElementType.BOOLEAN,  true)
+        chkCompositeDefault("boolean", "false", SchemaUtils.ElementType.BOOLEAN, false)
 
-        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
-        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.BOOLEAN, defaultVal = true))
+        chkCompositeException("boolean", "12.34",  SchemaUtils.ElementType.BOOLEAN, null)
+        chkCompositeException("boolean", "xyzzy",  SchemaUtils.ElementType.BOOLEAN, null)
     }
 
     @Test fun `schema - composite type - default - enum`() {
-        val nodes = this.schemaUtils.validateAndCompile("r1", """{"a": { "type": ["X", "Y", "Z"], "default": "Y"}}""")
-        assertEquals(2, nodes.size)
+        chkCompositeDefault("""{"a": { "type": ["X", "Y", "Z"], "default": "Y"}}""", SchemaUtils.ElementType.ENUM, "Y")
+        chkCompositeDefault("""{"a": { "type": ["1", "3", "5"], "default": "5"}}""", SchemaUtils.ElementType.ENUM, "5")
 
-        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
-        chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.ENUM, defaultVal = "Y"))
+        // should check for incorrect enum values
+        val x = assertThrows<StatusException> { this.schemaUtils.validateAndCompile("r1", """{"a": { "type": ["X", "Y", "Z"], "default": "OTHER"}}""") }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("value 'OTHER' isn't valid for the enum"))
     }
 
     @Test fun `schema - array - empty`() {

@@ -148,53 +148,46 @@ open class SchemaUtils(
 
             @JvmStatic fun isCompositeTypeDef(obj: JsonObject): Boolean =
                     obj.size() in 1..2
-                && (obj.has(compositeTypeNodeName) && obj[compositeTypeNodeName].isJsonPrimitive)
+                &&  obj.has(compositeTypeNodeName)
                 && (obj.size() == 1 || obj.has(compositeDefaultNodeName))
-
-            @JvmStatic fun fromCompositeObject(elmName: String, jObj: JsonObject): TypeDef {
-                val typeStr = jObj[compositeTypeNodeName].asString
-                val tpd = TypeDef.fromTypeName(elmName, typeStr)
-                if( !jObj.has(compositeDefaultNodeName) )
-                    return tpd
-
-                val defaultVal = defaultValFromJson(elmName, tpd, jObj[compositeDefaultNodeName])
-                return TypeDef.from(tpd, defaultVal = defaultVal)
-            }
 
             @JvmStatic val gson = Gson()
 
 
-            @JvmStatic fun defaultValFromJson(elmName: String, tpd: TypeDef, elm: JsonElement): Any? {
+            @JvmStatic fun defaultValFromJson(elmName: String, ast: ASTNode, elm: JsonElement): Any? {
                 fun checkAndGet(elm: JsonElement, isArray: Boolean, checker: (item: Any?) -> Boolean, converter: (elm: JsonElement) -> Any): Any =
-                        if(isArray) {
+                        if( isArray ) {
                             val arr = gson.fromJson(elm, List::class.java)
                             arr.forEachIndexed { index, v ->
                                 if( !checker(v) )
-                                    throw StatusException(406, "$elmName: default value at index $index does not match the element type ${tpd.typeCode}")
+                                    throw StatusException(406, "$elmName: default value at index $index does not match the element type ${ast.type.typeCode}")
                             }
                             arr
                         } else
                             try {
+                                if( !checker(elm) )
+                                    throw StatusException(406, "$elmName: default value '$elm' should match the element type ${ast.type.typeCode}")
                                 converter(elm)
                             } catch(x: JsonParseException) {
-                                throw StatusException(x, 406, "$elmName: default does not match the element type ${tpd.typeCode}")
+                                throw StatusException(x, 406, "$elmName: default does not match the element type ${ast.type.typeCode}")
                             }
 
-                return when(tpd.typeCode) {
-                    ElementType.STRING  -> checkAndGet(elm, tpd.multiple, {it is String})  { it.asString }
-                    ElementType.BOOLEAN -> checkAndGet(elm, tpd.multiple, {it is Boolean}) { it.asBoolean }
-                    ElementType.NUMBER  -> checkAndGet(elm, tpd.multiple, {it is Number})  { it.asNumber }
+                return when(ast.type.typeCode) {
+                    ElementType.STRING  -> checkAndGet(elm, ast.type.multiple, {(it as JsonPrimitive).isString})  { it.asString }
+                    ElementType.BOOLEAN -> checkAndGet(elm, ast.type.multiple, {(it as JsonPrimitive).isBoolean}) { it.asBoolean }
+                    ElementType.NUMBER  -> checkAndGet(elm, ast.type.multiple, {(it as JsonPrimitive).isNumber})  { it.asNumber }
                     ElementType.ENUM    -> {
-                        val v = (checkAndGet(elm, tpd.multiple, { it is String }) { it.asString }).toString()
-                        logger.warn { "TODO: Should have checked if the default value belongs to the Enum" }  // TODO
+                        val v = (checkAndGet(elm, ast.type.multiple, { (it as JsonPrimitive).isString }) { it.asString }).toString()
+                        if( v !in ast.enumValues!! )
+                            throw StatusException(406, "$elmName: value '$v' isn't valid for the enum")
                         v
                     }
 
                     ElementType.MAP ->
-                        checkAndGet(elm, tpd.multiple, {it is Any}) { gson.fromJson(it, Map::class.java) }
+                        checkAndGet(elm, ast.type.multiple, {it is Any}) { gson.fromJson(it, Map::class.java) }
 
                     ElementType.OBJECT ->
-                        checkAndGet(elm, tpd.multiple, {it is Any}) { gson.fromJson(it, Map::class.java) }
+                        checkAndGet(elm, ast.type.multiple, {it is Any}) { gson.fromJson(it, Map::class.java) }
                 }
 
             }
@@ -263,7 +256,7 @@ open class SchemaUtils(
         try {
             val elm0 = JsonParser().parse(jsonStr)
             require(elm0.isJsonObject) { "$roleName: role schema must be a Json Object (i.e. the {...} thingy)" }
-            return this.validateAndCompile(roleName, elm0.asJsonObject, rootElmName, seenRoles)
+            return this.validateAndCompile(roleName, elm0, rootElmName, seenRoles)
         } catch(x: JsonParseException) {
             logger.warn { "failed while validating/compiling schema for role $roleName: ${x.message}" }
             throw StatusException(x, 406)
@@ -279,39 +272,55 @@ open class SchemaUtils(
      * names serving as keys.
      * Full attribute name comprise of the full path from the root to the node.
      */
-    private fun validateAndCompile(roleName: String, rootJsonObj: JsonObject
-        , rootElmName: String = "\$"
-        , seenRoles: MutableList<Pair<String, String>>? = null
-        , seenNodes: MutableMap<String, ASTNode>? = null
-    ): CompiledSchema
+    private fun validateAndCompile(roleName: String, rootJsonElm: JsonElement
+      , rootElmName: String = "\$"
+      , seenRoles: MutableList<Pair<String, String>>? = null
+      , seenNodes: MutableMap<String, ASTNode>? = null
+    ) : CompiledSchema
     {
         logger.info { "validating/compiling schema for role $roleName, root $rootElmName" }
         val compiledNodes = seenNodes ?: mutableMapOf()
 
         try {
-            walkJson(rootElmName, rootJsonObj,
+            walkJson(rootElmName, rootJsonElm,
                 onNull   = { name -> throw StatusException(406, "$name is null, what is it supposed to define?") }
               , onObject = { name, elm ->
+                    var currName = name
                     if( elm.size() == 0 )
-                        throw StatusException(406, "$name: no members defined")
+                        throw StatusException(406, "$currName: no members defined")
                     try {
                         val attrStr = elm.getAsJsonPrimitive(attributeNodeName)?.asString
                         val isComposite = TypeDef.isCompositeTypeDef(elm)
                         var tpd = TypeDef(ElementType.OBJECT)
                         if( attrStr == null ) {
-                            if( isComposite )
-                                tpd = TypeDef.fromCompositeObject(name, elm)
+                            if( isComposite ) {
+                                val typeElmJson = elm[compositeTypeNodeName]
+                                currName = "$name.$compositeTypeNodeName"
+                                validateAndCompile(roleName, typeElmJson, currName, seenRoles, compiledNodes)
+                                require(compiledNodes.contains(currName))
+                                    { "code bug: processed node $currName, but didn't store it in compiledNodes" }
+                                val astNode = compiledNodes.remove(currName)!!
+                                currName = "$name.$compositeDefaultNodeName"
+                                val defaultVal =
+                                    if( elm.has(compositeDefaultNodeName))
+                                        TypeDef.defaultValFromJson(currName, astNode, elm[compositeDefaultNodeName])
+                                    else
+                                        null
+
+                                currName = name
+                                tpd = TypeDef.from(astNode.type, defaultVal = defaultVal)
+                            }
                         } else {
-                            tpd = TypeDef.fromTypeName(name, attrStr, ElementType.OBJECT)
+                            tpd = TypeDef.fromTypeName(currName, attrStr, ElementType.OBJECT)
                         }
 
-                        compiledNodes.putIfAbsent(name, ASTNode(name, tpd))
+                        compiledNodes.putIfAbsent(currName, ASTNode(currName, tpd))
 
                         if( isComposite )
                             return@walkJson false
 
-                        if( tpd.multiple && elm != rootJsonObj ) {
-                            val pluralName = "$name[]"
+                        if( tpd.multiple && elm != rootJsonElm ) {
+                            val pluralName = "$currName[]"
                             compiledNodes[pluralName] = ASTNode(pluralName, TypeDef(ElementType.OBJECT))
                             validateAndCompile(roleName, elm, rootElmName = pluralName,
                                     seenRoles = seenRoles, seenNodes = compiledNodes)
@@ -319,7 +328,7 @@ open class SchemaUtils(
                         }
 
                     } catch(x: Exception) {
-                        throw StatusException(406, "$name: processing $attributeNodeName: ${x.message}")
+                        throw StatusException(406, "$currName: ${x.message}")
                     }
                     true
                 }
