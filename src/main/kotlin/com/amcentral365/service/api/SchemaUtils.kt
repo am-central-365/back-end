@@ -150,47 +150,6 @@ open class SchemaUtils(
                     obj.size() in 1..2
                 &&  obj.has(compositeTypeNodeName)
                 && (obj.size() == 1 || obj.has(compositeDefaultNodeName))
-
-            @JvmStatic val gson = Gson()
-
-
-            @JvmStatic fun defaultValFromJson(elmName: String, ast: ASTNode, elm: JsonElement): Any? {
-                fun checkAndGet(elm: JsonElement, isArray: Boolean, checker: (item: Any?) -> Boolean, converter: (elm: JsonElement) -> Any): Any =
-                        if( isArray ) {
-                            val arr = gson.fromJson(elm, List::class.java)
-                            arr.forEachIndexed { index, v ->
-                                if( !checker(v) )
-                                    throw StatusException(406, "$elmName: default value at index $index does not match the element type ${ast.type.typeCode}")
-                            }
-                            arr
-                        } else
-                            try {
-                                if( !checker(elm) )
-                                    throw StatusException(406, "$elmName: default value '$elm' should match the element type ${ast.type.typeCode}")
-                                converter(elm)
-                            } catch(x: JsonParseException) {
-                                throw StatusException(x, 406, "$elmName: default does not match the element type ${ast.type.typeCode}")
-                            }
-
-                return when(ast.type.typeCode) {
-                    ElementType.STRING  -> checkAndGet(elm, ast.type.multiple, {(it as JsonPrimitive).isString})  { it.asString }
-                    ElementType.BOOLEAN -> checkAndGet(elm, ast.type.multiple, {(it as JsonPrimitive).isBoolean}) { it.asBoolean }
-                    ElementType.NUMBER  -> checkAndGet(elm, ast.type.multiple, {(it as JsonPrimitive).isNumber})  { it.asNumber }
-                    ElementType.ENUM    -> {
-                        val v = (checkAndGet(elm, ast.type.multiple, { (it as JsonPrimitive).isString }) { it.asString }).toString()
-                        if( v !in ast.enumValues!! )
-                            throw StatusException(406, "$elmName: value '$v' isn't valid for the enum")
-                        v
-                    }
-
-                    ElementType.MAP ->
-                        checkAndGet(elm, ast.type.multiple, {it is Any}) { gson.fromJson(it, Map::class.java) }
-
-                    ElementType.OBJECT ->
-                        checkAndGet(elm, ast.type.multiple, {it is Any}) { gson.fromJson(it, Map::class.java) }
-                }
-
-            }
         }
     }
 
@@ -285,42 +244,26 @@ open class SchemaUtils(
             walkJson(rootElmName, rootJsonElm,
                 onNull   = { name -> throw StatusException(406, "$name is null, what is it supposed to define?") }
               , onObject = { name, elm ->
-                    var currName = name
                     if( elm.size() == 0 )
-                        throw StatusException(406, "$currName: no members defined")
+                        throw StatusException(406, "$name: no members defined")
                     try {
                         val attrStr = elm.getAsJsonPrimitive(attributeNodeName)?.asString
                         val isComposite = TypeDef.isCompositeTypeDef(elm)
                         var tpd = TypeDef(ElementType.OBJECT)
                         if( attrStr == null ) {
-                            if( isComposite ) {
-                                val typeElmJson = elm[compositeTypeNodeName]
-                                currName = "$name.$compositeTypeNodeName"
-                                validateAndCompile(roleName, typeElmJson, currName, seenRoles, compiledNodes)
-                                require(compiledNodes.contains(currName))
-                                    { "code bug: processed node $currName, but didn't store it in compiledNodes" }
-                                val astNode = compiledNodes.remove(currName)!!
-                                currName = "$name.$compositeDefaultNodeName"
-                                val defaultVal =
-                                    if( elm.has(compositeDefaultNodeName))
-                                        TypeDef.defaultValFromJson(currName, astNode, elm[compositeDefaultNodeName])
-                                    else
-                                        null
-
-                                currName = name
-                                tpd = TypeDef.from(astNode.type, defaultVal = defaultVal)
-                            }
+                            if( isComposite )
+                                tpd = this.getCompositeType(roleName, name, elm, seenRoles, compiledNodes)
                         } else {
-                            tpd = TypeDef.fromTypeName(currName, attrStr, ElementType.OBJECT)
+                            tpd = TypeDef.fromTypeName(name, attrStr, ElementType.OBJECT)
                         }
 
-                        compiledNodes.putIfAbsent(currName, ASTNode(currName, tpd))
+                        compiledNodes.putIfAbsent(name, ASTNode(name, tpd))
 
                         if( isComposite )
                             return@walkJson false
 
                         if( tpd.multiple && elm != rootJsonElm ) {
-                            val pluralName = "$currName[]"
+                            val pluralName = "$name[]"
                             compiledNodes[pluralName] = ASTNode(pluralName, TypeDef(ElementType.OBJECT))
                             validateAndCompile(roleName, elm, rootElmName = pluralName,
                                     seenRoles = seenRoles, seenNodes = compiledNodes)
@@ -328,7 +271,7 @@ open class SchemaUtils(
                         }
 
                     } catch(x: Exception) {
-                        throw StatusException(406, "$currName: ${x.message}")
+                        throw StatusException(406, "$name: ${x.message}")
                     }
                     true
                 }
@@ -437,6 +380,113 @@ open class SchemaUtils(
         schemaCache.put(roleName, compiledNodes)
         logger.info { "successfully validated and cached schema for role $roleName" }
         return compiledNodes
+    }
+
+    private fun getCompositeType(roleName: String, name: String, elm: JsonObject
+                  , seenRoles: MutableList<Pair<String, String>>?
+                  , seenNodes: MutableMap<String, ASTNode>
+    ): TypeDef {
+        val typeElmJson = elm[compositeTypeNodeName]
+        var currNodeName = "$name.$compositeTypeNodeName"
+        try {
+
+            validateAndCompile(roleName, typeElmJson, currNodeName, seenRoles, seenNodes)
+            require(seenNodes.contains(currNodeName))
+                { "code bug: processed node $currNodeName, but didn't store it in compiledNodes" }
+            val astNode = seenNodes.remove(currNodeName)!!
+
+            if( astNode.type.multiple )
+                seenNodes.remove("$currNodeName[]")
+
+            if( !elm.has(compositeDefaultNodeName) )
+                return astNode.type
+
+            if( astNode.type.typeCode == ElementType.OBJECT )
+                throw StatusException(406, "${astNode.attrName}: default values are not supported for OBJECT types")
+
+            if( astNode.type.multiple && !elm[compositeDefaultNodeName].isJsonArray )
+                throw StatusException(406, "${astNode.attrName} is an array. Its default value must also be an array")
+
+            currNodeName = "$name.$compositeDefaultNodeName"
+
+            fun checkAndGet(elm: JsonPrimitive, checker: (item: JsonPrimitive) -> Boolean, converter: (elm: JsonPrimitive) -> Any): Any =
+                try {
+                    if( !checker(elm) )
+                        throw StatusException(406, "default value '$elm' should match the element type")
+                    converter(elm)
+                } catch(x: JsonParseException) {
+                    throw StatusException(x, 406, "default does not match the element type")
+                }
+
+            val defaultElm = elm[compositeDefaultNodeName]
+            var defaultVal: Any? = null
+
+            when {
+                defaultElm.isJsonNull -> {
+                    if( astNode.type.required )
+                        throw StatusException(406, "the type does not allow nulls")
+                }
+
+                defaultElm.isJsonObject ->
+                    throw StatusException(406, "default values of OBJECT types are not supported")
+
+                defaultElm.isJsonPrimitive -> {
+                    val prim = defaultElm.asJsonPrimitive
+                    when(astNode.type.typeCode) {
+                        ElementType.NUMBER  -> defaultVal = checkAndGet(prim, { it.isNumber })  { it.asNumber  }
+                        ElementType.STRING  -> defaultVal = checkAndGet(prim, { it.isString })  { it.asString  }
+                        ElementType.BOOLEAN -> defaultVal = checkAndGet(prim, { it.isBoolean }) { it.asBoolean }
+                        ElementType.ENUM    -> {
+                            defaultVal = checkAndGet(prim, { it.isString }) { it.asString }
+                            if( defaultVal !in astNode.enumValues!! )
+                                throw StatusException(406, "value '$defaultVal' does not belong to the ENUM")
+                        }
+                        else ->
+                            throw StatusException(406, "expected a composite type ")
+                    }
+
+                }
+
+                defaultElm.isJsonArray -> {
+                    val arr = defaultElm.asJsonArray
+                    if( astNode.type.oneplus && arr.size() == 0)
+                        throw StatusException(406, "the type prohibits empty arrays")
+
+                    val vals = mutableListOf<Any>()
+                    for(k in 0 until arr.size()) {
+                        val itemElm = arr[k]
+                        if( itemElm.isJsonNull && astNode.type.required )
+                            throw StatusException(406, "[$k]: the type does not allow null array elements")
+
+                        if( !itemElm.isJsonPrimitive )
+                            throw StatusException(406, "[$k]: only primitive types are allowed as array elements")
+
+                        val prim = itemElm.asJsonPrimitive
+                        when(astNode.type.typeCode) {
+                            ElementType.NUMBER  -> vals.add( checkAndGet(prim, { it.isNumber }) { it.asNumber } )
+                            ElementType.STRING  -> vals.add( checkAndGet(prim, { it.isString }) { it.asString } )
+                            ElementType.BOOLEAN -> vals.add( checkAndGet(prim, { it.isBoolean }) { it.asBoolean } )
+                            ElementType.ENUM    -> {
+                                val v = checkAndGet(prim, { it.isString }) { it.asString }
+                                if(v !in astNode.enumValues!!)
+                                    throw StatusException(406, "[$k]: value '$v' isn't valid for the ENUM")
+                                vals.add(v)
+                            }
+                            else ->
+                                throw StatusException(406, "[$k]: 'default' is only supported for arrays of STRING, NUMBER, BOOLEAN, or ENUM")
+                        }
+                    }
+
+                    defaultVal = vals
+                }
+            }
+
+            //val defaultVal = TypeDef.defaultValFromJson(currNodeName, astNode, elm[compositeDefaultNodeName])
+            return TypeDef.from(astNode.type, defaultVal = defaultVal)
+
+        } catch(x: Exception) {
+            throw StatusException(406, "$currNodeName: ${x.message}")
+        }
     }
 
     /**

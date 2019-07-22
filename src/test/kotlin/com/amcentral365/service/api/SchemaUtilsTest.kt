@@ -200,25 +200,37 @@ internal class SchemaUtilsTest {
         chk(nodes, "$.a", SchemaUtils.TypeDef(SchemaUtils.ElementType.STRING))
     }
 
-
-    private fun chkCompositeDefault(schema: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) {
+    private fun chkCompositeDefault(schema: String, elmTypedef: SchemaUtils.TypeDef, defaultVal: Any?) {
         val nodes = this.schemaUtils.validateAndCompile("r1", schema)
         assertEquals(2, nodes.size)
-        chk(nodes, "$",   SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
-        chk(nodes, "$.a", SchemaUtils.TypeDef(elmType, defaultVal = defaultVal))
+        chk(nodes, "$", SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
+        chk(nodes, "$.a", SchemaUtils.TypeDef.from(elmTypedef, defaultVal = defaultVal))
+    }
+
+    private fun chkCompositeDefault(schema: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) {
+        chkCompositeDefault(schema, SchemaUtils.TypeDef(elmType), defaultVal)
     }
 
     private fun chkCompositeDefault(elmTypeJson: String, defaultStr: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) =
-        chkCompositeDefault("""{"a": { "type": "$elmTypeJson", "default": $defaultStr}}""", elmType, defaultVal)
+        chkCompositeDefault("""{"a": { "type": "$elmTypeJson", "default": $defaultStr}}""", SchemaUtils.TypeDef(elmType), defaultVal)
 
-    private fun chkCompositeException(elmTypeJson: String, defaultStr: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) {
-        val x = assertThrows<StatusException> { chkCompositeDefault(elmTypeJson, defaultStr, elmType, defaultVal) }
+    private fun chkCompositeDefault(elmTypeJson: String, defaultStr: String, elmTypedef: SchemaUtils.TypeDef, defaultVal: Any?) =
+        chkCompositeDefault("""{"a": { "type": "$elmTypeJson", "default": $defaultStr}}""", elmTypedef, defaultVal)
+
+    private fun chkCompositeException(elmTypeJson: String, defaultStr: String, elmTypedef: SchemaUtils.TypeDef, defaultVal: Any?) {
+        val x = assertThrows<StatusException> { chkCompositeDefault(elmTypeJson, defaultStr, elmTypedef, defaultVal) }
         assertEquals(406, x.code)
         assertTrue(x.message!!.contains("\$.a.default: "))
-      //assertTrue(x.message!!.contains(" cannot be cast to "))
-        assertTrue(x.message!!.toLowerCase().contains(elmTypeJson.toLowerCase()))
-        assertTrue(x.message!!.toLowerCase().contains(elmType.toString().toLowerCase()))
+        assertTrue(x.message!!.contains("default value"))
+        assertTrue(x.message!!.toLowerCase().contains(defaultStr.toLowerCase()), "can't find substring '$defaultStr' in ${x.message}")
+        assertTrue(x.message!!.contains("should match the element type"))
+      //assertTrue(x.message!!.toLowerCase().contains(elmTypeJson.toLowerCase()), "can't find substring '$elmTypeJson' in ${x.message}")
     }
+
+    private fun chkCompositeException(elmTypeJson: String, defaultStr: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) {
+
+    }
+
 
     @Test fun `schema - composite type - default - string`() {
         chkCompositeDefault("string", "\"xx\"", SchemaUtils.ElementType.STRING, "xx")
@@ -236,6 +248,13 @@ internal class SchemaUtilsTest {
 
         chkCompositeException("number", "true",  SchemaUtils.ElementType.NUMBER, null)
         chkCompositeException("number", "xyzzy", SchemaUtils.ElementType.NUMBER, null)
+
+        // arrays
+        chkCompositeDefault("number+", "[1, 3, -4, 7]", SchemaUtils.TypeDef(SchemaUtils.ElementType.NUMBER, oneplus = true), listOf(1,3,-4,7))
+
+        val x = assertThrows<StatusException> { chkCompositeDefault("number+", "[]", SchemaUtils.TypeDef(SchemaUtils.ElementType.NUMBER, oneplus = true), listOf<Any>()) }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("the type prohibits empty arrays"))
     }
 
     @Test fun `schema - composite type - default - boolean`() {
@@ -244,16 +263,32 @@ internal class SchemaUtilsTest {
 
         chkCompositeException("boolean", "12.34",  SchemaUtils.ElementType.BOOLEAN, null)
         chkCompositeException("boolean", "xyzzy",  SchemaUtils.ElementType.BOOLEAN, null)
+
+        // arrays
+        chkCompositeDefault("boolean+", "[true, true, false, true]", SchemaUtils.TypeDef(SchemaUtils.ElementType.BOOLEAN, oneplus = true), listOf(true, true, false, true))
     }
 
     @Test fun `schema - composite type - default - enum`() {
         chkCompositeDefault("""{"a": { "type": ["X", "Y", "Z"], "default": "Y"}}""", SchemaUtils.ElementType.ENUM, "Y")
         chkCompositeDefault("""{"a": { "type": ["1", "3", "5"], "default": "5"}}""", SchemaUtils.ElementType.ENUM, "5")
+        chkCompositeDefault("""{"a": { "type": ["+", "a", "b", "c"], "default": ["c", "a"]}}""", SchemaUtils.TypeDef(SchemaUtils.ElementType.ENUM, oneplus = true), listOf("c", "a"))
 
         // should check for incorrect enum values
-        val x = assertThrows<StatusException> { this.schemaUtils.validateAndCompile("r1", """{"a": { "type": ["X", "Y", "Z"], "default": "OTHER"}}""") }
+        var x = assertThrows<StatusException> { this.schemaUtils.validateAndCompile("r1", """{"a": { "type": ["X", "Y", "Z"], "default": "NOT-A-MEMBER"}}""") }
         assertEquals(406, x.code)
-        assertTrue(x.message!!.contains("value 'OTHER' isn't valid for the enum"))
+        assertTrue(x.message!!.contains("value 'NOT-A-MEMBER' does not belong to the ENUM"))
+
+        // should check for incorrect enum values in arrays too
+        var arrJsonStr = """{"a": { "type": ["+", "a", "b", "c"], "default": ["c", "X"]}}"""
+        x = assertThrows { chkCompositeDefault(arrJsonStr, SchemaUtils.TypeDef(SchemaUtils.ElementType.ENUM, oneplus = true), listOf<Any>()) }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("value 'X' isn't valid for the ENUM"), x.message)
+
+        // shoild check for empty arrays
+        arrJsonStr = """{"a": { "type": ["+", "X", "Y", "Z"], "default": [] }}"""
+        x = assertThrows { chkCompositeDefault(arrJsonStr, SchemaUtils.TypeDef(SchemaUtils.ElementType.ENUM, oneplus = true), listOf<Any>()) }
+        assertEquals(406, x.code)
+        assertTrue(x.message!!.contains("the type prohibits empty arrays"), x.message)
     }
 
     @Test fun `schema - array - empty`() {
