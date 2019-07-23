@@ -452,11 +452,16 @@ open class SchemaUtils(
                     if( astNode.type.oneplus && arr.size() == 0)
                         throw StatusException(406, "the type prohibits empty arrays")
 
-                    val vals = mutableListOf<Any>()
+                    val vals = mutableListOf<Any?>()
                     for(k in 0 until arr.size()) {
                         val itemElm = arr[k]
-                        if( itemElm.isJsonNull && astNode.type.required )
-                            throw StatusException(406, "[$k]: the type does not allow null array elements")
+                        if( itemElm.isJsonNull )
+                            if( astNode.type.required )
+                                throw StatusException(406, "[$k]: the type does not allow null array elements")
+                            else {
+                                vals.add(null)
+                                continue
+                            }
 
                         if( !itemElm.isJsonPrimitive )
                             throw StatusException(406, "[$k]: only primitive types are allowed as array elements")
