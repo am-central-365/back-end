@@ -90,3 +90,63 @@ wit hname `_attr`. In `{ "x": { "_attr": "!+", "y": "number", "z": "string!" } }
 Note:
 Attributes may be specified in arbitrary order, but each attribute may
 only appear once. Definitions like "string!!" are illegal.
+
+### Default values
+Schema elments of primitive types may have default values. Primitive type are
+`string`, `boolean`, `number`, and `enum`. Elements of type `map` and `object`
+can't have defaults.
+
+To specify a default, the type must be declared in *composite* form:
+```
+ "x": { "type": "number", "default": 1 }
+```
+
+The default must agree to the element type, i.e. default *true* is not allowed
+for `number` types. For `enum` types, the default must be one of the enum
+values.
+
+#### How composite types are recognied
+Composite type defintion looks like an object, but recognized by having
+an element named "type", and an optional element named "default".
+If more elements are present or "type" element is missing, or the other
+element isn't named "ddefault", the value is treated as object.
+
+#### Array defaults
+They are supported when the type is declared with "+" or "*" attribute.
+Arrays are supported for all types that may have a default.
+
+When a type is declared with mandatory ("!") attribute, the array must
+not have any *null* members.
+
+Empty array defaults are not allowed for types with "+" attribute.
+
+#### Examples
+
+Valid definitions:
+```
+"a":  { "type": "string" }  # same as "a": "string"
+
+"s":  { "type": "string",  "default": "East" }
+"n":  { "type": "number",  "default": 69 }
+"b":  { "type": "boolean", "default": true }
+"e":  { "type": ["!", "x", "y", "z"], "default": "y" }
+
+"sa": { "type": "string+",  "default": ["x", null, "y"] }
+"na": { "type": "number!+", "default": [1, 1, 2, 3, 5, 8, 13] }
+"ea": { "type": ["!+", "x", "y", "z"], "default": ["x", "x", "z", "z", "y"] }
+```
+
+Invalid composite type definitions:
+```
+"s":  { "type": "string",  "default": 2.4 }   # bad type
+"n":  { "type": "number!", "default": null }  # null for mandatpry value
+
+"sa": { "type": "string+",  "default": ["x", null, 4, "y"] }  # 4 is of the wrong type  
+"sa": { "type": "string!+", "default": ["x", null, 4, "y"] }  # null value for non-nullable type
+"ea": { "type": ["!+", "x", "y", "z"], "default": ["x", "Q", "z", "z", "y"] }  # Q: not an enum member
+
+# treated as objects rather than composite type:
+"w1": { "Type": "string" }                      # no "type", declares an object 
+"w2": { "type": "string", "Default": "East" }   # the other elemen is not "default"
+"w3": { "type": "number", "default": 0, "message": "..." }   # an extra elements is present
+```
