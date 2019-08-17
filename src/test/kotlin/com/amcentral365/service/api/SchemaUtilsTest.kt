@@ -333,6 +333,19 @@ internal class SchemaUtilsTest {
         assertTrue(x.message!!.contains("only primitive types are allowed as array elements"), x.message)
     }
 
+    @Test fun `schema - composite type - default - count`() {
+        val schema = """{
+            "d1": { "type": "number", "default": 3 },
+            "x1": "number",
+            "x2": { "type": "boolean" },
+            "d2": { "type": "string", "default": "North Pole" },
+            "d3": { "type": "boolean+", "default": [true, true, false, false, true] }
+        }""".trimIndent()
+        val nodes = this.schemaUtils.validateAndCompile("r1", schema)
+        assertEquals(3, nodes.nodesWithDefaultValue().count())
+    }
+
+
     @Test fun `schema - array - empty`() {
         val x = assertThrows<StatusException> { this.schemaUtils.validateAndCompile("r1", """{"a": [] }""") }
         assertEquals(406, x.code)
@@ -568,4 +581,26 @@ internal class SchemaUtilsTest {
         )
     }
 
+    @Test fun `asset - validate - default - simple`() {
+        val schemaStr = """{
+            |  "a": "string",
+            |  "b": { "type": "number", "default": 3.57 },
+            |  "c": "string"
+            |}""".trimMargin()
+        val schemaUtils = object : SchemaUtils(loadSchema = { _ -> schemaStr }) {}
+
+        fun check(bVal: Number?, elmStr: String) {
+            val v = schemaUtils.getAssetValue("a-test-role-with-default", elmStr)
+            assertEquals("this-is-a", v.asJsonObject["a"].asString)
+            assertFalse(v.asJsonObject.has("c"))
+            if( bVal == null )
+                assertTrue(v.asJsonObject["b"].isJsonNull)
+            else
+                assertEquals(bVal, v.asJsonObject["b"].asNumber.toDouble())
+        }
+
+        check(3.57, """{ "a": "this-is-a" }""")               // default value is substituted
+        check(21.0, """{ "a": "this-is-a", "b":   21 }""")    // default value is overwritten
+        check(null, """{ "a": "this-is-a", "b": null }""")    // nul is not substituted
+    }
 }

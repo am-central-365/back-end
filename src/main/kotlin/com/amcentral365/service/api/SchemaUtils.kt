@@ -37,6 +37,8 @@ private const val compositeDefaultNodeName = "default"
 private const val attributeNodeName = "_attr"
 
 typealias CompiledSchema = Map<String, SchemaUtils.ASTNode>
+fun CompiledSchema.nodesWithDefaultValue(): Iterable<Map.Entry<String, SchemaUtils.ASTNode>> =
+    this.entries.filter { it.value.type.defaultVal != null }
 
 
 /**
@@ -528,9 +530,7 @@ open class SchemaUtils(
     @VisibleForTesting fun isAttributeWithPrefix(attr: String, prefix: String) =
             attr.startsWith("$prefix.") && attr.indexOf('.', prefix.length+1) == -1
 
-
-    private fun validateAssetValue(roleName: String, elm: JsonElement) {
-        val roleSchema = this.schemaCache.get(roleName)
+    private fun validateAssetValue(roleName: String, elm: JsonElement, roleSchema: CompiledSchema) {
         val unseenRequiredNames = mutableSetOf("$")
 
         fun checkWithThrow(name: String, astn: ASTNode, prm: JsonElement) {
@@ -626,4 +626,60 @@ open class SchemaUtils(
 
     fun validateAssetValue(roleName: String, jsonStr: String) =
             this.validateAssetValue(roleName, JsonParser().parse(jsonStr))
+
+    fun validateAssetValue(roleName: String, elm: JsonElement) {
+        val roleSchema = this.schemaCache.get(roleName)
+        this.validateAssetValue(roleName, elm, roleSchema)
+    }
+
+    // ---------------------------------------- Assigning the default value
+    fun assignDefaultValues(roleName: String, assetValStr: String): JsonElement =
+        this.assignDefaultValues(roleName, JsonParser().parse(assetValStr))
+
+
+    private fun assignDefaultValues(roleName: String, assetElm: JsonElement, roleSchemaP: CompiledSchema? = null): JsonElement {
+        val roleSchema = roleSchemaP ?: this.schemaCache.get(roleName)
+        this.validateAssetValue(roleName, assetElm, roleSchema)
+
+        // Copy
+        val workElm = assetElm.deepCopy()
+        interestingNodes@ for( (path, node) in roleSchema.nodesWithDefaultValue()) {
+            var elm = workElm
+            var childName = "\$"
+            val pathItems = path.split('.')
+            for(k in 1 until pathItems.size) {  // skipping the first (root)
+                if( !elm.isJsonObject )
+                    throw StatusException(406, "According to role $roleName, attribute '${pathItems.subList(0, k).joinToString(".")}' must be an object, but it is not")
+
+                childName = pathItems[k].removeSuffix("[]")
+                val childIsPresent = elm.asJsonObject.has(childName)
+
+                if( k == pathItems.size-1 )
+                    if( childIsPresent )
+                        continue@interestingNodes    // The element is present, no default substitution
+                    else
+                        break
+                else
+                    if( !childIsPresent )
+                        continue@interestingNodes    // A parent of the element does not exist. We don not create
+                                                     // intermediate parents for the sake of assigning the default
+
+                elm = elm.asJsonObject[childName]
+            }
+
+            val defaultVal = node.type.defaultVal
+            when(defaultVal) {
+                is String  -> elm.asJsonObject.addProperty(childName, defaultVal)
+                is Boolean -> elm.asJsonObject.addProperty(childName, defaultVal)
+                is Number  -> elm.asJsonObject.addProperty(childName, defaultVal)
+                else       -> throw NotImplementedError("still working on the array code")  // TODO: implement
+            }
+        }
+
+        return workElm
+    }
+
+
+    // ---------------------------------------- Top level
+    fun getAssetValue(roleName: String, assetValStr: String): JsonElement = this.assignDefaultValues(roleName, assetValStr)
 }
