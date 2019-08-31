@@ -15,7 +15,6 @@ import com.amcentral365.service.databaseStore
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.cache.CacheBuilder
 import com.google.common.cache.CacheLoader
-import com.google.gson.Gson
 
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
@@ -261,8 +260,11 @@ open class SchemaUtils(
 
                         compiledNodes.putIfAbsent(name, ASTNode(name, tpd))
 
-                        if( isComposite )
+                        if( isComposite ) {
+                            if( tpd.multiple )
+                                compiledNodes.put("$name[]", ASTNode("$name[]", TypeDef(tpd.typeCode)))
                             return@walkJson false
+                        }
 
                         if( tpd.multiple && elm != rootJsonElm ) {
                             val pluralName = "$name[]"
@@ -321,7 +323,7 @@ open class SchemaUtils(
                         throw StatusException(406, "Wrong type of $name, should be string")
 
                     if( name.endsWith(".$attributeNodeName") ) {
-                        // do nothing, already processed when encounterd the object
+                        // do nothing, already processed when encountered the object
                     } else if( prm.asString.startsWith('@')) {
                         val rfRoleNameWithFlags = prm.asString.substring(1)
                         if(rfRoleNameWithFlags.isBlank())
@@ -397,8 +399,10 @@ open class SchemaUtils(
                 { "code bug: processed node $currNodeName, but didn't store it in compiledNodes" }
             val astNode = seenNodes.remove(currNodeName)!!
 
-            if( astNode.type.multiple )
-                seenNodes.remove("$currNodeName[]")
+            if( astNode.type.multiple && "$currNodeName[]" in seenNodes ) {
+                val typeType = seenNodes.remove("$currNodeName[]")!!
+                seenNodes["$name[]"] = ASTNode("$name[]", typeType.type, typeType.enumValues)
+            }
 
             if( !elm.has(compositeDefaultNodeName) )
                 return astNode.type
@@ -668,12 +672,30 @@ open class SchemaUtils(
             }
 
             val defaultVal = node.type.defaultVal
-            when(defaultVal) {
-                is String  -> elm.asJsonObject.addProperty(childName, defaultVal)
-                is Boolean -> elm.asJsonObject.addProperty(childName, defaultVal)
-                is Number  -> elm.asJsonObject.addProperty(childName, defaultVal)
-                else       -> throw NotImplementedError("still working on the array code")  // TODO: implement
+            val arr = JsonArray()
+            when(node.type.typeCode) {
+                ElementType.STRING, ElementType.ENUM -> {
+                    if( node.type.multiple ) (defaultVal as List<*>).forEach { arr.add(it as String?) }
+                    else                      elm.asJsonObject.addProperty(childName, defaultVal as String?)
+                }
+
+                ElementType.NUMBER  ->  {
+                    if( node.type.multiple ) (defaultVal as List<*>).forEach { arr.add(it as Number?) }
+                    else                      elm.asJsonObject.addProperty(childName, defaultVal as Number?)
+                }
+
+                ElementType.BOOLEAN ->  {
+                    if( node.type.multiple ) (defaultVal as List<*>).forEach { arr.add(it as Boolean?) }
+                    else                      elm.asJsonObject.addProperty(childName, defaultVal as Boolean?)
+                }
+
+                else ->
+                    throw StatusException(500, "Role $roleName, attribute $path: defaults of type ${node.type.typeCode} should have not pass validation, but they have")
             }
+
+            if( node.type.multiple )
+                elm.asJsonObject.add(childName, arr)
+
         }
 
         return workElm

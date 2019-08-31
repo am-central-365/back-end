@@ -3,6 +3,9 @@ package com.amcentral365.service.api
 import com.amcentral365.service.Configuration
 import com.amcentral365.service.StatusException
 import com.amcentral365.service.config
+
+import com.google.gson.Gson
+
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 
 import org.junit.jupiter.api.Test
@@ -163,7 +166,7 @@ internal class SchemaUtilsTest {
         val node = nodes.get(nodeName)
         assertNotNull(node)
         assertEquals(nodeName, node!!.attrName)
-        assertEquals(nodeType, node.type)
+        assertEquals(nodeType, node.type, "node: $nodeName")
     }
 
     @Test fun `schema - anonymous ref`() {
@@ -202,9 +205,12 @@ internal class SchemaUtilsTest {
 
     private fun chkCompositeDefault(schema: String, elmTypedef: SchemaUtils.TypeDef, defaultVal: Any?) {
         val nodes = this.schemaUtils.validateAndCompile("r1", schema)
-        assertEquals(2, nodes.size)
+        val expectedCnt = if( elmTypedef.multiple ) 3 else 2
+        assertEquals(expectedCnt, nodes.size)
         chk(nodes, "$", SchemaUtils.TypeDef(SchemaUtils.ElementType.OBJECT))
         chk(nodes, "$.a", SchemaUtils.TypeDef.from(elmTypedef, defaultVal = defaultVal))
+        if( elmTypedef.multiple )
+            chk(nodes, "$.a[]", SchemaUtils.TypeDef(elmTypedef.typeCode, defaultVal = null))
     }
 
     private fun chkCompositeDefault(schema: String, elmType: SchemaUtils.ElementType, defaultVal: Any?) {
@@ -601,6 +607,33 @@ internal class SchemaUtilsTest {
 
         check(3.57, """{ "a": "this-is-a" }""")               // default value is substituted
         check(21.0, """{ "a": "this-is-a", "b":   21 }""")    // default value is overwritten
-        check(null, """{ "a": "this-is-a", "b": null }""")    // nul is not substituted
+        check(null, """{ "a": "this-is-a", "b": null }""")    // null should not be substituted
     }
+
+
+    @Test fun `asset - validate - default - array`() {
+        val schemaStr = """{
+            |  "a": "string",
+            |  "b": { "type": "number+", "default": [7, null, 17, 2.5, -1002] },
+            |  "c": "string"
+            |}""".trimMargin()
+        val schemaUtils = object : SchemaUtils(loadSchema = { _ -> schemaStr }) {}
+
+        fun check(arrVal: List<Number?>?, elmStr: String) {
+            val v = schemaUtils.getAssetValue("a-test-role-with-default", elmStr)
+            assertEquals("this-is-a", v.asJsonObject["a"].asString)
+            assertFalse(v.asJsonObject.has("c"))
+            if( arrVal == null )
+                assertTrue(v.asJsonObject["b"].isJsonNull)
+            else {
+                val elmArr = Gson().fromJson(v.asJsonObject["b"], mutableListOf<Number?>().javaClass)
+                assertEquals(arrVal, elmArr)
+            }
+        }
+
+        check(listOf(7.0, null, 17.0, 2.5, -1002.0), """{ "a": "this-is-a" }""")    // default value is substituted
+        check(listOf(11.0, 0.0, 3.0), """{ "a": "this-is-a", "b": [11, 0, 3] }""")  // default value is overwritten
+        check(null, """{ "a": "this-is-a", "b": null }""")                          // null should not be substituted
+    }
+
 }
