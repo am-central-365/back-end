@@ -122,7 +122,7 @@ open class SchemaUtils(
                     if( forcedType == null && str !in validSchemaDefTypes )
                         throw StatusException(406, "$elmName defines an invalid type '$str'. " +
                                 "The valid types are: ${validSchemaDefTypes.keys.joinToString(", ")}")
-                    TypeDef(forcedType ?: validSchemaDefTypes.getValue(str), required, zeroplus, oneplus, indexed)
+                    TypeDef((forcedType ?: validSchemaDefTypes.getValue(str)), required, zeroplus, oneplus, indexed)
                 }!!
 
             @JvmStatic fun fromEnumValue(enumVal: String): TypeDef? =

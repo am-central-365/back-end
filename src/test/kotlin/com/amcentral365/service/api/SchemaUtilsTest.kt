@@ -26,6 +26,11 @@ internal class SchemaUtilsTest {
         schemaUtils = SchemaUtils()
     }
 
+    fun ast(name: String, etp: SchemaUtils.ElementType, rqd: Boolean=false, zeroplus: Boolean=false,
+        oneplus: Boolean=false, idx: Boolean=false, ev: Array<String>? = null): SchemaUtils.ASTNode
+    =
+        SchemaUtils.ASTNode(name, SchemaUtils.TypeDef(etp, rqd, zeroplus, oneplus, idx), ev)
+
     @Test fun `schema - simple, valid`() {
         val nodes = this.schemaUtils.validateAndCompile("r1",
                 """{
@@ -47,11 +52,6 @@ internal class SchemaUtilsTest {
         assertNotNull(nodes)
         assertEquals(15, nodes.size)
 
-        fun ast(name: String, etp: SchemaUtils.ElementType, rqd: Boolean=false, zeroplus: Boolean=false,
-            oneplus: Boolean=false, idx: Boolean=false, ev: Array<String>? = null): SchemaUtils.ASTNode
-        =
-            SchemaUtils.ASTNode(name, SchemaUtils.TypeDef(etp, rqd, zeroplus, oneplus, idx), ev)
-
         //println(nodes.find { it.attrName == "$.e[]" })
         assertTrue(nodes.containsValue(ast("$",      SchemaUtils.ElementType.OBJECT)))
         assertTrue(nodes.containsValue(ast("$.a",    SchemaUtils.ElementType.BOOLEAN, oneplus=true)))
@@ -68,6 +68,25 @@ internal class SchemaUtilsTest {
         assertTrue(nodes.containsValue(ast("$.f.f3", SchemaUtils.ElementType.BOOLEAN)))
         assertTrue(nodes.containsValue(ast("$.h",    SchemaUtils.ElementType.MAP, oneplus = true)))
         assertTrue(nodes.containsValue(ast("$.h[]",  SchemaUtils.ElementType.STRING)))
+    }
+
+    @Test fun `schema - valid array of objects`() {
+        val roles = mapOf(
+            // _attr is overwritten by r1
+            "r2" to """{ "_attr": "!*", "a": "number", "b": "string!", "c": "boolean+" }"""
+        )
+        val su = SchemaUtils { roleName -> roles[roleName] }
+
+        val nodes = su.validateAndCompile("r1", """{"x": "@r2+"}""")
+        assertNotNull(nodes)
+        assertEquals(7, nodes.size)
+        assertTrue(nodes.containsValue(ast("$",         SchemaUtils.ElementType.OBJECT)))
+        assertTrue(nodes.containsValue(ast("$.x",       SchemaUtils.ElementType.OBJECT, oneplus = true)))  // r1's attributes override r2's
+        assertTrue(nodes.containsValue(ast("$.x[]",     SchemaUtils.ElementType.OBJECT)))
+        assertTrue(nodes.containsValue(ast("$.x[].a",   SchemaUtils.ElementType.NUMBER)))
+        assertTrue(nodes.containsValue(ast("$.x[].b",   SchemaUtils.ElementType.STRING, rqd = true)))
+        assertTrue(nodes.containsValue(ast("$.x[].c",   SchemaUtils.ElementType.BOOLEAN, oneplus = true)))
+        assertTrue(nodes.containsValue(ast("$.x[].c[]", SchemaUtils.ElementType.BOOLEAN)))
     }
 
     @Test fun `schema - bad -json`() {
