@@ -643,7 +643,6 @@ open class SchemaUtils(
 
     private fun assignDefaultValues(roleName: String, assetElm: JsonElement, roleSchemaP: CompiledSchema? = null): JsonElement {
         val roleSchema = roleSchemaP ?: this.schemaCache.get(roleName)
-        this.validateAssetValue(roleName, assetElm, roleSchema)
 
         // Copy
         val workElm = assetElm.deepCopy()
@@ -698,6 +697,7 @@ open class SchemaUtils(
 
         }
 
+        this.validateAssetValue(roleName, workElm, roleSchema)
         return workElm
     }
 

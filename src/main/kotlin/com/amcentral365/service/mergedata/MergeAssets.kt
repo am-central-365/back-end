@@ -194,10 +194,11 @@ open class MergeAssets(private val baseDirName: String) {
             if(rval.values == null)
                 rval.values = emptyMap()
 
-            val valsAsString = this.serializeToJsonObj(rval.values!!)
+            var valsAsString = this.serializeToJsonObj(rval.values!!)
 
             try {
-                this.schemaUtils.validateAssetValue(rval.roleName, valsAsString)
+                val elmWithDefaults = this.schemaUtils.getAssetValue(rval.roleName, valsAsString)
+                valsAsString = gson.toJson(elmWithDefaults)
             } catch(x: StatusException) {
                 throw StatusException(x, x.code, "in file $displayFilePath, role ${rval.roleName}: ${x.message}")
             }
