@@ -1,6 +1,8 @@
 package com.amcentral365.service
 
+import com.google.common.io.Resources
 import mu.KotlinLogging
+import java.io.File
 
 import java.net.InetAddress
 import java.net.UnknownHostException
@@ -51,4 +53,11 @@ fun getLocalIpAddress(): InetAddress? {
     }
 
     return null
+}
+
+fun getFileOrResource(resourceName: String): ByteArray {
+    return if( File(resourceName).exists() )
+        File(resourceName).readBytes()
+    else
+        Resources.getResource(resourceName).readBytes()
 }

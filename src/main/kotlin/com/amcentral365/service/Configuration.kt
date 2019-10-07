@@ -1,7 +1,5 @@
 package com.amcentral365.service
 
-import com.amcentral365.service.builtins.AMCWorkerAssetId
-import com.amcentral365.service.mergedata.MergeDirectory
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.default
@@ -9,7 +7,6 @@ import com.github.ajalt.clikt.parameters.options.validate
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.convert
 import com.github.ajalt.clikt.parameters.options.multiple
-import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.options.versionOption
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
@@ -17,7 +14,6 @@ import com.github.ajalt.clikt.parameters.types.long
 import mu.KotlinLogging
 import java.lang.Math.max
 import java.nio.charset.Charset
-import java.util.UUID
 
 
 private val logger = KotlinLogging.logger {}
@@ -51,7 +47,7 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                     | for the connection pool paramters
                    """.trimMargin())
             .convert { if( it.matches(Regex("^jdbc:[^/@]+:?(//|@).+")) ) it else "jdbc:mariadb://$it" }
-            .default("jdbc:mariadb://127.0.0.1/amcentral365?useSSL=false&minPoolSize=2")
+            .default("jdbc:mariadb://127.0.0.1/amcentral365?useSSL=false&minPoolSize=10")
 
     val clusterNodeNames: MutableList<Pair<String, Short>> = mutableListOf()
     private val rawClusterNodeNames: List<String> by option("-n", "--node", "--nodes",
@@ -112,6 +108,7 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
                 charSet = Charset.forName(it)  // throws IllegalCharsetNameException if charSetName is invalid
             }
 
+    // --------------------------- Merge
     val mergeRoles:  Boolean by option("--merge-roles",  help="Scan mergedata/roles and update the cataloged roles")
                               .flag("--no-merge-roles",  default = false)
     val mergeAssets: Boolean by option("--merge-assets", help="Scan mergedata/assets and update the cataloged assets")
@@ -130,6 +127,11 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             .long()
             .default(0)
 
+    // --------------------------- SSH
+    val sshPrivateKeyFile: String by option("--ssh-pvt-key-file", help="file storing AM Central private key for SSH authentications").default("ssh-key")
+
+    lateinit var sshPublicKeyFile: String private set
+    val _sshPublicKeyFile: String by option("--ssh-pub-key-file", help="file storing AM Central public key for SSH authentications. Defaults to ").default("")
 
     override fun run() {
         mergeThreads = if( rawMergeThreads > 0 ) rawMergeThreads
@@ -170,6 +172,8 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
             }
             logger.info { "${this.clusterFQDN} resolved to: ${resolved.joinToString(", ")}" }
         }
+
+        this.sshPublicKeyFile = if( this._sshPublicKeyFile.isBlank() ) sshPrivateKeyFile + ".pub" else this._sshPublicKeyFile
     }
 
     init {

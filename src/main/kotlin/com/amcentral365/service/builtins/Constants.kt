@@ -14,4 +14,6 @@ class RoleName(_unused: String) { companion object {
   //val AMCWorker   = "com.amc.amc-worker"
     val ExecutionTarget   ="com.amc.execution-target"
     val ScriptExecutorAMC ="com.amc.script-executor-amc"
+    val ScriptExecutorSSH ="com.amc.script-executor-ssh"
+    val TargetSSH   = "com.amc.target-ssh-keypair"
 }}

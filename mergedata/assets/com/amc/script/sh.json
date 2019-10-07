@@ -1,6 +1,7 @@
   {
     "asset": { "name": "com.amc.script.sh", "description": "Script executed by *nix shell /bin/sh" },
     "roles": [
+    //{ "roleName": "script-executor-ssh", "values": { "os": "all-unixes" } },
       {
         "roleName": "com.amc.script",
         "values": {
@@ -8,10 +9,10 @@
           "scriptMain": { "interpreter":  ["/bin/sh", "-c"] },
           "scriptArgs": [],
 
-          "executorRoleName": "com.amc.script-executor-amc",
-          "targetRoleName":   "com.amc.script-target-host",
+        //"executorRoleName": "com.amc.script-executor-amc",
+          "targetRoleName":   "com.amc.execution-target.linux",
           "execTimeoutSec":   0,
-          "idleTimeoutSec":   20
+          "idleTimeoutSec":   10
         }
       }
     ]

@@ -53,25 +53,35 @@
         <version>1.5.4</version>
       </dependency>
 
-      <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-jdk14 -->
+      <!-- Logging. https://mvnrepository.com/artifact/org.slf4j/slf4j-jdk14 -->
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-log4j12</artifactId>
         <version>1.7.26</version>
       </dependency>
 
-      <dependency>  <!-- https://mariadb.com/kb/en/library/installing-mariadb-connectorj/ -->
+      <!-- JDBC driver for the database: https://mariadb.com/kb/en/library/installing-mariadb-connectorj/ -->
+      <dependency>
         <groupId>org.mariadb.jdbc</groupId>
         <artifactId>mariadb-java-client</artifactId>
         <version>2.4.1</version>
       </dependency>
 
-      <dependency>  <!-- https://mvnrepository.com/artifact/mysql/mysql-connector-java -->
+      <!-- Command line arguments parser: https://github.com/ajalt/clikt -->
+      <dependency>
         <groupId>com.github.ajalt</groupId>
         <artifactId>clikt</artifactId>
         <version>2.0.0</version>
       </dependency>
 
+      <!-- SSH2 library: http://www.jcraft.com/jsch/ -->
+      <dependency>
+       <groupId>org.glassfish.external</groupId>
+        <artifactId>jsch</artifactId>
+        <version>0.1.56</version>
+      </dependency>
+
+      <!-- AM Central ORM layer -->
       <dependency>
         <groupId>com.amcentral365</groupId>
         <artifactId>pl4kotlin</artifactId>

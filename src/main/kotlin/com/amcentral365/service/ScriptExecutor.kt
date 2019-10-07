@@ -13,6 +13,13 @@ private val logger = KotlinLogging.logger {}
 
 open class ScriptExecutor(private val threadId: String) {
 
+    /**
+     * Generic flow for executing commands:
+     *   connect -> (prepare -> execute -> cleanup) -> disconnect
+     *
+     * If initialization step (i.e. connect, prepare) has succeeded, its finalization (disconnect, cleanup) is
+     * guaranteed to execute.
+     */
     fun run(script: Script, target: ScriptExecutorFlow, outputStream: OutputStream, inputStream: InputStream? = null): StatusMessage {
         var connected = false
         try {
@@ -20,7 +27,7 @@ open class ScriptExecutor(private val threadId: String) {
             connected = target.connect()
             if( !connected ) {
                 val msg = "${this.threadId}: failed to connect to target ${target.name}"
-                logger.warn { "msg" }
+                logger.warn { msg }
                 return StatusMessage(500, msg)
             }
 

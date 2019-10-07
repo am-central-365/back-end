@@ -1,0 +1,9 @@
+{
+  "roleName": "com.amc.script-executor-ssh",
+  "class": "script",
+  "description": "Scripts executed on remote hosts connected via SSH",
+  "roleSchema": {
+    "os": ["!+", "all-unixes", "linux", "darwin", "windows"]
+  }
+
+}

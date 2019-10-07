@@ -41,8 +41,9 @@ root:
           schema:
             type: object
             properties:
-              scriptKey:  {type: string, maximum: 100, required: true, description: "asset id or name of the script"}
-              targetKey:  {type: string, maximum: 100, required: true, description: "asset id or name of the target"}
+              scriptKey:     {type: string, maximum: 100, required: true, description: "asset id or name of the script"}
+              targetKey:     {type: string, maximum: 100, required: true, description: "asset id or name of the target"}
+              executeMethod: {type: string, maximum: 50, description: "how to run the script: locally or via ssh (default)"}
              #channelKey: {type: string, maximum: 100, description: "asset id or name of the channel where the output is posted in real time"}
              #tags:        {type: array, items: {type: string, maximum: 100} }
               comment: {type: string, maximum: 4000, description: "invocation notes, if any"}

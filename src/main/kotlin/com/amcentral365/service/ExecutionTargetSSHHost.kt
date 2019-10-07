@@ -1,33 +1,180 @@
 package com.amcentral365.service
 
+import com.amcentral365.service.builtins.roles.ExecutionTargetDetails
+import mu.KotlinLogging
+import kotlin.reflect.jvm.jvmName
+import java.util.concurrent.TimeUnit
+
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
-import com.amcentral365.service.dao.Asset
-import mu.KotlinLogging
+import com.amcentral365.service.builtins.roles.TargetSSH
+import com.amcentral365.service.dao.fromDB
+import com.google.common.base.Preconditions
+
+import com.jcraft.jsch.ChannelExec
+import com.jcraft.jsch.JSch
+import com.jcraft.jsch.JSchException
+import com.jcraft.jsch.Session
 
 import java.io.InputStream
 import java.io.OutputStream
 
 private val logger = KotlinLogging.logger {}
 
-class ExecutionTargetSSHHost(private val threadId: String, target: Asset): ExecutionTarget() {
-    override fun prepare(script: Script): Boolean {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
+class ExecutionTargetSSHHost(private val threadId: String, private val target: TargetSSH): ExecutionTarget(target.asset) {
+
+    init {
+        Preconditions.checkNotNull(target.hostname as String)
+        Preconditions.checkArgument((target.hostname as String).isNotEmpty())
+        Preconditions.checkNotNull(target.port as Int)
+        Preconditions.checkArgument((target.port as Int) > 0)
+        Preconditions.checkNotNull(target.loginUser as String)
+        Preconditions.checkArgument((target.loginUser as String).isNotEmpty())
     }
 
-    override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    private val jsch: JSch by lazy {
+        val sshPvtKey = getFileOrResource(config.sshPrivateKeyFile)
+        val sshPubKey = getFileOrResource(config.sshPublicKeyFile)
+        JSch.setConfig("StrictHostKeyChecking", "no")
+        JSch().also {
+          it.addIdentity("internal", sshPvtKey, sshPubKey, null)
+        }
     }
 
-    override fun cleanup(script: Script) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
+    var session: Session? = null
+
+    override fun connect(): Boolean {
+        try {
+            val sess = jsch.getSession(target.loginUser, target.hostname, target.port!!)
+            sess.connect()
+            this.session = sess
+            return true
+        } catch(e: JSchException) {
+            throw StatusException.from(e)
+        }
     }
 
     override fun disconnect() {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        this.session?.disconnect()
     }
 
-    override fun connect(): Boolean {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    override fun prepare(script: Script): Boolean {
+        super.initTargetDetails(script.targetRoleName!!)
+        return super.transferScriptContent(this.threadId, script, ReceiverRemotehost(script, this))
+    }
+
+    private fun copy0(contentStream: InputStream, fileName: String, remoteCmd: List<String>): Int {
+        Preconditions.checkArgument(fileName.isNotBlank())
+        if( this.targetDetails?.workDirBase != null )
+            Preconditions.checkArgument(fileName.startsWith(this.targetDetails!!.workDirBase+"/")
+                                     || fileName.startsWith(this.targetDetails!!.workDirBase+"\\"))
+
+        val outputStream = StringOutputStream()
+        realExec(remoteCmd, contentStream, outputStream)
+        return 0
+    }
+
+    fun copyExecutableFile(contentStream: InputStream, fileName: String): Int =
+        this.copy0(contentStream, fileName, getCmdToCreateExecutable(fileName))
+
+    fun copyFile(contentStream: InputStream, fileName: String): Int =
+        this.copy0(contentStream, fileName, getCmdToCreateFile(fileName))
+
+    fun createDirectories(dirPath: String) {
+        Preconditions.checkArgument(dirPath.isNotBlank())
+        val cmd = getCmdToCreateSubDir(dirPath)
+        val outputStream = StringOutputStream()
+        val statusMsg = realExec(cmd, null, outputStream)
+        val errMsg = outputStream.getString().trimEnd('\r', '\n')
+        if( !statusMsg.isOk || errMsg.isNotEmpty() )
+            throw StatusException(300, "failed to create directory path $dirPath: ${statusMsg.code} ${statusMsg.msg} -- $errMsg")
+    }
+
+    override fun realExec(commands: List<String>, inputStream: InputStream?, outputStream: OutputStream): StatusMessage {
+        val workDirName = this.workDirName ?: config.SystemTempDirName
+        logger.debug { "${this.threadId}: workdir $workDirName" }
+
+        val session = this.session!!
+        val command = commands.joinToString(" ")
+
+        try {
+            val channel = session.openChannel("exec")
+            with(channel as ChannelExec) {
+                setInputStream(inputStream, false)
+                setOutputStream(outputStream, true)
+                setErrStream(outputStream, true)
+                setCommand(command)
+            }
+
+            channel.connect()
+
+            logger.info { "${this.threadId}: started running $command" }
+
+            inputStream?.run {
+                channel.outputStream.run {  // process.outputStream is the process's stdin
+                    write(inputStream.readBytes())
+                    close()
+                }
+            }
+
+            val buffer = ByteArray(1024)
+            val execStartTs = System.currentTimeMillis()
+            var idleStartTs = System.currentTimeMillis()
+
+            fun ivlText(ts: Long) = "%.1f".format((System.currentTimeMillis() - ts)/1000f)
+
+            var exitReason = "execution completed"
+            var isAlive = true
+            do {
+                if( this.execTimeoutSec > 0 && System.currentTimeMillis() - execStartTs > this.execTimeoutSec*1000L ) {
+                    exitReason = "execution time ${ivlText(execStartTs)} has exceeded timeout ${this.execTimeoutSec}"
+                    break
+                }
+
+                if( this.idleTimeoutSec > 0 && System.currentTimeMillis() - idleStartTs > this.idleTimeoutSec*1000L ) {
+                    exitReason = "idle time ${ivlText(idleStartTs)} has exceeded timeout ${this.idleTimeoutSec}"
+                    break
+                }
+
+                // cache the values to avoid race condition when process exits while we are fetching its output
+                isAlive = !channel.isClosed
+                var availableByteCnt = channel.inputStream.available()
+
+                if( availableByteCnt == 0 && isAlive ) {
+                    TimeUnit.MILLISECONDS.sleep(config.scriptOutputPollIntervalMsec)
+                    continue
+                }
+
+                while(availableByteCnt > 0) {
+                    val readByteCnt = channel.inputStream.read(buffer, 0, availableByteCnt.coerceAtMost(buffer.size))
+                    if(readByteCnt <= 0)
+                        break
+
+                    outputStream.write(buffer, 0, readByteCnt)
+                    outputStream.flush()
+                    availableByteCnt -= readByteCnt
+                    idleStartTs = System.currentTimeMillis()
+                }
+
+            } while( isAlive )
+
+            if( isAlive ) {
+                val msg = "aborted: $exitReason"
+                logger.warn { "${this.threadId}: $msg" }
+                channel.disconnect()
+                return StatusMessage(408, msg)
+            }
+
+            val rc = channel.exitStatus
+            val msg = "completed with return code $rc in ${ivlText(execStartTs)} sec"
+            logger.info { "${this.threadId}: $msg" }
+            return StatusMessage(if( rc == 0 ) 200 else 500, msg)
+
+        } catch(x: Exception) {
+            logger.warn { "${this.threadId}: ${x::class.jvmName} ${x.message}" }
+            throw StatusException(x, 500)
+        }
     }
 }

@@ -1,0 +1,20 @@
+[
+  {
+    "asset": { "name": "com.amc.amc-dev-target-site.app-host-1" },
+    "roles": [
+      { "roleName": "com.amc.execution-target.linux" },
+      { "roleName": "com.amc.target-ssh-keypair", "values": { "hostname":  "127.0.0.1", "port": 32771, "loginUser": "app" } }
+      /*{ "roleName": "authenticate", "values": {"method": "ssh-keypair"} }*/
+    ]
+  }
+
+, {
+    "asset": { "name": "com.amc.amc-dev-target-site.app-host-2" },
+    "roles": [
+      { "roleName": "com.amc.execution-target.linux" },
+      { "roleName": "com.amc.target-ssh-keypair", "values": { "hostname":  "127.0.0.1", "port": 32773, "loginUser": "app" } }
+      // { "roleName": "authenticate", "values": {"method": "ssh-keypair"} }
+    ]
+  }
+
+]

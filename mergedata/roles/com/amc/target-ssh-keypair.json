@@ -1,0 +1,10 @@
+{
+  "roleName": "com.amc.target-ssh-keypair",
+  "class": "target",
+  "description": "Defines host accessible via ssh using AMC public/private key pair",
+  "roleSchema": {
+    "hostname":  "string!",
+    "port":      { "type": "number!", "default": 22 },
+    "loginUser": "string!"
+  }
+}

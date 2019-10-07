@@ -1,8 +1,8 @@
 {
   "roleName": "com.amc.script-executor-amc",
   "class": "script",
-  "description": "Scripts executed on AMC hosts",
+  "description": "Scripts executed on AMCentral hosts",
   "roleSchema": {
-    "os": ["!", "linux", "darwin", "windows"]
+    "os": ["!+", "linux", "darwin", "windows"]
   }
 }

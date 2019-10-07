@@ -1,81 +1,28 @@
 package com.amcentral365.service
 
-import com.amcentral365.service.builtins.RoleName
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.TimeUnit
-import java.util.UUID
 
 import kotlin.reflect.jvm.jvmName
 import mu.KotlinLogging
 
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
-import com.amcentral365.service.dao.fromDB
+import com.amcentral365.service.dao.Asset
 
 
 private val logger = KotlinLogging.logger {}
 
-class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget() {
-    private var workDirName: String? = null
-    private var content: String? = null
-    private var execTimeoutSec: Int = 0
-    private var idleTimeoutSec: Int = 0
-
+class ExecutionTargetAMCWorker(private val threadId: String, asset: Asset): ExecutionTarget(asset) {
     override fun connect() = true
     override fun disconnect() {}
 
+    override fun prepare(script: Script): Boolean =
+        super.transferScriptContent(this.threadId, script, ReceiverLocalhost(script))
 
-    override fun prepare(script: Script): Boolean {
-        this.execTimeoutSec = script.execTimeoutSec ?: config.defaultScriptExecTimeoutSec
-        this.idleTimeoutSec = script.idleTimeoutSec ?: config.defaultScriptIdleTimeoutSec
-
-        val sender = script.getSender()
-        if( sender == null ) {
-            logger.warn { "${this.threadId}: script '${script.name}' has no content, nothing to do" }
-            return false
-        }
-
-        if( script.needsWorkDir ) {
-            val commandToCreateWorkDir = this.getCmdToCreateWorkDir()
-            this.workDirName = this.execAndGetOutput(commandToCreateWorkDir)
-        }
-
-        val receiver = ReceiverLocalhost(script, this.workDirName)
-
-        logger.info { "${this.threadId}: transferring ${script.name} file to ${this.name}" }
-        val transferManager = TransferManager(this.threadId)
-        val success = transferManager.transfer(sender, receiver)
-
-        return success
-    }
-
-
-    override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage {
-        val commands = script.getCommand()!!
-        return this.realExec(commands, outputStream = outputStream, inputStream = inputStream)
-    }
-
-
-    override fun cleanup(script: Script) {
-        if( this.workDirName.isNullOrBlank() )
-            return
-
-        val commandToRemoveWorkDir = this.getCmdToRemoveWorkDir(this.workDirName!!)
-        logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
-        this.execAndGetOutput(commandToRemoveWorkDir)
-    }
-
-
-    private fun execAndGetOutput(commands: List<String>, inputStream: InputStream? = null): String =
-        StringOutputStream().let {
-            this.realExec(commands, inputStream = inputStream, outputStream = it)
-            it.getString().trimEnd('\r', '\n')
-        }
-
-
-    private fun realExec(commands: List<String>, inputStream: InputStream? = null, outputStream: OutputStream): StatusMessage {
+    override fun realExec(commands: List<String>, inputStream: InputStream?, outputStream: OutputStream): StatusMessage {
         val workDirName = this.workDirName ?: config.SystemTempDirName
         logger.debug { "${this.threadId}: workdir $workDirName" }
 
@@ -123,7 +70,7 @@ class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget() 
                 }
 
                 while(availableByteCnt > 0) {
-                    val readByteCnt = process.inputStream.read(buffer, 0, Math.min(availableByteCnt, buffer.size))
+                    val readByteCnt = process.inputStream.read(buffer, 0, availableByteCnt.coerceAtMost(buffer.size))
                     if(readByteCnt <= 0)
                         break
 
@@ -155,9 +102,8 @@ class ExecutionTargetAMCWorker(private val threadId: String): ExecutionTarget() 
 
 }
 
-
-fun _devcall() {
 /*
+fun _devcall() {
 Asset:
 {"name": "script-test-inline-1", "description": "Testing pwd"} =>
    {"pk": {"asset_id": "8b0f7f5e-569d-462a-baac-f2f16e982c2a"}, "optLock": {"modified_ts": "2019-01-26 17:36:30.0"}}
@@ -183,7 +129,7 @@ Script:
        {"pk": {"asset_id": "8b0f7f5e-569d-462a-baac-f2f16e982c2a", "role_name": "script"}, "optLock": {"modified_ts": "2019-01-26 17:40:43.0"}}
 
 */
-
+/*
     try {
         val script: Script = fromDB<Script>(UUID.fromString("8b0f7f5e-569d-462a-baac-f2f16e982c2a"), RoleName.Script)
         val target = ExecutionTargetAMCWorker("_devcall")
@@ -203,3 +149,4 @@ Script:
     //val eh = ExecutionTargetAMCWorker(Script(scriptMain, inlineLoc))
     //eh.prepare()
 }
+*/

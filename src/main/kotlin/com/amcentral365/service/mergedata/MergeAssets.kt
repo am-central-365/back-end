@@ -301,13 +301,13 @@ open class MergeAssets(private val baseDirName: String) {
             }
 
         } catch(x: IOException) {
-            logger.warn { "  couldn't read ${file.path}: ${x.javaClass.name} ${x.message}" }
+            logger.error { "  couldn't read ${file.path}: ${x.javaClass.name} ${x.message}" }
             return false
         } catch(x: JsonSyntaxException) {
-            logger.warn { "  json parse error in ${file.path}:\n  $x" }
+            logger.error { "  json parse error in ${file.path}:\n  $x" }
             return false
         } catch(x: Exception) {
-            logger.warn { "  error processing ${file.path}:\n  $x" }
+            logger.error(x) { "  error processing ${file.path}:\n  $x" }
             return false
         }
 
@@ -317,8 +317,8 @@ open class MergeAssets(private val baseDirName: String) {
     // merge into ASSETS
     private fun mergeAssetObjIntoDb(asset: Asset, stats: MergeDirectory.Companion.Stats) {
         Preconditions.checkNotNull(asset)
-        Preconditions.checkNotNull(asset.assetId)
-        Preconditions.checkNotNull(asset.name)
+        Preconditions.checkNotNull(asset.assetId as UUID)
+        Preconditions.checkNotNull(asset.name as String)
 
         val dbAsset = Asset(asset.assetId!!)
 

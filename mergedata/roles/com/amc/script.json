@@ -7,7 +7,7 @@
     "scriptMain": "@com.amc.script-main",
     "scriptArgs": "string*",
 
-    "executorRoleName": "string!",
+  //"executorRoleName": "string!",
     "targetRoleName":   "string!",
     "execTimeoutSec":   "number",
     "idleTimeoutSec":   "number"

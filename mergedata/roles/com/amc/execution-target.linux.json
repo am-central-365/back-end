@@ -3,8 +3,11 @@
   "class": "target",
   "description": "Describes the hosting environment for script execution. Host is the most commonly used, but can be other",
   "roleSchema": {
-    "workDirBase":            { "type": "string",   "default": "/tmp" },
-    "commandToCreateWorkDir": { "type": "string!+", "default": ["/bin/mktemp", "-dp", "$WorkDirBase", "amc.XXXXXX"] },
-    "commandToRemoveWorkDir": { "type": "string!+", "default": ["/bin/rm", "-r", "$WorkDir"] }
+    "workDirBase":               { "type": "string",   "default": "/tmp" },
+    "commandToCreateWorkDir":    { "type": "string!+", "default": ["/bin/mktemp", "-dp", "$WorkDirBase", "amc.XXXXXX"] },
+    "commandToRemoveWorkDir":    { "type": "string!+", "default": ["/bin/rm", "-r", "$WorkDir"] },
+    "commandToCreateSubDir":     { "type": "string+",  "default": ["/bin/mkdir", "-p", "$WorkDirBase/$SubDirName"] },
+    "commandToCreateFile":       { "type": "string+",  "default": ["/bin/cat", ">", "$fileName"] },
+    "commandToCreateExecutable": { "type": "string+",  "default": ["/bin/cat", ">", "$fileName", "&&", "chmod", "u+x", "$fileName"] }
   }
 }

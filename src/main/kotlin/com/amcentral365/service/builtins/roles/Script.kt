@@ -140,11 +140,11 @@ data class Script(
     var location:         ScriptLocation?,
     var scriptMain:       ScriptMain?,
     var scriptArgs:       Array<String>?,
-    var executorRoleName: String?,
+    var executorRoleName: String?,  // TODO: not used any more, delete
     var targetRoleName:   String?,
     var execTimeoutSec:   Int? = null,
     var idleTimeoutSec:   Int? = null
-): AnAsset() {
+): AnAsset(null) {
 
     val name get() = this.asset?.name
     val needsWorkDir get() = this.location?.needsWorkDir ?: false
