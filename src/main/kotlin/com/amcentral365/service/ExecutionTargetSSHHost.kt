@@ -1,6 +1,5 @@
 package com.amcentral365.service
 
-import com.amcentral365.service.builtins.roles.ExecutionTargetDetails
 import mu.KotlinLogging
 import kotlin.reflect.jvm.jvmName
 import java.util.concurrent.TimeUnit
@@ -8,7 +7,6 @@ import java.util.concurrent.TimeUnit
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
 import com.amcentral365.service.builtins.roles.TargetSSH
-import com.amcentral365.service.dao.fromDB
 import com.google.common.base.Preconditions
 
 import com.jcraft.jsch.ChannelExec
@@ -102,12 +100,13 @@ class ExecutionTargetSSHHost(private val threadId: String, private val target: T
         try {
             val channel = session.openChannel("exec")
             with(channel as ChannelExec) {
-                setInputStream(inputStream, false)
+                setInputStream(inputStream, false)   // close on completion
                 setOutputStream(outputStream, true)
                 setErrStream(outputStream, true)
                 setCommand(command)
             }
 
+            val remoteStdout = channel.inputStream        // must cache, otherwise it won't work
             channel.connect()
 
             logger.info { "${this.threadId}: started running $command" }
@@ -119,14 +118,14 @@ class ExecutionTargetSSHHost(private val threadId: String, private val target: T
                 }
             }
 
+            fun ivlText(ts: Long) = "%.1f".format((System.currentTimeMillis() - ts)/1000f)
+
+            var isAlive = true
+            var exitReason = "execution completed"
+
             val buffer = ByteArray(1024)
             val execStartTs = System.currentTimeMillis()
             var idleStartTs = System.currentTimeMillis()
-
-            fun ivlText(ts: Long) = "%.1f".format((System.currentTimeMillis() - ts)/1000f)
-
-            var exitReason = "execution completed"
-            var isAlive = true
             do {
                 if( this.execTimeoutSec > 0 && System.currentTimeMillis() - execStartTs > this.execTimeoutSec*1000L ) {
                     exitReason = "execution time ${ivlText(execStartTs)} has exceeded timeout ${this.execTimeoutSec}"
@@ -140,7 +139,7 @@ class ExecutionTargetSSHHost(private val threadId: String, private val target: T
 
                 // cache the values to avoid race condition when process exits while we are fetching its output
                 isAlive = !channel.isClosed
-                var availableByteCnt = channel.inputStream.available()
+                var availableByteCnt = remoteStdout.available()
 
                 if( availableByteCnt == 0 && isAlive ) {
                     TimeUnit.MILLISECONDS.sleep(config.scriptOutputPollIntervalMsec)
@@ -148,7 +147,7 @@ class ExecutionTargetSSHHost(private val threadId: String, private val target: T
                 }
 
                 while(availableByteCnt > 0) {
-                    val readByteCnt = channel.inputStream.read(buffer, 0, availableByteCnt.coerceAtMost(buffer.size))
+                    val readByteCnt = remoteStdout.read(buffer, 0, availableByteCnt.coerceAtMost(buffer.size))
                     if(readByteCnt <= 0)
                         break
 

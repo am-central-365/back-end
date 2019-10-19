@@ -42,7 +42,7 @@ open class ScriptExecutor(private val threadId: String) {
                 logger.info { "${this.threadId}: executing script ${script.name} on target ${target.name}" }
                 val w = Stopwatch.createStarted()
                 val statusMessage = target.execute(script, outputStream, inputStream)
-                logger.info { "${this.threadId}: executed in ${w.elapsed(TimeUnit.MILLISECONDS)} msec" }
+                logger.info { "${this.threadId}: executed in ${w.elapsed(TimeUnit.MILLISECONDS)} msec with: $statusMessage" }
                 return statusMessage
             } finally {
                 logger.info { "${this.threadId}: cleaning up after script ${script.name} on target ${target.name}" }

@@ -8,6 +8,6 @@
     "commandToRemoveWorkDir":    { "type": "string!+", "default": ["/bin/rm", "-r", "$WorkDir"] },
     "commandToCreateSubDir":     { "type": "string+",  "default": ["/bin/mkdir", "-p", "$WorkDirBase/$SubDirName"] },
     "commandToCreateFile":       { "type": "string+",  "default": ["/bin/cat", ">", "$fileName"] },
-    "commandToCreateExecutable": { "type": "string+",  "default": ["/bin/cat", ">", "$fileName", "&&", "chmod", "u+x", "$fileName"] }
+    "commandToCreateExecutable": { "type": "string+",  "default": ["/bin/cat", ">", "$fileName", "&&", "/bin/chmod", "u+x", "$fileName"] }
   }
 }
