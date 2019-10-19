@@ -187,23 +187,4 @@ data class Script(
             this.scriptMain!!.main = main
     }
 
-/*
-    companion object {
-        fun fromDB(assetId: UUID): Script? {
-            databaseStore.getGoodConnection().use { conn ->
-                val scriptAsset = Asset(assetId)
-
-                val cnt = SelectStatement(scriptAsset).select(scriptAsset.allCols).byPk().run(conn)
-                if( cnt != 1 )
-                    return null
-
-                val script = getAssetObjectForRole<Script>(assetId, RoleName.Script, conn) ?: return null
-                return script
-            }
-        }
-
-
-        //fun fromDB(asset: Asset): Script = loadRoleObjectFromDB(asset, RoleName.Script) { it.asset = asset }
-    }
-*/
 }

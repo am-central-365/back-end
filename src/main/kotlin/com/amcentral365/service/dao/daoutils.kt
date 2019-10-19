@@ -11,6 +11,7 @@ import com.amcentral365.service.StatusException
 import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.builtins.RoleName
 import com.amcentral365.service.builtins.roles.AnAsset
+import com.amcentral365.service.schemaUtils
 
 inline fun <reified T> getAssetObjectForRole(assetId: UUID, roleName: String, conn: Connection): T? {
     val dao = AssetRoleValues(assetId, roleName)
@@ -39,7 +40,8 @@ inline fun <reified T: AnAsset> fromDB(assetId: UUID, roleName: String): T {
         if( cnt != 1 )
             throw StatusException(404, "Asset ${assetId} has no role '$roleName'")
 
-        return GsonBuilder().create().fromJson<T>(dao.assetVals, T::class.java)
+        val elm = schemaUtils.assignDefaultValues(roleName, dao.assetVals!!)
+        return GsonBuilder().create().fromJson<T>(elm, T::class.java)
     }
 }
 

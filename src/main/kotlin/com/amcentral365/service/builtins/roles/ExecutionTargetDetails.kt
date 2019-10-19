@@ -6,5 +6,6 @@ data class ExecutionTargetDetails(
     val commandToRemoveWorkDir:    List<String>? = null,
     val commandToCreateSubDir:     List<String>? = null,
     val commandToCreateFile:       List<String>? = null,
-    var commandToCreateExecutable: List<String>? = null
+    val commandToCreateExecutable: List<String>? = null,
+    val commandToRemoveFile:       List<String>? = null
 ): AnAsset(null)

@@ -56,6 +56,10 @@ abstract class ExecutionTarget(
         this.targetDetails?.commandToCreateExecutable?.map { it.replace("\$fileName", fileName) }
         ?: this.getCmdToCreateFile(fileName)
 
+    protected fun getCmdToRemoveFile(fileName: String): List<String> =
+        this.targetDetails?.commandToRemoveFile?.map { it.replace("\$fileName", fileName) }
+        ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToRemoveFile'")
+
     protected fun executeAndGetOutput(commands: List<String>, inputStream: InputStream? = null): String =
         StringOutputStream().let {
             this.realExec(commands, inputStream = inputStream, outputStream = it)
@@ -75,12 +79,15 @@ abstract class ExecutionTarget(
     }
 
     override fun cleanup(script: Script) {
-        if( this.workDirName.isNullOrBlank() )
-            return
-
-        val commandToRemoveWorkDir = this.getCmdToRemoveWorkDir(this.workDirName!!)
-        logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
-        executeAndGetOutput(commandToRemoveWorkDir)
+        if( !this.workDirName.isNullOrBlank() ) {
+            val commandToRemoveWorkDir = this.getCmdToRemoveWorkDir(this.workDirName!!)
+            logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
+            executeAndGetOutput(commandToRemoveWorkDir)
+        } else if( script.hasMain ) {
+            val commandToRemoveMain = this.getCmdToRemoveFile(script.scriptMain!!.main!!)
+            logger.debug { "removing script ${script.scriptMain!!.main}: $commandToRemoveMain" }
+            executeAndGetOutput(commandToRemoveMain)
+        }
     }
 
     protected fun transferScriptContent(threadId: String, script: Script, receiver: TransferManager.Receiver): Boolean {

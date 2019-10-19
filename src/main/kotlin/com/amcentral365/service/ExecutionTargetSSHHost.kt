@@ -69,7 +69,7 @@ class ExecutionTargetSSHHost(private val threadId: String, private val target: T
             Preconditions.checkArgument(fileName.startsWith(this.targetDetails!!.workDirBase+"/")
                                      || fileName.startsWith(this.targetDetails!!.workDirBase+"\\"))
 
-        val outputStream = StringOutputStream()
+        val outputStream = StringOutputStream()     // TODO: replace with NullOutputStream
         realExec(remoteCmd, contentStream, outputStream)
         return 0
     }
