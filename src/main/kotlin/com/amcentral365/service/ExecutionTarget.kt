@@ -24,7 +24,7 @@ abstract class ExecutionTarget(
     protected var workDirName: String? = null
     protected var targetDetails: ExecutionTargetDetails? = null
 
-    val baseDir get() = this.targetDetails?.workDirBase
+    open val baseDir get() = this.targetDetails?.workDirBase
 
     abstract protected fun realExec(commands: List<String>, inputStream: InputStream? = null, outputStream: OutputStream): StatusMessage
 
@@ -45,7 +45,6 @@ abstract class ExecutionTarget(
         val w = this.targetDetails?.workDirBase ?: config.localScriptExecBaseDir   // FIXME: localScriptExecBaseDir is specific to AMC
         return this.targetDetails?.commandToCreateSubDir?.map { it.replace("\$WorkDirBase", w).replace("\$SubDirName", subDir) }
             ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToCreateSubDir'")
-
     }
 
     protected fun getCmdToCreateFile(fileName: String): List<String> =
@@ -59,6 +58,10 @@ abstract class ExecutionTarget(
     protected fun getCmdToRemoveFile(fileName: String): List<String> =
         this.targetDetails?.commandToRemoveFile?.map { it.replace("\$fileName", fileName) }
         ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToRemoveFile'")
+
+    protected fun getCmdToVerifyFileExists(fileName: String): List<String> =
+        this.targetDetails?.commandToVerifyFileExists?.map { it.replace("\$fileName", fileName) }
+        ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToVerifyFileExists'")
 
     protected fun executeAndGetOutput(commands: List<String>, inputStream: InputStream? = null): String =
         StringOutputStream().let {
@@ -108,21 +111,5 @@ abstract class ExecutionTarget(
 
         return success
     }
-/*
-    companion object {
-        @Deprecated("use the one from daoutils ", replaceWith = ReplaceWith("com.amcentral365.service.dao.fromDB"))
-        fun fromDB(asset: Asset, roleName: String, clazz: Class<ExecutionTarget>): ExecutionTarget {
-            databaseStore.getGoodConnection().use { conn ->
-                val dao = AssetRoleValues(asset.assetId!!, roleName)
-                val cnt = SelectStatement(dao).select(dao.allCols).byPk().run(conn)
-                if( cnt != 1 )
-                    throw StatusException(404, "Script asset ${asset.assetId} has no role 'script'")
 
-                val obj = GsonBuilder().create().fromJson(dao.assetVals, clazz)
-                obj.asset = asset
-                return obj
-            }
-        }
-    }
-*/
 }

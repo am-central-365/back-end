@@ -181,24 +181,13 @@ class ReceiverRemotehost(script: Script, private val targetHost: ExecutionTarget
         val baseDirFile = targetHost.baseDir?.let { File(it) }
 
         if( item.verifyPathExists ) {
-            if( !File(item.pathStr).exists() )
+            if( !this.targetHost.exists(item.pathStr) )
                 throw StatusException(404, "Path ${item.pathStr} does not exist on the host")
-
-        // When there is no path, we read inputStream into inline content
-        } else if( item.pathStr.isBlank() ) {
-            if( script.hasMain )
-                throw StatusException(412, "Ambiguity: the script both defines main and has inline content")
-            if( item.inputStream == null )
-                throw StatusException(412, "The path is empty and there is no input")
-            var contentFileName = genTempFileName("amc_", "")
-            contentFileName = Paths.get(targetHost.baseDir!!, contentFileName).toString()
-            targetHost.copyExecutableFile(item.inputStream, contentFileName)
-            this.script.assignMain(contentFileName)
 
         // When path is a directory, create it and all parent directories on the way
         } else if( item.isDirectory ) {
             if( baseDirFile == null )
-                throw StatusException(500, "Bug: no baseDir was provided in the constructor")
+                throw StatusException(500, "The target host does not define base directory")
 
             if( item.pathStr.isBlank() )
                 throw StatusException(412, "Can't create an empty directory")
@@ -211,20 +200,30 @@ class ReceiverRemotehost(script: Script, private val targetHost: ExecutionTarget
             logger.debug { "Creating directory path ${dir.path}" }
             this.targetHost.createDirectories(dir.path)
 
+        // When there is no path, we read inputStream into inline content
+        } else if( item.pathStr.isBlank() ) {
+            if( this.fileCount > 0 )
+                throw StatusException(412, "Ambiguity: the script defines both inline and regular files")
+            if( script.hasMain )
+                throw StatusException(412, "Ambiguity: the script defines both main and the inline content")
+            if( item.inputStream == null )
+                throw StatusException(412, "The path is empty and there is no input")
+            var contentFileName = genTempFileName("amc_", "")
+            contentFileName = Paths.get(targetHost.baseDir!!, contentFileName).toString()
+            targetHost.copyExecutableFile(item.inputStream, contentFileName)
+            this.script.assignMain(contentFileName)
+
         // Create a file and write inputStream into it
         } else {
             if( baseDirFile == null )
-                throw StatusException(500, "Bug: no baseDir was provided in the constructor")
+                throw StatusException(500, "The target host does not define the base directory")
 
-            if( item.pathStr.isBlank() )
-                throw StatusException(400, "There is no path to the destination file")
             if( item.inputStream == null )
                 throw StatusException(400, "The input stream is required, got null")
 
             if( !this.script.hasMain ) {
                 if( this.fileCount > 0 )
                     throw StatusException(400, "Ambiguity: the script has more than one file and no 'main' defined")
-                this.script.assignMain(item.pathStr)
             }
 
             val relFile = File(item.pathStr)
@@ -236,6 +235,7 @@ class ReceiverRemotehost(script: Script, private val targetHost: ExecutionTarget
 
             targetHost.copyFile(item.inputStream, file.name)
             logger.debug { "done" }
+            this.fileCount++
         }
     }
 }

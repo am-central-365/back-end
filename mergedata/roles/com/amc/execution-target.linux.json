@@ -9,6 +9,7 @@
     "commandToCreateSubDir":     { "type": "string+",  "default": ["/bin/mkdir", "-p", "$WorkDirBase/$SubDirName"] },
     "commandToCreateFile":       { "type": "string+",  "default": ["/bin/cat", ">", "$fileName"] },
     "commandToCreateExecutable": { "type": "string+",  "default": ["/bin/cat", ">", "$fileName", "&&", "/bin/chmod", "u+x", "$fileName"] },
-    "commandToRemoveFile":       { "type": "string+",  "default": ["/bin/rm", "$fileName"] }
+    "commandToRemoveFile":       { "type": "string+",  "default": ["/bin/rm", "$fileName"] },
+    "commandToVerifyFileExists": { "type": "string+",  "default": ["/usr/bin/stat", "$fileName", ">", "/dev/null"] }
   }
 }

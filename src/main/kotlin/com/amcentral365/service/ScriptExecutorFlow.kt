@@ -55,3 +55,9 @@ class StringOutputStream: OutputStream() {
 
     fun getString() = this.byteStream.toString(config.charSetName)!!
 }
+
+class NullOutputStream: OutputStream() {
+    override fun write(b: Int) { /* drop it */ }
+
+    fun getString() = ""
+}

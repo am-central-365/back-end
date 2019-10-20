@@ -20,7 +20,7 @@ import java.io.OutputStream
 private val logger = KotlinLogging.logger {}
 
 
-class ExecutionTargetSSHHost(private val threadId: String, private val target: TargetSSH): ExecutionTarget(target.asset) {
+open class ExecutionTargetSSHHost(private val threadId: String, private val target: TargetSSH): ExecutionTarget(target.asset) {
 
     init {
         Preconditions.checkNotNull(target.hostname as String)
@@ -69,27 +69,43 @@ class ExecutionTargetSSHHost(private val threadId: String, private val target: T
             Preconditions.checkArgument(fileName.startsWith(this.targetDetails!!.workDirBase+"/")
                                      || fileName.startsWith(this.targetDetails!!.workDirBase+"\\"))
 
-        val outputStream = StringOutputStream()     // TODO: replace with NullOutputStream
-        realExec(remoteCmd, contentStream, outputStream)
+        val outputStream = StringOutputStream()
+        val statusMsg = realExec(remoteCmd, contentStream, outputStream)
+        val errMsg = outputStream.getString().trimEnd('\r', '\n')
+        if( statusMsg.code != 0 || errMsg.isNotEmpty() )
+            throw StatusException(300, "failed to copy file $fileName: ${statusMsg.code} ${statusMsg.msg} -- $errMsg")
+
         return 0
     }
 
-    fun copyExecutableFile(contentStream: InputStream, fileName: String): Int =
+    open fun copyExecutableFile(contentStream: InputStream, fileName: String): Int =
         this.copy0(contentStream, fileName, getCmdToCreateExecutable(fileName))
 
-    fun copyFile(contentStream: InputStream, fileName: String): Int =
+    open fun copyFile(contentStream: InputStream, fileName: String): Int =
         this.copy0(contentStream, fileName, getCmdToCreateFile(fileName))
 
-    fun createDirectories(dirPath: String) {
+    open fun createDirectories(dirPath: String) {
         Preconditions.checkArgument(dirPath.isNotBlank())
         val cmd = getCmdToCreateSubDir(dirPath)
         val outputStream = StringOutputStream()
         val statusMsg = realExec(cmd, null, outputStream)
         val errMsg = outputStream.getString().trimEnd('\r', '\n')
-        if( !statusMsg.isOk || errMsg.isNotEmpty() )
+        if( statusMsg.code != 0 || errMsg.isNotEmpty() )
             throw StatusException(300, "failed to create directory path $dirPath: ${statusMsg.code} ${statusMsg.msg} -- $errMsg")
     }
 
+    open fun exists(fileName: String): Boolean {
+        Preconditions.checkArgument(fileName.isNotBlank())
+        val cmd = getCmdToVerifyFileExists(fileName)
+        val statusMsg = realExec(cmd, null, NullOutputStream())
+        return statusMsg.code == 0
+    }
+
+    /**
+     * Execute a command on the remote host and stream the output
+     *
+     * @return unlike in other functions, [StatusMessage.code] represents rc from the process
+     */
     override fun realExec(commands: List<String>, inputStream: InputStream?, outputStream: OutputStream): StatusMessage {
         val workDirName = this.workDirName ?: config.SystemTempDirName
         logger.debug { "${this.threadId}: workdir $workDirName" }
@@ -169,7 +185,7 @@ class ExecutionTargetSSHHost(private val threadId: String, private val target: T
             val rc = channel.exitStatus
             val msg = "completed with return code $rc in ${ivlText(execStartTs)} sec"
             logger.info { "${this.threadId}: $msg" }
-            return StatusMessage(if( rc == 0 ) 200 else 500, msg)
+            return StatusMessage(rc, msg)
 
         } catch(x: Exception) {
             logger.warn { "${this.threadId}: ${x::class.jvmName} ${x.message}" }

@@ -11,11 +11,11 @@ import org.junit.jupiter.api.assertThrows
 import java.io.InputStream
 import java.io.OutputStream
 
-val BAD_STATUS = 666
+const val BAD_STATUS = 666
 
 internal class ScriptExecutorTest {
 
-    class TestScriptExecutorFlow(
+    private class TestScriptExecutorFlow(
         val connectThrows: Boolean = false,
         val connectRetval: Boolean = true,
         val prepareThrows: Boolean = false,
@@ -33,10 +33,10 @@ internal class ScriptExecutorTest {
 
         override var asset: Asset?
             get() = null
-            set(value) {}
+            set(_) {}
 
         override fun connect(): Boolean {
-            connectCalls += 1
+            connectCalls++
             if( connectThrows )
                 throw StatusException(BAD_STATUS, "connect")
             return connectRetval
@@ -44,7 +44,7 @@ internal class ScriptExecutorTest {
 
         override fun prepare(script: Script): Boolean {
             Assertions.assertEquals("testScript", script.name)
-            prepareCalls += 1
+            prepareCalls++
             if( prepareThrows )
                 throw StatusException(BAD_STATUS, "prepare")
             return prepareRetval
@@ -52,7 +52,7 @@ internal class ScriptExecutorTest {
 
         override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage {
             Assertions.assertEquals("testScript", script.name)
-            executeCalls += 1
+            executeCalls++
             if( executeThrows )
                 throw StatusException(BAD_STATUS, "execute")
             return executeRetval
@@ -60,22 +60,22 @@ internal class ScriptExecutorTest {
 
         override fun cleanup(script: Script) {
             Assertions.assertEquals("testScript", script.name)
-            cleanupCalls += 1
+            cleanupCalls++
             if( cleanupThrows )
                 throw StatusException(BAD_STATUS, "cleanup")
         }
 
         override fun disconnect() {
-            disconnectCalls += 1
+            disconnectCalls++
             if( disconnectThrows )
                 throw StatusException(BAD_STATUS, "disconnect")
         }
 
     }
 
-    val testScript = Script(null, null, null, null, null)
+    private val testScript = Script(null, null, null, null, null)
 
-    fun assertCalls(
+    private fun assertCalls(
             testScriptExecutorFlow: TestScriptExecutorFlow,
             connectCalls: Int = 0,
             prepareCalls: Int = 0,
