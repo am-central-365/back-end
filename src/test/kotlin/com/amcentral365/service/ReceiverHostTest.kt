@@ -1,5 +1,6 @@
 package com.amcentral365.service
 
+import com.amcentral365.service.builtins.roles.ExecutionTarget
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions
 
@@ -7,12 +8,11 @@ import java.io.InputStream
 import java.io.OutputStream
 
 import com.amcentral365.service.builtins.roles.Script
-import com.amcentral365.service.builtins.roles.TargetSSH
 
 
-internal class ReceiverRemotehostTest {
+internal class ReceiverHostTest {
 
-    private class TestExecutionTargetSSHHost: ExecutionTargetSSHHost("threadX", TargetSSH("hostX", 222, "userX")) {
+    private class TestExecutionTargetHost: ExecutionTarget(null) {
         override var baseDir: String? = "baseDirX"
 
         var existsCalls = 0
@@ -20,33 +20,17 @@ internal class ReceiverRemotehostTest {
         var createDirectoriesCalls = 0
         var copyFileCalls = 0
 
-        override fun realExec(commands: List<String>, inputStream: InputStream?, outputStream: OutputStream): StatusMessage {
-            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-        }
-
-        override fun connect(): Boolean {
-            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-        }
-
-        override fun prepare(script: Script): Boolean {
-            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-        }
-
-        override fun disconnect() {
-            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-        }
-
-        override fun exists(fileName: String): Boolean {
+        override fun exists(pathStr: String): Boolean {
             existsCalls++
-            return fileName == "pass"
+            return pathStr == "pass"
         }
 
-        override fun copyExecutableFile(contentStream: InputStream, fileName: String): Int {
+        override fun copyExecutableFile(contentStream: InputStream, fileName: String): Long {
             copyExecutableFileCalls++
             return 0
         }
 
-        override fun copyFile(contentStream: InputStream, fileName: String): Int {
+        override fun copyFile(contentStream: InputStream, fileName: String): Long {
             copyFileCalls++
             return 0
         }
@@ -55,14 +39,19 @@ internal class ReceiverRemotehostTest {
             createDirectoriesCalls++
         }
 
+        // not needed
+        override fun realExec(commands: List<String>, inputStream: InputStream?, outputStream: OutputStream): StatusMessage = StatusMessage.OK
+        override fun connect(): Boolean = false
+        override fun prepare(script: Script): Boolean = false
+        override fun disconnect() {}
     }
 
     private fun assertCalls(
-        target: TestExecutionTargetSSHHost,
-        existsCalls: Int = 0,
-        copyFileCalls: Int = 0,
-        copyExecutableFileCalls: Int = 0,
-        createDirectoriesCalls: Int = 0
+            target: TestExecutionTargetHost,
+            existsCalls: Int = 0,
+            copyFileCalls: Int = 0,
+            copyExecutableFileCalls: Int = 0,
+            createDirectoriesCalls: Int = 0
     ) {
         Assertions.assertEquals(existsCalls, target.existsCalls)
         Assertions.assertEquals(copyFileCalls, target.copyFileCalls)
@@ -78,8 +67,8 @@ internal class ReceiverRemotehostTest {
 
     @Test
     fun `verify file exists - positive`() {
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("pass", verifyPathExists = true)
         host.apply(item)
@@ -88,8 +77,8 @@ internal class ReceiverRemotehostTest {
 
     @Test
     fun `verify file exists - negative`() {
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("no-pass", verifyPathExists = true)
         val e = org.junit.jupiter.api.assertThrows<StatusException> { host.apply(item) }
@@ -101,8 +90,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `inline - happy path`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("", "contentX".byteInputStream())
         host.apply(item)
@@ -114,8 +103,8 @@ internal class ReceiverRemotehostTest {
     fun `inline - has main`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
         script.assignMain("mainX")
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("", "contentX".byteInputStream())
         val e = org.junit.jupiter.api.assertThrows<StatusException> { host.apply(item) }
@@ -128,8 +117,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `inline - no content`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("", null)
         val e = org.junit.jupiter.api.assertThrows<StatusException> { host.apply(item) }
@@ -142,8 +131,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `directory - happy path`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("dirX", isDirectory = true)
         host.apply(item)
@@ -153,8 +142,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `directory - no base dir`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
         target.baseDir = null
 
         val item = TransferManager.Item("dirX", isDirectory = true)
@@ -167,8 +156,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `directory - blank dir path`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item(" ", isDirectory = true)
         val e = org.junit.jupiter.api.assertThrows<StatusException> { host.apply(item) }
@@ -180,8 +169,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `directory - absolute path`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("/absDirX", isDirectory = true)
         val e = org.junit.jupiter.api.assertThrows<StatusException> { host.apply(item) }
@@ -194,8 +183,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `file - happy path`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("fileX", "contentX".byteInputStream())
         host.apply(item)
@@ -205,8 +194,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `file - no base dir`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         target.baseDir = null
         val item = TransferManager.Item("fileX", "contentX".byteInputStream())
@@ -219,8 +208,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `file - no content`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("fileX")
         val e = org.junit.jupiter.api.assertThrows<StatusException> { host.apply(item) }
@@ -232,8 +221,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `file - absolute path`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         val item = TransferManager.Item("/fileX", "contentX".byteInputStream())
         val e = org.junit.jupiter.api.assertThrows<StatusException> { host.apply(item) }
@@ -245,8 +234,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `file - blank 2nd path`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         // 1st is ok
         val item1 = TransferManager.Item("fileX", "contentX".byteInputStream())
@@ -264,8 +253,8 @@ internal class ReceiverRemotehostTest {
     @Test
     fun `file - no main`() {
         val script = Script(targetRoleName = "roleX", location = null, scriptMain = null, scriptArgs = null)
-        val target = TestExecutionTargetSSHHost()
-        val host = ReceiverRemotehost(script, target)
+        val target = TestExecutionTargetHost()
+        val host = ReceiverHost(script, target)
 
         // 1st is ok
         val item1 = TransferManager.Item("fileX", "contentX".byteInputStream())

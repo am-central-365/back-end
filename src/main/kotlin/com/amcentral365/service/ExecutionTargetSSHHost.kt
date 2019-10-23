@@ -60,10 +60,10 @@ open class ExecutionTargetSSHHost(private val threadId: String, private val targ
 
     override fun prepare(script: Script): Boolean {
         super.initTargetDetails(script.targetRoleName!!)
-        return super.transferScriptContent(this.threadId, script, ReceiverRemotehost(script, this))
+        return super.transferScriptContent(this.threadId, script, ReceiverHost(script, this))
     }
 
-    private fun copy0(contentStream: InputStream, fileName: String, remoteCmd: List<String>): Int {
+    private fun copy0(contentStream: InputStream, fileName: String, remoteCmd: List<String>): Long {
         Preconditions.checkArgument(fileName.isNotBlank())
         if( this.targetDetails?.workDirBase != null )
             Preconditions.checkArgument(fileName.startsWith(this.targetDetails!!.workDirBase+"/")
@@ -78,13 +78,13 @@ open class ExecutionTargetSSHHost(private val threadId: String, private val targ
         return 0
     }
 
-    open fun copyExecutableFile(contentStream: InputStream, fileName: String): Int =
+    override fun copyExecutableFile(contentStream: InputStream, fileName: String): Long =
         this.copy0(contentStream, fileName, getCmdToCreateExecutable(fileName))
 
-    open fun copyFile(contentStream: InputStream, fileName: String): Int =
+    override fun copyFile(contentStream: InputStream, fileName: String): Long =
         this.copy0(contentStream, fileName, getCmdToCreateFile(fileName))
 
-    open fun createDirectories(dirPath: String) {
+    override fun createDirectories(dirPath: String) {
         Preconditions.checkArgument(dirPath.isNotBlank())
         val cmd = getCmdToCreateSubDir(dirPath)
         val outputStream = StringOutputStream()
@@ -94,9 +94,9 @@ open class ExecutionTargetSSHHost(private val threadId: String, private val targ
             throw StatusException(300, "failed to create directory path $dirPath: ${statusMsg.code} ${statusMsg.msg} -- $errMsg")
     }
 
-    open fun exists(fileName: String): Boolean {
-        Preconditions.checkArgument(fileName.isNotBlank())
-        val cmd = getCmdToVerifyFileExists(fileName)
+    override fun exists(pathStr: String): Boolean {
+        Preconditions.checkArgument(pathStr.isNotBlank())
+        val cmd = getCmdToVerifyFileExists(pathStr)
         val statusMsg = realExec(cmd, null, NullOutputStream())
         return statusMsg.code == 0
     }

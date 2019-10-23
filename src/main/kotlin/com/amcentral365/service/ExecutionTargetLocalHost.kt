@@ -11,16 +11,46 @@ import mu.KotlinLogging
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
 import com.amcentral365.service.dao.Asset
+import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 
 
 private val logger = KotlinLogging.logger {}
 
-class ExecutionTargetAMCWorker(private val threadId: String, asset: Asset): ExecutionTarget(asset) {
+class ExecutionTargetLocalHost(private val threadId: String, asset: Asset): ExecutionTarget(asset) {
+
+    private fun copy0(inputStream:  InputStream, outputFile: File): Long {
+        FileOutputStream(outputFile).use { outputStream ->
+            val copiedByteCount = inputStream.copyTo(outputStream)
+            logger.debug { "wrote $copiedByteCount to ${outputFile.path}" }
+            return copiedByteCount
+        }
+    }
+
+    override fun exists(pathStr: String): Boolean = File(pathStr).exists()
+    override fun createDirectories(dirPath: String) {
+        val dir = File(dirPath)
+        if( !dir.exists() ) {
+            logger.debug { "Creating directory path ${dir.path}" }
+            if(!dir.mkdirs())
+                throw StatusException(500, "Failed to create directory path ${dir.path}")
+        }
+    }
+    override fun copyFile(contentStream: InputStream, fileName: String): Long = copy0(contentStream, File(fileName))
+
+    override fun copyExecutableFile(contentStream: InputStream, fileName: String): Long {
+        val attr = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxr--r--"))
+        val file = Files.createFile(File(fileName).toPath(), attr).toFile()
+        return copy0(contentStream, file)
+    }
+
+
     override fun connect() = true
     override fun disconnect() {}
 
     override fun prepare(script: Script): Boolean =
-        super.transferScriptContent(this.threadId, script, ReceiverLocalhost(script))
+        super.transferScriptContent(this.threadId, script, ReceiverHost(script, this))
 
     override fun realExec(commands: List<String>, inputStream: InputStream?, outputStream: OutputStream): StatusMessage {
         val workDirName = this.workDirName ?: config.SystemTempDirName
@@ -101,52 +131,3 @@ class ExecutionTargetAMCWorker(private val threadId: String, asset: Asset): Exec
     }
 
 }
-
-/*
-fun _devcall() {
-Asset:
-{"name": "script-test-inline-1", "description": "Testing pwd"} =>
-   {"pk": {"asset_id": "8b0f7f5e-569d-462a-baac-f2f16e982c2a"}, "optLock": {"modified_ts": "2019-01-26 17:36:30.0"}}
-
-
-pwd script:
-{"role_name": "script", "asset_vals": {
-    "location":     { "content": {"body": "pwd", "version": "1.0.0"}},
-    "target-role": "script-target-host"}}
-=>
-   {"pk": {"asset_id": "8b0f7f5e-569d-462a-baac-f2f16e982c2a", "role_name": "script"}, "optLock": {"modified_ts": "2019-01-26 17:40:43.0"}}
-
-cat :
-Asset:  {"name": "script-test-fs-1", "description": "Testing /usr/bin/id"} =>
-   {"pk": {"asset_id": "6d7169ca-d6b0-47ba-b298-1f3a45bbcea1"}, "optLock": {"modified_ts": "2019-01-27 18:08:30.0"}}
-
-Script:
-    {"role_name": "script", "asset_vals": {
-        "location":   {"fileSystemPath": "/usr/bin/id"},
-        "scriptMain", {"main": "/usr/bin/id", "params": ["-G", "n"], "sudo_as": "root" },
-        "target-role": "script-target-host"}}
-    =>
-       {"pk": {"asset_id": "8b0f7f5e-569d-462a-baac-f2f16e982c2a", "role_name": "script"}, "optLock": {"modified_ts": "2019-01-26 17:40:43.0"}}
-
-*/
-/*
-    try {
-        val script: Script = fromDB<Script>(UUID.fromString("8b0f7f5e-569d-462a-baac-f2f16e982c2a"), RoleName.Script)
-        val target = ExecutionTargetAMCWorker("_devcall")
-        val se = ScriptExecutor("_devcall")
-
-        println("++ Running: ${script.name}")
-        StringOutputStream().let {
-            se.run(script, target, it)
-            println("++ Output: ${it.getString()}")
-        }
-
-    } catch(x: java.lang.Exception) {
-        println("++ Exception ${x::class.qualifiedName}: ${x.message}")
-    }
-
-    //val inlineLoc = LocationInline("hostname")
-    //val eh = ExecutionTargetAMCWorker(Script(scriptMain, inlineLoc))
-    //eh.prepare()
-}
-*/

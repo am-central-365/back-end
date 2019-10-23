@@ -1,6 +1,6 @@
 package com.amcentral365.service.api
 
-import com.amcentral365.service.ExecutionTargetAMCWorker
+import com.amcentral365.service.ExecutionTargetLocalHost
 import com.amcentral365.service.ExecutionTargetSSHHost
 import mu.KotlinLogging
 import spark.Request
@@ -74,7 +74,7 @@ class Execute { companion object {
 
     fun getScriptExecutorImplementation(thisThreadId: String, executeMethod: String, targetAsset: Asset): ScriptExecutorFlow {
         when(executeMethod) {
-            RoleName.ScriptExecutorAMC -> return ExecutionTargetAMCWorker(thisThreadId, targetAsset)
+            RoleName.ScriptExecutorAMC -> return ExecutionTargetLocalHost(thisThreadId, targetAsset)
 
             RoleName.ScriptExecutorSSH -> {
                 // TODO: allow scripts run not only on the target asset, but on its closest parent, having executeMethod

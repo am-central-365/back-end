@@ -27,6 +27,10 @@ abstract class ExecutionTarget(
     open val baseDir get() = this.targetDetails?.workDirBase
 
     abstract protected fun realExec(commands: List<String>, inputStream: InputStream? = null, outputStream: OutputStream): StatusMessage
+    abstract fun exists(pathStr: String): Boolean
+    abstract fun createDirectories(dirPath: String)
+    abstract fun copyFile(contentStream: InputStream, fileName: String): Long
+    abstract fun copyExecutableFile(contentStream: InputStream, fileName: String): Long
 
     protected fun getCmdToCreateWorkDir(): List<String> {
         val w = this.baseDir
