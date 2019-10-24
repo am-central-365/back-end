@@ -50,8 +50,7 @@ class DatabaseStore {
                 val conn = this.pool.getConnection()
                 conn.autoCommit = false
                 conn.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
-                logger.debug { "obtained connection $conn" }
-                return conn
+                return DatabaseConnection(conn)
             } catch(x: SQLException) {
                 logger.warn { "${x.message};  retrying in ${config.DBSTORE_RECONNECT_DELAY_SEC} sec" }
                 Thread.sleep(config.DBSTORE_RECONNECT_DELAY_SEC*1000L)

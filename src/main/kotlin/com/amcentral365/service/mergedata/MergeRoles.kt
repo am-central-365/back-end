@@ -238,7 +238,6 @@ open class MergeRoles(private val baseDirName: String) {
                 }
 
                 conn.commit()
-
             }
 
             logger.info { "  successfully created role ${role.roleName}" }
