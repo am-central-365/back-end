@@ -167,8 +167,6 @@ open class MergeRoles(private val baseDirName: String) {
             val dbMergeObjs = Stack<RoleAndItsFile>()
             dbMergeObjs.push(RoleAndItsFile(role, file))
 
-
-
             SchemaUtils { roleName ->
                 logger.debug { "processing referenced role $roleName" }
                 val roleFile = findRoleFile(roleName)

@@ -82,8 +82,9 @@ class DatabaseStore {
             selStmt.orderBy(expr=orderByExpr)
 
         val fetchLimit = if( limit > 0 ) limit else Int.MAX_VALUE
-        val conn = this.getGoodConnection()
-        return selStmt.iterate(conn).asSequence().take(fetchLimit).toList()
+        this.getGoodConnection().use { conn ->
+            return selStmt.iterate(conn).asSequence().take(fetchLimit).toList()
+        }
     }
 
     /**
@@ -202,14 +203,15 @@ class DatabaseStore {
      */
     internal fun deleteObjectRow(entity: Entity): StatusMessage {
         logger.info { "deleting from ${entity.tableName} by ${entity.getIdentityAsJsonStr()}" }
+        if( this.isNullOrBlank(entity.optLockCol) || entity.pkCols.any { this.isNullOrBlank(it) } )
+            return StatusMessage(400, "all PK columns and the OptLock column must be supplied to Delete")
 
         try {
-            if( this.isNullOrBlank(entity.optLockCol) || entity.pkCols.any { this.isNullOrBlank(it) } )
-                return StatusMessage(400, "all PK columns and the OptLock column must be supplied to Delete")
-
-            val cnt = DeleteStatement(entity, ::getGoodConnection).byPkAndOptLock().run()
-            if (cnt == 0)
-                return StatusMessage(410, "either the record does not exist, or it's OptLock has been modified")
+            this.getGoodConnection().use { conn ->
+                val cnt = DeleteStatement(entity).byPkAndOptLock().run(conn)
+                if (cnt == 0)
+                    return StatusMessage(410, "either the record does not exist, or it's OptLock has been modified")
+            }
         } catch(x: SQLException) {
             return StatusMessage(x)
         }
