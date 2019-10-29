@@ -1,6 +1,7 @@
 package com.amcentral365.service
 
 import mu.KLogging
+import mu.KotlinLogging
 
 import java.sql.Blob
 import java.sql.CallableStatement
@@ -17,10 +18,16 @@ import java.sql.Struct
 import java.util.Properties
 import java.util.concurrent.Executor
 
+private val logger = KotlinLogging.logger {}
+
 class DatabaseConnection(var conn: Connection): Connection {
-    companion object: KLogging()
+
+    companion object {
+        val connectionLeakWatcher = LeakWatcher()
+    }
 
     init {
+        connectionLeakWatcher.allocated(conn)
         logger.debug { "obtained db connection: $conn" }
     }
 
@@ -51,6 +58,7 @@ class DatabaseConnection(var conn: Connection): Connection {
     override fun close() {
         logger.debug { "releasng db connection $conn" }
         conn.close()
+        connectionLeakWatcher.released(conn)
     }
 
     override fun getNetworkTimeout(): Int = conn.networkTimeout

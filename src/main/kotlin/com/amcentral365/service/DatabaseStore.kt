@@ -14,6 +14,7 @@ import com.amcentral365.pl4kotlin.InsertStatement
 import com.amcentral365.pl4kotlin.UpdateStatement
 import com.amcentral365.pl4kotlin.DeleteStatement
 import com.amcentral365.pl4kotlin.closeIfCan
+import java.sql.SQLTransientConnectionException
 
 const val DBERR_DUP_VAL_ON_INDEX = 1062
 
@@ -43,6 +44,8 @@ class DatabaseStore {
         }
     }
 
+    private var dumped: Boolean = false
+
     fun getGoodConnection(): Connection {
         while( keepRunning ) {
             try {
@@ -50,8 +53,17 @@ class DatabaseStore {
                 val conn = this.pool.getConnection()
                 conn.autoCommit = false
                 conn.transactionIsolation = Connection.TRANSACTION_READ_COMMITTED
+                dumped = false
                 return DatabaseConnection(conn)
             } catch(x: SQLException) {
+                if( x is SQLTransientConnectionException ) {
+                    logger.warn { "out of connections: allocated ${DatabaseConnection.connectionLeakWatcher.allocateCount}" }
+                    if( !dumped ) {
+                        DatabaseConnection.connectionLeakWatcher.dump(true)
+                        dumped = true
+                    }
+                }
+
                 logger.warn { "${x.message};  retrying in ${config.DBSTORE_RECONNECT_DELAY_SEC} sec" }
                 Thread.sleep(config.DBSTORE_RECONNECT_DELAY_SEC*1000L)
             }
