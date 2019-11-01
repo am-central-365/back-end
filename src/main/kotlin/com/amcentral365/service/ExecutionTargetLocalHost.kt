@@ -29,6 +29,7 @@ class ExecutionTargetLocalHost(private val threadId: String, asset: Asset): Exec
     }
 
     override fun exists(pathStr: String): Boolean = File(pathStr).exists()
+
     override fun createDirectories(dirPath: String) {
         val dir = File(dirPath)
         if( !dir.exists() ) {
@@ -50,7 +51,7 @@ class ExecutionTargetLocalHost(private val threadId: String, asset: Asset): Exec
     override fun disconnect() {}
 
     override fun prepare(script: Script): Boolean =
-        super.transferScriptContent(this.threadId, script, ReceiverHost(script, this))
+        transferScriptContent(this.threadId, script, ReceiverHost(script, this))
 
     override fun realExec(commands: List<String>, inputStream: InputStream?, outputStream: OutputStream): StatusMessage {
         val workDirName = this.workDirName ?: config.SystemTempDirName
@@ -120,9 +121,9 @@ class ExecutionTargetLocalHost(private val threadId: String, asset: Asset): Exec
             }
 
             val rc = process.exitValue()
-            val msg = "completed normally in ${ivlText(execStartTs)} sec"
+            val msg = "completed with return code $rc in ${ivlText(execStartTs)} sec"
             logger.info { "${this.threadId}: $msg" }
-            return StatusMessage(if( rc == 0 ) 200 else 500, msg)
+            return StatusMessage(rc, msg)
 
         } catch(x: Exception) {
             logger.warn { "${this.threadId}: ${x::class.jvmName} ${x.message}" }

@@ -71,8 +71,7 @@ class Execute { companion object {
         }
     }
 
-
-    fun getScriptExecutorImplementation(thisThreadId: String, executeMethod: String, targetAsset: Asset): ScriptExecutorFlow {
+    private fun getScriptExecutorImplementation(thisThreadId: String, executeMethod: String, targetAsset: Asset): ScriptExecutorFlow {
         when(executeMethod) {
             RoleName.ScriptExecutorAMC -> return ExecutionTargetLocalHost(thisThreadId, targetAsset)
 

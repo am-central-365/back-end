@@ -73,6 +73,7 @@ dependencies {
     compile group: 'com.google.code.gson',   name: 'gson',                 version: '2.8.5'        // JSON
     compile group: 'com.github.ajalt',       name: 'clikt',                version: '2.0.0'        // Command line arg parser
     compile group: 'org.glassfish.external', name: 'jsch',                 version: '0.1.56'       // SSH2
+    compile group: 'org.eclipse.jgit',       name: 'org.eclipse.jgit',     version: '5.5.1.201910021850-r'  // Git
 
     // Test dependencies
     testCompile group: 'org.junit.jupiter',    name: 'junit-jupiter-engine', version: junit5Version

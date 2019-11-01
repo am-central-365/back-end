@@ -8,15 +8,16 @@ All names are CamelCase.
 * No dashes: ```{"idle-timeout-sec": 30}``` - bad
 * Camelcase: ```{"idleTimeoutSec": 30}``` - good
 
+That's because objects are mapped to classes with reflection.
 
 #### Values
-Role names and other values amy use dashes:
+Role names and other values may use dashes:
 ```{"roleName": "windows-host"}``` - ok
 
 
 #### Semantic
 
-Names of all numeric values must include the dimension:
+Names of numeric attributes must include their dimension:
 * `taskPollIntervalMsec`
 * `scriptExecutionTimeoutSec`
 * `maxRoleNameLen`

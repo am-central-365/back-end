@@ -60,14 +60,14 @@ open class ExecutionTargetSSHHost(private val threadId: String, private val targ
 
     override fun prepare(script: Script): Boolean {
         super.initTargetDetails(script.targetRoleName!!)
-        return super.transferScriptContent(this.threadId, script, ReceiverHost(script, this))
+        return transferScriptContent(this.threadId, script, ReceiverHost(script, this))
     }
 
     private fun copy0(contentStream: InputStream, fileName: String, remoteCmd: List<String>): Long {
         Preconditions.checkArgument(fileName.isNotBlank())
-        if( this.targetDetails?.workDirBase != null )
-            Preconditions.checkArgument(fileName.startsWith(this.targetDetails!!.workDirBase+"/")
-                                     || fileName.startsWith(this.targetDetails!!.workDirBase+"\\"))
+//TODO: remove        if( this.targetDetails?.workDirBase != null )
+//TODO: remove            Preconditions.checkArgument(fileName.startsWith(this.targetDetails!!.workDirBase+"/")
+//TODO: remove                                     || fileName.startsWith(this.targetDetails!!.workDirBase+"\\"))
 
         val outputStream = StringOutputStream()
         val statusMsg = realExec(remoteCmd, contentStream, outputStream)

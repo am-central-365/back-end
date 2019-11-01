@@ -5,6 +5,7 @@ import com.amcentral365.service.builtins.roles.Script
 import mu.KotlinLogging
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.FileInputStream
 import java.io.InputStream
 import java.lang.Exception
 import java.nio.file.Paths
@@ -86,12 +87,23 @@ class SenderOfInlineContent(private val content: String): TransferManager.Sender
         ).iterator()
 }
 
-
-class SenderOfFileSystemPath(private val pathStr: String): TransferManager.Sender() {
-    override fun getIterator(): Iterator<TransferManager.Item> = listOf(
-            TransferManager.Item(pathStr = this.pathStr, verifyPathExists = true)
-        ).iterator()
+class SenderOfLocalPath(private val pathStr: String): TransferManager.Sender() {
+    override fun getIterator(): Iterator<TransferManager.Item> {
+        val baseFile = File(pathStr)        // NB: the top directory is also walked
+        //val prefixLen = baseFile.absolutePath.length
+        val seq = baseFile.walkTopDown().map { file ->
+            val relativePathStr = file.path     // already relative to the top dir
+            if( file.isDirectory )
+                TransferManager.Item(pathStr = relativePathStr, isDirectory = true)
+            else {
+                val inputStream = FileInputStream(file)
+                TransferManager.Item(pathStr = relativePathStr, isDirectory = false, inputStream = inputStream)
+            }
+        }
+        return seq.iterator()
+    }
 }
+
 
 class ReceiverHost(script: Script, private val targetHost: ExecutionTarget): TransferManager.Receiver(script) {
     private var fileCount = 0
@@ -107,17 +119,12 @@ class ReceiverHost(script: Script, private val targetHost: ExecutionTarget): Tra
     }
 
     override fun apply(item: TransferManager.Item) {
-        val baseDirFile = targetHost.baseDir?.let { File(it) }
-
         if( item.verifyPathExists ) {
             if( !this.targetHost.exists(item.pathStr) )
                 throw StatusException(404, "Path ${item.pathStr} does not exist on the host")
 
         // When path is a directory, create it and all parent directories on the way
         } else if( item.isDirectory ) {
-            if( baseDirFile == null )
-                throw StatusException(500, "The target host does not define base directory")
-
             if( item.pathStr.isBlank() )
                 throw StatusException(412, "Can't create an empty directory")
 
@@ -125,9 +132,8 @@ class ReceiverHost(script: Script, private val targetHost: ExecutionTarget): Tra
             if( dirToCreate.isAbsolute )
                 throw StatusException(412, "Absolute paths are not allowed: ${item.pathStr}")
 
-            val dir = baseDirFile.resolve(dirToCreate)
-            logger.debug { "Creating directory path ${dir.path}" }
-            this.targetHost.createDirectories(dir.path)
+            logger.debug { "Creating directory path ${dirToCreate.path}" }
+            this.targetHost.createDirectories(dirToCreate.path)
 
         // When there is no path, we read inputStream into inline content
         } else if( item.pathStr.isBlank() ) {
@@ -137,16 +143,12 @@ class ReceiverHost(script: Script, private val targetHost: ExecutionTarget): Tra
                 throw StatusException(412, "Ambiguity: the script defines both main and the inline content")
             if( item.inputStream == null )
                 throw StatusException(412, "The path is empty and there is no input")
-            var contentFileName = genTempFileName("amc_", "")
-            contentFileName = Paths.get(targetHost.baseDir!!, contentFileName).toString()
+            val contentFileName = genTempFileName("amc_", "")
             targetHost.copyExecutableFile(item.inputStream, contentFileName)
             this.script.assignMain(contentFileName)
 
         // Create a file and write inputStream into it
         } else {
-            if( baseDirFile == null )
-                throw StatusException(500, "The target host does not define the base directory")
-
             if( item.inputStream == null )
                 throw StatusException(400, "The input stream is required, got null")
 
@@ -159,10 +161,9 @@ class ReceiverHost(script: Script, private val targetHost: ExecutionTarget): Tra
             if( relFile.isAbsolute )
                 throw StatusException(412, "Absolute paths are not allowed: ${item.pathStr}")
 
-            val file = baseDirFile.resolve(relFile)
-            logger.debug { "writing ${file.path}" }
+            logger.debug { "writing ${relFile.path}" }
 
-            targetHost.copyFile(item.inputStream, file.name)
+            targetHost.copyFile(item.inputStream, relFile.path)
             logger.debug { "done" }
             this.fileCount++
         }

@@ -21,10 +21,10 @@ abstract class ExecutionTarget(
 
     protected var execTimeoutSec: Int = 0
     protected var idleTimeoutSec: Int = 0
-    protected var workDirName: String? = null
     protected var targetDetails: ExecutionTargetDetails? = null
 
-    open val baseDir get() = this.targetDetails?.workDirBase
+    protected var workDirName: String = "."
+//FIXME open val baseDir get() = this.targetDetails?.workDirBase
 
     abstract protected fun realExec(commands: List<String>, inputStream: InputStream? = null, outputStream: OutputStream): StatusMessage
     abstract fun exists(pathStr: String): Boolean
@@ -32,44 +32,46 @@ abstract class ExecutionTarget(
     abstract fun copyFile(contentStream: InputStream, fileName: String): Long
     abstract fun copyExecutableFile(contentStream: InputStream, fileName: String): Long
 
-    protected fun getCmdToCreateWorkDir(): List<String> {
-        val w = this.baseDir
-        if( w == null )
-            throw StatusException(501, "the script's target role (targetRoleName) does not define 'workDirBase'")
+    private fun getCmdToCreateWorkDir(): List<String> {
+        val w = this.targetDetails?.workDirBase
+            ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'workDirBase'")
         return this.targetDetails?.commandToCreateWorkDir?.map { it.replace("\$WorkDirBase", w) }
-               ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToCreateWorkDir'")
+            ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToCreateWorkDir'")
     }
 
-    protected fun getCmdToRemoveWorkDir(workDirName: String): List<String> =
-        this.targetDetails?.commandToRemoveWorkDir?.map { it.replace("\$WorkDir", workDirName) }
+    private fun getCmdToRemoveWorkDir(): List<String> =
+        this.targetDetails?.commandToRemoveWorkDir?.map { it.replace("\$WorkDir", this.workDirName) }
         ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToRemoveWorkDir'")
 
 
     protected fun getCmdToCreateSubDir(subDir: String): List<String> {
-        val w = this.targetDetails?.workDirBase ?: config.localScriptExecBaseDir   // FIXME: localScriptExecBaseDir is specific to AMC
-        return this.targetDetails?.commandToCreateSubDir?.map { it.replace("\$WorkDirBase", w).replace("\$SubDirName", subDir) }
+//TODO: remove        val w = this.targetDetails?.workDirBase ?: config.localScriptExecBaseDir   // FIXME: localScriptExecBaseDir is specific to AMC
+        return this.targetDetails?.commandToCreateSubDir?.map { it.replace("\$WorkDir", this.workDirName).replace("\$SubDirName", subDir) }
             ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToCreateSubDir'")
     }
 
     protected fun getCmdToCreateFile(fileName: String): List<String> =
-        this.targetDetails?.commandToCreateFile?.map { it.replace("\$fileName", fileName) }
+        this.targetDetails?.commandToCreateFile?.map { it.replace("\$WorkDir", this.workDirName).replace("\$fileName", fileName) }
         ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToCreateFile'")
 
     protected fun getCmdToCreateExecutable(fileName: String): List<String> =
-        this.targetDetails?.commandToCreateExecutable?.map { it.replace("\$fileName", fileName) }
+        this.targetDetails?.commandToCreateExecutable?.map { it.replace("\$WorkDir", this.workDirName).replace("\$fileName", fileName) }
         ?: this.getCmdToCreateFile(fileName)
 
     protected fun getCmdToRemoveFile(fileName: String): List<String> =
-        this.targetDetails?.commandToRemoveFile?.map { it.replace("\$fileName", fileName) }
+        this.targetDetails?.commandToRemoveFile?.map { it.replace("\$WorkDir", this.workDirName).replace("\$fileName", fileName) }
         ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToRemoveFile'")
 
     protected fun getCmdToVerifyFileExists(fileName: String): List<String> =
-        this.targetDetails?.commandToVerifyFileExists?.map { it.replace("\$fileName", fileName) }
+        this.targetDetails?.commandToVerifyFileExists?.map { it.replace("\$WorkDir", this.workDirName).replace("\$fileName", fileName) }
         ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToVerifyFileExists'")
+
 
     protected fun executeAndGetOutput(commands: List<String>, inputStream: InputStream? = null): String =
         StringOutputStream().let {
-            this.realExec(commands, inputStream = inputStream, outputStream = it)
+            val statusMsg = this.realExec(commands, inputStream = inputStream, outputStream = it)
+            if( statusMsg.code != 0)
+                throw StatusException(if(statusMsg.code < 0) 500 else statusMsg.code, statusMsg.msg)
             it.getString().trimEnd('\r', '\n')
         }
 
@@ -86,8 +88,8 @@ abstract class ExecutionTarget(
     }
 
     override fun cleanup(script: Script) {
-        if( !this.workDirName.isNullOrBlank() ) {
-            val commandToRemoveWorkDir = this.getCmdToRemoveWorkDir(this.workDirName!!)
+        if( !this.workDirName.isBlank() ) {
+            val commandToRemoveWorkDir = this.getCmdToRemoveWorkDir()
             logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
             executeAndGetOutput(commandToRemoveWorkDir)
         } else if( script.hasMain ) {
@@ -97,17 +99,15 @@ abstract class ExecutionTarget(
         }
     }
 
-    protected fun transferScriptContent(threadId: String, script: Script, receiver: TransferManager.Receiver): Boolean {
+    fun transferScriptContent(threadId: String, script: Script, receiver: TransferManager.Receiver): Boolean {
         val sender = script.getSender()
         if( sender == null ) {
             logger.warn { "$threadId: script '${script.name}' has no content, nothing to do" }
             return false
         }
 
-        if( script.needsWorkDir ) {
-            val commandToCreateWorkDir = this.getCmdToCreateWorkDir()
-            this.workDirName = this.executeAndGetOutput(commandToCreateWorkDir)
-        }
+        val commandToCreateWorkDir = this.getCmdToCreateWorkDir()
+        this.workDirName = this.executeAndGetOutput(commandToCreateWorkDir)
 
         logger.info { "$threadId: transferring ${script.name} file to ${this.name}" }
         val transferManager = TransferManager(threadId)
