@@ -1,5 +1,6 @@
 package com.amcentral365.service.builtins.roles
 
+import com.amcentral365.service.ReceiverHost
 import mu.KotlinLogging
 
 import com.amcentral365.service.ScriptExecutorFlow
@@ -12,10 +13,12 @@ import com.amcentral365.service.config
 import com.amcentral365.service.dao.fromDB
 import java.io.InputStream
 import java.io.OutputStream
+import java.lang.IllegalStateException
 
 private val logger = KotlinLogging.logger {}
 
 abstract class ExecutionTarget(
+    val threadId: String,
     asset: Asset?
 ): AnAsset(asset), ScriptExecutorFlow {
 
@@ -70,8 +73,7 @@ abstract class ExecutionTarget(
     protected fun executeAndGetOutput(commands: List<String>, inputStream: InputStream? = null): String =
         StringOutputStream().let {
             val statusMsg = this.realExec(commands, inputStream = inputStream, outputStream = it)
-            if( statusMsg.code != 0)
-                throw StatusException(if(statusMsg.code < 0) 500 else statusMsg.code, statusMsg.msg)
+            require(200 == translateRealExecMsg(statusMsg).code)
             it.getString().trimEnd('\r', '\n')
         }
 
@@ -79,12 +81,18 @@ abstract class ExecutionTarget(
         this.targetDetails = fromDB(this.asset!!.assetId!!, targetRoleName)
     }
 
+    override fun prepare(script: Script): Boolean {
+        initTargetDetails(script.targetRoleName!!)
+        return transferScriptContent(this.threadId, script, ReceiverHost(script, this))
+    }
+
     override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage {
         this.execTimeoutSec = script.execTimeoutSec ?: config.defaultScriptExecTimeoutSec
         this.idleTimeoutSec = script.idleTimeoutSec ?: config.defaultScriptIdleTimeoutSec
 
         val commands = script.getCommand()!!
-        return this.realExec(commands, outputStream = outputStream, inputStream = inputStream)
+        val msg = this.realExec(commands, outputStream = outputStream, inputStream = inputStream)
+        return translateRealExecMsg(msg)
     }
 
     override fun cleanup(script: Script) {
@@ -92,12 +100,20 @@ abstract class ExecutionTarget(
             val commandToRemoveWorkDir = this.getCmdToRemoveWorkDir()
             logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
             executeAndGetOutput(commandToRemoveWorkDir)
-        } else if( script.hasMain ) {
-            val commandToRemoveMain = this.getCmdToRemoveFile(script.scriptMain!!.main!!)
+        } else {
+            throw StatusException(500, "workDirName is blank: '${this.workDirName}'")
+            /*val commandToRemoveMain = this.getCmdToRemoveFile(script.scriptMain!!.main!!)
             logger.debug { "removing script ${script.scriptMain!!.main}: $commandToRemoveMain" }
-            executeAndGetOutput(commandToRemoveMain)
+            executeAndGetOutput(commandToRemoveMain)*/
         }
     }
+
+    private fun translateRealExecMsg(statusMsg: StatusMessage): StatusMessage =
+        when {
+            statusMsg.code < 0 -> throw StatusException(500, "code ${statusMsg.code}, ${statusMsg.msg}")
+            statusMsg.code in 1..255 -> throw StatusException(500, statusMsg.msg)
+            else -> StatusMessage(200, statusMsg.msg)
+        }
 
     fun transferScriptContent(threadId: String, script: Script, receiver: TransferManager.Receiver): Boolean {
         val sender = script.getSender()

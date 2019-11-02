@@ -12,7 +12,7 @@ import com.amcentral365.service.builtins.roles.Script
 
 internal class ReceiverHostTest {
 
-    private class TestExecutionTargetHost: ExecutionTarget(null) {
+    private class TestExecutionTargetHost: ExecutionTarget("threadX", null) {
         var baseDir: String? = "baseDirX"
 
         var existsCalls = 0

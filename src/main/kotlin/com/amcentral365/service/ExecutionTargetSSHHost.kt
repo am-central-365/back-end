@@ -20,7 +20,7 @@ import java.io.OutputStream
 private val logger = KotlinLogging.logger {}
 
 
-open class ExecutionTargetSSHHost(private val threadId: String, private val target: TargetSSH): ExecutionTarget(target.asset) {
+open class ExecutionTargetSSHHost(threadId: String, private val target: TargetSSH): ExecutionTarget(threadId, target.asset) {
 
     init {
         Preconditions.checkNotNull(target.hostname as String)
@@ -58,16 +58,8 @@ open class ExecutionTargetSSHHost(private val threadId: String, private val targ
         this.session?.disconnect()
     }
 
-    override fun prepare(script: Script): Boolean {
-        super.initTargetDetails(script.targetRoleName!!)
-        return transferScriptContent(this.threadId, script, ReceiverHost(script, this))
-    }
-
     private fun copy0(contentStream: InputStream, fileName: String, remoteCmd: List<String>): Long {
         Preconditions.checkArgument(fileName.isNotBlank())
-//TODO: remove        if( this.targetDetails?.workDirBase != null )
-//TODO: remove            Preconditions.checkArgument(fileName.startsWith(this.targetDetails!!.workDirBase+"/")
-//TODO: remove                                     || fileName.startsWith(this.targetDetails!!.workDirBase+"\\"))
 
         val outputStream = StringOutputStream()
         val statusMsg = realExec(remoteCmd, contentStream, outputStream)

@@ -10,6 +10,7 @@ import com.amcentral365.service.StatusException
 import com.amcentral365.service.StatusMessage
 import com.amcentral365.service.ScriptExecutor
 import com.amcentral365.service.ScriptExecutorFlow
+import com.amcentral365.service.StringOutputStream
 import com.amcentral365.service.api.catalog.AssetRoleValues
 import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.builtins.RoleName
@@ -57,13 +58,15 @@ class Execute { companion object {
                 return formatResponse(rsp, StatusMessage(404, "asset $targetKey has no requested target role $targetRoleName"))
 
             val scriptExecutorImplementation = getScriptExecutorImplementation(thisThreadId, executeMethod, targetAsset)
-            val outputStream = ByteOutputStream()  // FIXME: send to the log, to the message channel, maybe to more recipients
+            val outputStream = StringOutputStream()  // FIXME: change to BroadcastOutputStream to send to the log, to the message channel, maybe to more recipients
 
             val scriptExecutor = ScriptExecutor(thisThreadId)
             val statusMessage = scriptExecutor.run(script, scriptExecutorImplementation, outputStream)
-            if( statusMessage.isOk )
-                return formatResponse(rsp, StatusMessage.OK.code, outputStream.toString().trimEnd(), false)
-            return formatResponse(rsp, statusMessage)
+
+            return if( statusMessage.isOk )
+                formatResponse(rsp, StatusMessage.OK.code, outputStream.getString().trimEnd(), false)
+            else
+                formatResponse(rsp, statusMessage)
 
         } catch(x: Exception) {
             logger.error { "$thisThreadId: error running script: ${x.message}" }

@@ -6,6 +6,8 @@ import com.amcentral365.service.builtins.roles.Script
 import com.google.common.base.Stopwatch
 import java.io.InputStream
 import java.io.OutputStream
+import java.io.PrintStream
+import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
 import kotlin.reflect.jvm.jvmName
 
@@ -41,9 +43,15 @@ open class ScriptExecutor(private val threadId: String) {
             try {
                 logger.info { "${this.threadId}: executing script ${script.name} on target ${target.name}" }
                 val w = Stopwatch.createStarted()
-                val statusMessage = target.execute(script, outputStream, inputStream)
-                logger.info { "${this.threadId}: executed in ${w.elapsed(TimeUnit.MILLISECONDS)} msec with: $statusMessage" }
-                return statusMessage
+                var statusMessage = StatusMessage(100, "~not-defined~")
+                try {
+                    statusMessage = target.execute(script, outputStream, inputStream)
+                    return statusMessage
+                } finally {
+                    w.stop()
+                    logger.info { "${this.threadId}: executed in ${w.elapsed(TimeUnit.MILLISECONDS)} msec with: $statusMessage" }
+                }
+
             } finally {
                 logger.info { "${this.threadId}: cleaning up after script ${script.name} on target ${target.name}" }
                 target.cleanup(script)

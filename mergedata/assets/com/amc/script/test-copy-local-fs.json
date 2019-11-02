@@ -5,7 +5,7 @@
         "roleName": "com.amc.script",
         "values": {
           "location":   {"fileSystemPath": "func-tests"},
-          "scriptMain": { "interpreter":  ["/bin/ls", "-r"], "main": "*" },
+          "scriptMain": { "interpreter":  ["/bin/ls", "-Rl"], "main": "." },
           "scriptArgs": [],
 
           "targetRoleName":   "com.amc.execution-target.linux",
