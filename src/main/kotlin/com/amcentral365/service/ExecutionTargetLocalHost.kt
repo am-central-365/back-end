@@ -60,16 +60,28 @@ class ExecutionTargetLocalHost(threadId: String, asset: Asset): ExecutionTarget(
         }
     }
 
+    override fun prepare(script: Script): Boolean {
+        initWorkDir()
+        return transferScriptContent(this.threadId, script, ReceiverHost(script, this))
+    }
+
+    override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage =
+        super.customizeAndExecuteCommands(script, outputStream, inputStream) { it }
+
     override fun connect() = true
     override fun disconnect() {}
 
+    private fun initWorkDir() {
+        val path = Files.createTempDirectory("amc.")
+        this.workDirName = path.toString()
+    }
+
     override fun realExec(commands: List<String>, inputStream: InputStream?, outputStream: OutputStream): StatusMessage {
-        val workDirName = this.workDirName ?: config.SystemTempDirName
-        logger.info { "${this.threadId}: workdir $workDirName" }
+        logger.info { "${this.threadId}: workdir ${this.workDirName}" }
 
         try {
             val process = ProcessBuilder()
-                    .directory(File(workDirName))
+                    .directory(File(this.workDirName))
                     .redirectErrorStream(true)
                     .command(commands)  // ("/bin/sh", "-c", cmd)
                     .start()

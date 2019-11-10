@@ -42,8 +42,8 @@ open class ScriptExecutor(private val threadId: String) {
 
             try {
                 logger.info { "${this.threadId}: executing script ${script.name} on target ${target.name}" }
-                val w = Stopwatch.createStarted()
                 var statusMessage = StatusMessage(100, "~not-defined~")
+                val w = Stopwatch.createStarted()
                 try {
                     statusMessage = target.execute(script, outputStream, inputStream)
                     return statusMessage

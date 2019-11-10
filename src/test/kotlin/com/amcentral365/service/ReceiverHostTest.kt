@@ -44,6 +44,8 @@ internal class ReceiverHostTest {
         override fun connect(): Boolean = false
         override fun prepare(script: Script): Boolean = false
         override fun disconnect() {}
+        override fun cleanup(script: Script) {}
+        override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage = StatusMessage.OK
     }
 
     private fun assertCalls(

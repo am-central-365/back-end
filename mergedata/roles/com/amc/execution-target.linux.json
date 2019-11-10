@@ -10,6 +10,7 @@
     "commandToCreateFile":       { "type": "string+",  "default": ["/bin/cat", ">", "$WorkDir/$fileName"] },
     "commandToCreateExecutable": { "type": "string+",  "default": ["/bin/cat", ">", "$WorkDir/$fileName", "&&", "/bin/chmod", "u+x", "$WorkDir/$fileName"] },
     "commandToRemoveFile":       { "type": "string+",  "default": ["/bin/rm", "$WorkDir/$fileName"] },
-    "commandToVerifyFileExists": { "type": "string+",  "default": ["/usr/bin/stat", "$WorkDir/$fileName", ">", "/dev/null"] }
+    "commandToVerifyFileExists": { "type": "string+",  "default": ["/usr/bin/stat", "$WorkDir/$fileName", ">", "/dev/null"] },
+    "commandToExecuteMain":      { "type": "string+",  "default": ["cd", "$WorkDir", "&&", "<commands>"] }
   }
 }

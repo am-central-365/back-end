@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
 import com.amcentral365.service.builtins.roles.TargetSSH
+import com.amcentral365.service.dao.fromDB
 import com.google.common.base.Preconditions
 
 import com.jcraft.jsch.ChannelExec
@@ -92,6 +93,47 @@ open class ExecutionTargetSSHHost(threadId: String, private val target: TargetSS
         val statusMsg = realExec(cmd, null, NullOutputStream())
         return statusMsg.code == 0
     }
+
+    override fun cleanup(script: Script) {
+        if( !this.workDirName.isBlank() ) {
+            val commandToRemoveWorkDir = getCmdToRemoveWorkDir()
+            logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
+            executeAndGetOutput(commandToRemoveWorkDir)
+        } else {
+            throw StatusException(500, "workDirName is blank: '${this.workDirName}'")
+            /*val commandToRemoveMain = this.getCmdToRemoveFile(script.scriptMain!!.main!!)
+            logger.debug { "removing script ${script.scriptMain!!.main}: $commandToRemoveMain" }
+            executeAndGetOutput(commandToRemoveMain)*/
+        }
+    }
+
+    override fun prepare(script: Script): Boolean {
+        initTargetDetails(script.targetRoleName!!)
+        initWorkDir()
+        return transferScriptContent(this.threadId, script, ReceiverHost(script, this))
+    }
+
+    private fun initWorkDir() {
+        val commandToCreateWorkDir = getCmdToCreateWorkDir()
+        this.workDirName = this.executeAndGetOutput(commandToCreateWorkDir)
+    }
+
+    override fun execute(script: Script, outputStream: OutputStream, inputStream: InputStream?): StatusMessage =
+        super.customizeAndExecuteCommands(script, outputStream, inputStream) {
+            // script.getCommand() gives us the command to run, but we need to switch to the working dir
+            // targetDetails.commandToExecuteMain has a template to customize for that.
+            val details = this.targetDetails    // cache to make Kotlin happy
+            if( details?.commandToExecuteMain == null || details.commandToExecuteMain.isEmpty() )
+                throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToExecuteMain'")
+            val cmds = mutableListOf<String>()
+            details.commandToExecuteMain.forEach { detail ->
+                if( detail == "<commands>" )
+                    cmds.addAll(script.getCommand()!!)
+                else
+                    cmds.add(detail.replace("\$WorkDir", this.workDirName))
+            }
+            cmds
+        }
 
     /**
      * Execute a command on the remote host and stream the output

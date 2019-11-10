@@ -10,5 +10,6 @@ data class ExecutionTargetDetails(
     val commandToCreateFile:       List<String>? = null,
     val commandToCreateExecutable: List<String>? = null,
     val commandToRemoveFile:       List<String>? = null,
-    val commandToVerifyFileExists: List<String>? = null
+    val commandToVerifyFileExists: List<String>? = null,
+    val commandToExecuteMain:      List<String>? = null
 ): AnAsset(null)

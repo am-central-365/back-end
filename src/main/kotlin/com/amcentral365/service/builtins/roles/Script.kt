@@ -57,10 +57,12 @@ data class ScriptMain(
         if( !this.sudoAs.isNullOrBlank() )
             ret.addAll(listOf("sudo", "-u", this.sudoAs))
 
-        if( this.interpreter != null )
+        if( this.interpreter == null )
+            ret.add("./"+this.main!!)
+        else {
             ret.addAll(this.interpreter.map { quoteParam(it) })
-
-        ret.add(this.main!!)
+            ret.add(this.main!!)
+        }
 
         return ret
     }
