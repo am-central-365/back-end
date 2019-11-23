@@ -83,7 +83,7 @@ class ExecutionTargetLocalHost(threadId: String, asset: Asset): ExecutionTarget(
             val process = ProcessBuilder()
                     .directory(File(this.workDirName))
                     .redirectErrorStream(true)
-                    .command(commands)  // ("/bin/sh", "-c", cmd)
+                    .command(commands)
                     .start()
             logger.info { "${this.threadId}: started running ${commands.joinToString(" ")}" }
 

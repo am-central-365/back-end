@@ -2,6 +2,7 @@ package com.amcentral365.service
 
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
+import com.google.common.base.Preconditions
 import mu.KotlinLogging
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -23,6 +24,8 @@ class TransferManager(private val threadId: String) {
     )
 
     abstract class Sender {
+        var basePath: String? = null
+
         open fun begin() {}
         open fun end(successful: Boolean) {}
 
@@ -87,9 +90,14 @@ class SenderOfInlineContent(private val content: String): TransferManager.Sender
         ).iterator()
 }
 
-class SenderOfLocalPath(private val pathStr: String): TransferManager.Sender() {
+class SenderOfLocalPath(pathStr: String): TransferManager.Sender() {
+    init {
+        Preconditions.checkNotNull(pathStr)
+        super.basePath = pathStr
+    }
+
     override fun getIterator(): Iterator<TransferManager.Item> {
-        val baseFile = File(pathStr)        // NB: the top directory is also walked
+        val baseFile = File(basePath!!)        // NB: the top directory is also walked
         //val prefixLen = baseFile.absolutePath.length
         val seq = baseFile.walkTopDown().map { file ->
             val relativePathStr = file.path     // already relative to the top dir

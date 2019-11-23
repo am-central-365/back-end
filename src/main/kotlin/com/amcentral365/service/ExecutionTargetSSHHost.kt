@@ -1,25 +1,23 @@
 package com.amcentral365.service
 
-import mu.KotlinLogging
-import kotlin.reflect.jvm.jvmName
-import java.util.concurrent.TimeUnit
-
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
 import com.amcentral365.service.builtins.roles.TargetSSH
-import com.amcentral365.service.dao.fromDB
 import com.google.common.base.Preconditions
-
 import com.jcraft.jsch.ChannelExec
+import com.jcraft.jsch.ChannelSftp
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.JSchException
 import com.jcraft.jsch.Session
-
+import com.jcraft.jsch.SftpException
+import mu.KotlinLogging
+import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.TimeUnit
+import kotlin.reflect.jvm.jvmName
 
 private val logger = KotlinLogging.logger {}
-
 
 open class ExecutionTargetSSHHost(threadId: String, private val target: TargetSSH): ExecutionTarget(threadId, target.asset) {
 
@@ -41,13 +39,22 @@ open class ExecutionTargetSSHHost(threadId: String, private val target: TargetSS
         }
     }
 
+    private val sftpChannel: ChannelSftp by lazy {
+        (this.session!!.openChannel("sftp") as ChannelSftp).also {
+              it.connect()
+              it.cd(this.workDirName)
+        }
+    }
 
     var session: Session? = null
+
+    val S_IXUSR = 1 shl 6       // "u+x" for chmod
 
     override fun connect(): Boolean {
         try {
             val sess = jsch.getSession(target.loginUser, target.hostname, target.port!!)
             sess.connect()
+            sess.timeout = 0                // TODO: make it a parameter
             this.session = sess
             return true
         } catch(e: JSchException) {
@@ -59,39 +66,37 @@ open class ExecutionTargetSSHHost(threadId: String, private val target: TargetSS
         this.session?.disconnect()
     }
 
-    private fun copy0(contentStream: InputStream, fileName: String, remoteCmd: List<String>): Long {
-        Preconditions.checkArgument(fileName.isNotBlank())
 
-        val outputStream = StringOutputStream()
-        val statusMsg = realExec(remoteCmd, contentStream, outputStream)
-        val errMsg = outputStream.getString().trimEnd('\r', '\n')
-        if( statusMsg.code != 0 || errMsg.isNotEmpty() )
-            throw StatusException(300, "failed to copy file $fileName: ${statusMsg.code} ${statusMsg.msg} -- $errMsg")
+    private fun copy0(contentStream: InputStream, fileName: String, permissionsToAdd: Int = 0): Long {
+        Preconditions.checkArgument(fileName.isNotBlank())
+        sftpChannel.put(contentStream, fileName)
+        if( permissionsToAdd != 0) {
+            val sftpATTRS = sftpChannel.stat(fileName)
+            sftpChannel.chmod(sftpATTRS.permissions or permissionsToAdd, fileName)
+        }
 
         return 0
     }
 
     override fun copyExecutableFile(contentStream: InputStream, fileName: String): Long =
-        this.copy0(contentStream, fileName, getCmdToCreateExecutable(fileName))
+        this.copy0(contentStream, fileName, S_IXUSR)
 
     override fun copyFile(contentStream: InputStream, fileName: String): Long =
-        this.copy0(contentStream, fileName, getCmdToCreateFile(fileName))
+        this.copy0(contentStream, fileName)
 
     override fun createDirectories(dirPath: String) {
         Preconditions.checkArgument(dirPath.isNotBlank())
-        val cmd = getCmdToCreateSubDir(dirPath)
-        val outputStream = StringOutputStream()
-        val statusMsg = realExec(cmd, null, outputStream)
-        val errMsg = outputStream.getString().trimEnd('\r', '\n')
-        if( statusMsg.code != 0 || errMsg.isNotEmpty() )
-            throw StatusException(300, "failed to create directory path $dirPath: ${statusMsg.code} ${statusMsg.msg} -- $errMsg")
+        this.sftpChannel.mkdir(dirPath)
     }
 
     override fun exists(pathStr: String): Boolean {
         Preconditions.checkArgument(pathStr.isNotBlank())
-        val cmd = getCmdToVerifyFileExists(pathStr)
-        val statusMsg = realExec(cmd, null, NullOutputStream())
-        return statusMsg.code == 0
+        try {
+            this.sftpChannel.stat(pathStr)
+            return true
+        } catch(x: SftpException) {
+            return false
+        }
     }
 
     override fun cleanup(script: Script) {
@@ -156,16 +161,26 @@ open class ExecutionTargetSSHHost(threadId: String, private val target: TargetSS
                 setCommand(command)
             }
 
-            val remoteStdout = channel.inputStream        // must cache, otherwise it won't work
+            val remoteStdout = channel.inputStream        // must cache, it returns a new object each time
             channel.connect()
 
             logger.info { "${this.threadId}: started running $command" }
 
             inputStream?.run {
-                channel.outputStream.run {  // process.outputStream is the process's stdin
-                    write(inputStream.readBytes())
+                val remoteStdin = channel.outputStream
+                val copied = this.copyTo(remoteStdin)
+                logger.debug { "$threadId: copied $copied bytes to the remote stdin" }
+                remoteStdin.close()
+/*
+                val bytes = inputStream.readBytes()
+                logger.debug { "$threadId: read ${bytes.size} bytes" }
+                // channel.outputStream
+                //val remoteStdin = channel.outputStream
+                remoteStdin.run {  // process.outputStream is the process's stdin
+                    write(bytes)
                     close()
                 }
+*/
             }
 
             fun ivlText(ts: Long) = "%.1f".format((System.currentTimeMillis() - ts)/1000f)
