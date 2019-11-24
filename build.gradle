@@ -6,14 +6,16 @@ buildscript {
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "org.jetbrains.dokka:dokka-gradle-plugin:0.9.17"
+        classpath "org.jetbrains.dokka:dokka-gradle-plugin:0.10.0"
     }
 }
 
-apply plugin: "kotlin"
-apply plugin: 'java'
-apply plugin: 'maven'   // enables gradle install
-apply plugin: 'org.jetbrains.dokka'
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.3.60"
+    id "java"
+    id "maven"
+    id 'org.jetbrains.dokka' version '0.10.0'
+}
 
 group   = GROUP_NAME
 version = VERSION_NAME
