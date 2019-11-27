@@ -100,16 +100,12 @@ open class ExecutionTargetSSHHost(threadId: String, private val target: TargetSS
     }
 
     override fun cleanup(script: Script) {
-        if( !this.workDirName.isBlank() ) {
-            val commandToRemoveWorkDir = getCmdToRemoveWorkDir()
-            logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
-            executeAndGetOutput(commandToRemoveWorkDir)
-        } else {
+        if( this.workDirName.isBlank() )
             throw StatusException(500, "workDirName is blank: '${this.workDirName}'")
-            /*val commandToRemoveMain = this.getCmdToRemoveFile(script.scriptMain!!.main!!)
-            logger.debug { "removing script ${script.scriptMain!!.main}: $commandToRemoveMain" }
-            executeAndGetOutput(commandToRemoveMain)*/
-        }
+
+        val commandToRemoveWorkDir = getCmdToRemoveWorkDir()
+        logger.debug { "removing work directory ${this.workDirName}: $commandToRemoveWorkDir" }
+        executeAndGetOutput(commandToRemoveWorkDir)
     }
 
     override fun prepare(script: Script): Boolean {
@@ -171,16 +167,6 @@ open class ExecutionTargetSSHHost(threadId: String, private val target: TargetSS
                 val copied = this.copyTo(remoteStdin)
                 logger.debug { "$threadId: copied $copied bytes to the remote stdin" }
                 remoteStdin.close()
-/*
-                val bytes = inputStream.readBytes()
-                logger.debug { "$threadId: read ${bytes.size} bytes" }
-                // channel.outputStream
-                //val remoteStdin = channel.outputStream
-                remoteStdin.run {  // process.outputStream is the process's stdin
-                    write(bytes)
-                    close()
-                }
-*/
             }
 
             fun ivlText(ts: Long) = "%.1f".format((System.currentTimeMillis() - ts)/1000f)

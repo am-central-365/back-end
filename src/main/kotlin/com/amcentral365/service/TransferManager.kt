@@ -98,7 +98,6 @@ class SenderOfLocalPath(pathStr: String): TransferManager.Sender() {
 
     override fun getIterator(): Iterator<TransferManager.Item> {
         val baseFile = File(basePath!!)        // NB: the top directory is also walked
-        //val prefixLen = baseFile.absolutePath.length
         val seq = baseFile.walkTopDown().map { file ->
             val relativePathStr = file.path     // already relative to the top dir
             if( file.isDirectory )

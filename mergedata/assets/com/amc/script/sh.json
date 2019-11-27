@@ -1,15 +1,12 @@
   {
     "asset": { "name": "com.amc.script.sh", "description": "Script executed by *nix shell /bin/sh" },
     "roles": [
-    //{ "roleName": "script-executor-ssh", "values": { "os": "all-unixes" } },
       {
         "roleName": "com.amc.script",
         "values": {
           "location":   {"content": {"body": "/bin/echo -e \"amc script execution is working\ncurrent dir: $PWD\""}},
-          //"scriptMain": { "interpreter":  [""] },
           "scriptArgs": [],
 
-        //"executorRoleName": "com.amc.script-executor-amc",
           "targetRoleName":   "com.amc.execution-target.linux",
           "execTimeoutSec":   0,
           "idleTimeoutSec":   10

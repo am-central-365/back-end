@@ -48,8 +48,6 @@ class Execute { companion object {
                 return formatResponse(rsp, StatusMessage(400, "targetKey was not provided or empty"))
 
             val script = fromDB<Script>(scriptKey, RoleName.Script)
-//            val executorRoleName = script.executorRoleName ?:
-//                    return formatResponse(rsp, StatusMessage(400, "script ${script.name} has no executorRoleName"))
             val targetRoleName = script.targetRoleName ?:
                     return formatResponse(rsp, StatusMessage(400, "script ${script.name} has no targetRoleName"))
 
@@ -88,7 +86,7 @@ class Execute { companion object {
                 //
                 // Problem: what defines the parent/child hierarchy?
 
-                Preconditions.checkNotNull(targetAsset as Asset)
+                Preconditions.checkNotNull(targetAsset)
                 Preconditions.checkNotNull(targetAsset.assetId as UUID)
 
                 val sshTarget = fromDB<TargetSSH>(targetAsset.assetId as UUID, RoleName.TargetSSH)

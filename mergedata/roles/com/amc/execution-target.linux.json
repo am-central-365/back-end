@@ -1,16 +1,11 @@
 {
   "roleName": "com.amc.execution-target.linux",
   "class": "target",
-  "description": "Describes the hosting environment for script execution. Host is the most commonly used, but can be other",
+  "description": "Describes the hosting environment for script execution. Host is the most commonly used, but there can be other",
   "roleSchema": {
     "workDirBase":               { "type": "string!",  "default": "/tmp" },
     "commandToCreateWorkDir":    { "type": "string!+", "default": ["/bin/mktemp", "-dp", "$WorkDirBase", "amc.XXXXXX"] },
     "commandToRemoveWorkDir":    { "type": "string!+", "default": ["/bin/rm", "-r", "$WorkDir"] },
-    "commandToCreateSubDir":     { "type": "string+",  "default": ["/bin/mkdir", "-p", "$WorkDir/$SubDirName"] },
-    "commandToCreateFile":       { "type": "string+",  "default": ["/bin/cat", ">", "$WorkDir/$fileName"] },
-    "commandToCreateExecutable": { "type": "string+",  "default": ["/bin/cat", ">", "$WorkDir/$fileName", "&&", "/bin/chmod", "u+x", "$WorkDir/$fileName"] },
-    "commandToRemoveFile":       { "type": "string+",  "default": ["/bin/rm", "$WorkDir/$fileName"] },
-    "commandToVerifyFileExists": { "type": "string+",  "default": ["/usr/bin/stat", "$WorkDir/$fileName", ">", "/dev/null"] },
     "commandToExecuteMain":      { "type": "string+",  "default": ["cd", "$WorkDir", "&&", "<commands>"] }
   }
 }

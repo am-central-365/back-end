@@ -27,7 +27,6 @@ abstract class ExecutionTarget(
     protected var targetDetails: ExecutionTargetDetails? = null
 
     protected var workDirName: String = "."
-//FIXME open val baseDir get() = this.targetDetails?.workDirBase
 
     abstract protected fun realExec(commands: List<String>, inputStream: InputStream? = null, outputStream: OutputStream): StatusMessage
     abstract fun exists(pathStr: String): Boolean
@@ -45,30 +44,6 @@ abstract class ExecutionTarget(
     protected fun getCmdToRemoveWorkDir(): List<String> =
         this.targetDetails?.commandToRemoveWorkDir?.map { it.replace("\$WorkDir", this.workDirName) }
         ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToRemoveWorkDir'")
-
-
-    protected fun getCmdToCreateSubDir(subDir: String): List<String> {
-//TODO: remove        val w = this.targetDetails?.workDirBase ?: config.localScriptExecBaseDir   // FIXME: localScriptExecBaseDir is specific to AMC
-        return this.targetDetails?.commandToCreateSubDir?.map { it.replace("\$WorkDir", this.workDirName).replace("\$SubDirName", subDir) }
-            ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToCreateSubDir'")
-    }
-
-    protected fun getCmdToCreateFile(fileName: String): List<String> =
-        this.targetDetails?.commandToCreateFile?.map { it.replace("\$WorkDir", this.workDirName).replace("\$fileName", fileName) }
-        ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToCreateFile'")
-
-    protected fun getCmdToCreateExecutable(fileName: String): List<String> =
-        this.targetDetails?.commandToCreateExecutable?.map { it.replace("\$WorkDir", this.workDirName).replace("\$fileName", fileName) }
-        ?: this.getCmdToCreateFile(fileName)
-
-    @Deprecated("all content, even inline, is now created in a temp dir", ReplaceWith("getCmdToRemoveWorkDir"), DeprecationLevel.WARNING)
-    protected fun getCmdToRemoveFile(fileName: String): List<String> =
-        this.targetDetails?.commandToRemoveFile?.map { it.replace("\$WorkDir", this.workDirName).replace("\$fileName", fileName) }
-        ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToRemoveFile'")
-
-    protected fun getCmdToVerifyFileExists(fileName: String): List<String> =
-        this.targetDetails?.commandToVerifyFileExists?.map { it.replace("\$WorkDir", this.workDirName).replace("\$fileName", fileName) }
-        ?: throw StatusException(501, "the script's target role (targetRoleName) does not define 'commandToVerifyFileExists'")
 
     protected fun executeAndGetOutput(commands: List<String>, inputStream: InputStream? = null): String =
         StringOutputStream().let {

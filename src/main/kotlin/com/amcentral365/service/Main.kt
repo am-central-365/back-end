@@ -47,11 +47,6 @@ fun main(args: Array<String>) {
 fun callMeFromJavaForHighFive(p1: Int) = p1 + 5
 
 
-// No try/catch failures are fatal at this stage
-/*private fun initialize() {
-    thisWorkerAsset = Assets.getAssetById(config.assetId)
-}*/
-
 private fun mergeData(): Boolean {
     if( config.mergeRoles ) {
         val failures = MergeRoles("roles").merge()
