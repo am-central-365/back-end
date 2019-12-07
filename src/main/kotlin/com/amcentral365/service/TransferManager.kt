@@ -24,8 +24,6 @@ class TransferManager(private val threadId: String) {
     )
 
     abstract class Sender {
-        var basePath: String? = null
-
         open fun begin() {}
         open fun end(successful: Boolean) {}
 
@@ -91,13 +89,15 @@ class SenderOfInlineContent(private val content: String): TransferManager.Sender
 }
 
 class SenderOfLocalPath(pathStr: String): TransferManager.Sender() {
+    val basePath: String
+
     init {
         Preconditions.checkNotNull(pathStr)
-        super.basePath = pathStr
+        this.basePath = pathStr
     }
 
     override fun getIterator(): Iterator<TransferManager.Item> {
-        val baseFile = File(basePath!!)        // NB: the top directory is also walked
+        val baseFile = File(this.basePath)        // NB: the top directory is also walked
         val seq = baseFile.walkTopDown().map { file ->
             val relativePathStr = file.path     // already relative to the top dir
             if( file.isDirectory )
