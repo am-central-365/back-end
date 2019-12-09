@@ -56,7 +56,7 @@ class DatabaseConnection(var conn: Connection): Connection {
     override fun isClosed(): Boolean = conn.isClosed
 
     override fun close() {
-        logger.debug { "releasng db connection $conn" }
+        logger.debug { "releasing db connection $conn" }
         conn.close()
         connectionLeakWatcher.released(conn)
     }

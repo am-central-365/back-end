@@ -6,15 +6,9 @@ class LeakWatcher {
     companion object: KLogging()
 
     data class AllocRecord(val x: String? = null) {
-        val threadName: String
-        val allocTs: Long
-        val callStack: Array<StackTraceElement>
-
-        init {
-            this.threadName = Thread.currentThread().name
-            this.allocTs = System.currentTimeMillis()
-            this.callStack = Thread.currentThread().stackTrace
-        }
+        val threadName: String = Thread.currentThread().name
+        val allocTs: Long = System.currentTimeMillis()
+        val callStack: Array<StackTraceElement> = Thread.currentThread().stackTrace
     }
 
     private val allocations = mutableMapOf<Any, AllocRecord>()

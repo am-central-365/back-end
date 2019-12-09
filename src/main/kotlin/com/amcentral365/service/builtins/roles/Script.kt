@@ -1,6 +1,7 @@
 package com.amcentral365.service.builtins.roles
 
 
+import com.amcentral365.service.SenderOfGitHub
 import com.amcentral365.service.TransferManager
 import com.amcentral365.service.SenderOfMain
 import com.amcentral365.service.SenderOfInlineContent
@@ -115,8 +116,13 @@ data class ScriptMain(
 
 
 // NB: the values are mutually exclusive. One of the values must be present.
-class ScriptLocation
-{
+class ScriptLocation {
+    /*class GithubUrl {
+        val url:       String?  = null
+        val translate: Boolean? = true
+    }*/
+
+
     val content:        Content? = null
     val fileSystemPath: String?  = null
     val githubUrl:      String?  = null
@@ -124,7 +130,7 @@ class ScriptLocation
 
     data class Content(var body: String, var version: String) { constructor():this("", "1.0.0") }
 
-    val needsWorkDir get() = content == null && fileSystemPath == null
+    //val needsWorkDir get() = content == null && fileSystemPath == null
 
     init {
         // Ensure all are null, or only one is not null
@@ -148,7 +154,7 @@ data class Script(
 ): AnAsset(null) {
 
     val name get() = this.asset?.name
-    val needsWorkDir get() = this.location?.needsWorkDir ?: false
+    //val needsWorkDir get() = this.location?.needsWorkDir ?: false
 
     val hasMain get() = this.scriptMain?.main?.isNotBlank() == true
 
@@ -172,9 +178,9 @@ data class Script(
             }
 
             loc.fileSystemPath != null -> SenderOfLocalPath(loc.fileSystemPath)
+            loc.githubUrl      != null -> SenderOfGitHub(loc.githubUrl)
 
             loc.nexusUrl  != null -> throw StatusException(501, "Script '${this.name}': SenderOfNexusFile is not yet implemented")  // TODO
-            loc.githubUrl != null -> throw StatusException(501, "Script '${this.name}': SenderOfGitHubDir is not yet implemented")  // TODO
 
             else ->
                 throw StatusException(415, "Script '${this.name}': the Location has no known non-null properties. This shouldn't happen.")
