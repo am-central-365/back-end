@@ -1,50 +1,99 @@
 package com.amcentral365.service
 
 import com.google.gson.JsonElement
-import java.io.ByteArrayInputStream
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
+import mu.KotlinLogging
 import java.net.URL
 import java.util.Base64
 import java.util.regex.Pattern
 
+private val logger = KotlinLogging.logger {}
+
 class SenderOfGitHub(url: String, translate: Boolean = true): TransferManager.Sender() {
     val topUrl: URL
-    var curJsonElement: JsonElement? = null
 
     init {
         this.topUrl = translateUrlToApi(URL(url))
     }
 
-    override fun begin() {
-        curJsonElement = open(topUrl)
+    override fun getIterator(): Iterator<TransferManager.Item> = openSequence(this.topUrl).iterator()
+
+    private fun openSequence(url: URL): Sequence<TransferManager.Item> {
+        val elm = loadJsonFromUrl(url)
+        return sequence {
+            val objs = listObjectsInElement(elm)
+            objs.forEach {
+                yieldAll( readObject(it) )
+            }
+        }
     }
 
-    override fun getIterator(): Iterator<TransferManager.Item> {
-        val url = this.topUrl
+    private fun loadJsonFromUrl(url: URL): JsonElement = JsonParser().parse(url.readText())
 
-        return listOf(
-            downloadFile(url)!!
-        ).iterator()
+    private fun listObjectsInElement(elm: JsonElement): List<JsonObject> {
+        if( elm.isJsonObject )
+            return listOf(elm.asJsonObject)
+        if( elm.isJsonArray )
+            return elm.asJsonArray.map { e -> e.asJsonObject }.toList()
+        logger.warn { "unsupported Json element type, expected JsonObject or JsonArray" }
+        return emptyList()
     }
 
-    private fun open(url: URL): JsonElement? {
-        return gson.toJsonTree(null) // fixme
+    private fun readObject(jsonObj: JsonObject): Sequence<TransferManager.Item> {
+        val type = jsonObj["type"]?.asString
+        if( type == "file" ) {
+            val item = readFile(jsonObj)
+            if( item == null )
+                return emptySequence()
+            return sequence<TransferManager.Item> { yield(item) }
+        }
+
+        if( type != "dir" ) {
+            logger.warn { "unsupported Github object type: '$type'. Expected 'file' or 'dir'" }
+            return emptySequence()
+        }
+
+        val url = URL(jsonObj["url"].asString)
+        return sequence {
+            yield(TransferManager.Item(pathStr = jsonObj["path"].asString, isDirectory = true))
+            yieldAll(openSequence(url))
+        }
     }
 
-    private fun downloadFile(url: URL): TransferManager.Item? {
-        val jsonStr = url.readText()
-        val map = gson.fromJson<Map<String, Any>>(jsonStr, Map::class.java)     // fixme: could be an array
-        if( map.get("type").toString() != "file" )
-            return null     // fixme: could be "dir"
 
-        val filename = map.get("name").toString()
-        val encoding = map.get("encoding")
-        if( encoding != "base64")
+    private fun readFile(jsonObj: JsonObject): TransferManager.Item? {
+        if( !jsonObj.has("path") ) {
+            logger.warn { "malformed Github element: no 'path' attribute" }
+            return null;
+        }
+
+        val filepath = jsonObj["path"].asString
+
+        // sometimes objects have embedded "content" element
+        val content = jsonObj["content"]?.asString?.replace("\n", "")
+        if( content != null ) {
+            val encoding = jsonObj["encoding"]?.asString ?: "base64"
+            if( encoding != "base64") {
+                logger.warn { "unknown content encoding: $encoding, expected 'base64'" }
+                return null
+            }
+
+            val filebytes = Base64.getDecoder().decode(content)
+            return TransferManager.Item(pathStr = filepath, inputStream = filebytes.inputStream())
+        }
+
+        var urlElm = jsonObj["download_url"]
+        if( urlElm == null || urlElm.isJsonNull )
+            urlElm = jsonObj["git_url"]
+        if( urlElm == null || urlElm.isJsonNull ) {
+            logger.warn { "element has no: 'content', 'download_url' nor 'git_url'. No can do." }
             return null
+        }
 
-        val content = map.get("content").toString().replace("\n", "")
-        val filebytes = Base64.getDecoder().decode(content)
-
-        return TransferManager.Item(pathStr = filename, inputStream = filebytes.inputStream())
+        val url = URL(urlElm.asString)
+        val stream = url.openStream()
+        return TransferManager.Item(pathStr = filepath, inputStream = stream)
     }
 
     /**
@@ -128,9 +177,9 @@ curl 'https://api.github.com/repos/am-central-365/scripts/contents/am-central-36
     "path": "am-central-365.com/test/with-dirs/folder-a/a-f1.txt",
     "sha": "f967326ffdaef73ec959a7b614d3a1c1a7405467",
     "size": 30,
-    "url": "https://api.github.com/repos/am-central-365/scripts/contents/am-central-365.com/test/with-dirs/folder-a/a-f1.txt?ref=dev",
-    "html_url": "https://github.com/am-central-365/scripts/blob/dev/am-central-365.com/test/with-dirs/folder-a/a-f1.txt",
-    "git_url": "https://api.github.com/repos/am-central-365/scripts/git/blobs/f967326ffdaef73ec959a7b614d3a1c1a7405467",
+    "url":          "https://api.github.com/repos/am-central-365/scripts/contents/am-central-365.com/test/with-dirs/folder-a/a-f1.txt?ref=dev",
+    "html_url":     "https://github.com/am-central-365/scripts/blob/dev/am-central-365.com/test/with-dirs/folder-a/a-f1.txt",
+    "git_url":      "https://api.github.com/repos/am-central-365/scripts/git/blobs/f967326ffdaef73ec959a7b614d3a1c1a7405467",
     "download_url": "https://raw.githubusercontent.com/am-central-365/scripts/dev/am-central-365.com/test/with-dirs/folder-a/a-f1.txt",
     "type": "file",
     "_links": {

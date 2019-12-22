@@ -4,7 +4,7 @@
       {
         "roleName": "com.amc.script",
         "values": {
-          "location":   { "githubUrl": "https://github.com/am-central-365/scripts/blob/dev/am-central-365.com/test/single-file/create_earth.txt" },
+          "location":   { "githubUrl": "https://github.com/am-central-365/scripts/tree/dev/am-central-365.com/test/with-dirs" },
           "scriptMain": { "interpreter":  ["/bin/ls", "-Rl"], "main": "." },
           "scriptArgs": [],
 
