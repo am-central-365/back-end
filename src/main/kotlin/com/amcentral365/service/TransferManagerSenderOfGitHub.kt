@@ -4,6 +4,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import mu.KotlinLogging
+import java.io.File
 import java.net.URL
 import java.util.Base64
 import java.util.regex.Pattern
@@ -12,9 +13,14 @@ private val logger = KotlinLogging.logger {}
 
 class SenderOfGitHub(url: String, translate: Boolean = true): TransferManager.Sender() {
     val topUrl: URL
+    val prefixToStrip: String
 
     init {
         this.topUrl = translateUrlToApi(URL(url))
+        val path = File(this.topUrl.path).toPath()
+        // repos/am-central-365/scripts/contents/am-central-365.com/test/with-dirs/folder-a
+        //     0              1       2        3 ------------- strip --------------
+        this.prefixToStrip = if( path.nameCount <= 4 ) "" else path.subpath(4, path.nameCount-1).toString() + "/"
     }
 
     override fun getIterator(): Iterator<TransferManager.Item> = openSequence(this.topUrl).iterator()
@@ -56,10 +62,13 @@ class SenderOfGitHub(url: String, translate: Boolean = true): TransferManager.Se
 
         val url = URL(jsonObj["url"].asString)
         return sequence {
-            yield(TransferManager.Item(pathStr = jsonObj["path"].asString, isDirectory = true))
+            yield(TransferManager.Item(pathStr = getMassagedPath(jsonObj), isDirectory = true))
             yieldAll(openSequence(url))
         }
     }
+
+    private fun getMassagedPath(jsonObj: JsonObject) =
+        jsonObj["path"].asString.removePrefix(this.prefixToStrip)
 
 
     private fun readFile(jsonObj: JsonObject): TransferManager.Item? {
@@ -68,7 +77,7 @@ class SenderOfGitHub(url: String, translate: Boolean = true): TransferManager.Se
             return null;
         }
 
-        val filepath = jsonObj["path"].asString
+        val filepath = getMassagedPath(jsonObj)
 
         // sometimes objects have embedded "content" element
         val content = jsonObj["content"]?.asString?.replace("\n", "")
