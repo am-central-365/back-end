@@ -133,6 +133,18 @@ class Configuration(val args: Array<String>): CliktCommand(name = "amcentral365-
     lateinit var sshPublicKeyFile: String private set
     val _sshPublicKeyFile: String by option("--ssh-pub-key-file", help="file storing AM Central public key for SSH authentications. Defaults to ").default("")
 
+    // --------------------------- HTTP(s)
+    val httpMaxRedirects: Int by option("--http-max-redirects",
+                help = "When downloading a script from HTTP(s), how many times at most we shal follow 'moved permanently/temporarily' redirects")
+                .int().default(5)
+    val httpConnectTimeoutMsec: Int by option("--http-connect-timeout-msec",
+                help = "Timeout in milliseconds when opening an HTTP(s) connection")
+                .int().default(15000)
+    val httpReadTimeoutMsec: Int by option("--http-read-timeout-msec",
+                help = "Timeout in milliseconds when reading from an HTTP(s) connection")
+                .int().default(15000)
+
+
     override fun run() {
         mergeThreads = if( rawMergeThreads > 0 ) rawMergeThreads
                      else max(1, Runtime.getRuntime().availableProcessors()-1)

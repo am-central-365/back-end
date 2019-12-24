@@ -6,6 +6,8 @@ import com.amcentral365.service.TransferManager
 import com.amcentral365.service.SenderOfMain
 import com.amcentral365.service.SenderOfInlineContent
 import com.amcentral365.service.SenderOfLocalPath
+import com.amcentral365.service.SenderOfHttp
+import com.amcentral365.service.SenderOfNexus
 import com.amcentral365.service.StatusException
 import javax.annotation.Generated
 
@@ -96,50 +98,27 @@ data class ScriptMain(
 }
 
 
-/*
-    {
-      "role_name": "script-location",
-      "class": "location",
-      "description": "Where the script files are located. Only one attribute must be present",
-      "role_schema": {
-        "content": {
-           "body":    "string!",
-           "version": "string!"
-         },
-        "githubUrl":       "string",
-        "fileSystemPath":  "string",
-        "nexusUrl":        "string"
-      }
-    }
-*/
-
-
-
-// NB: the values are mutually exclusive. One of the values must be present.
+// NB: the values are mutually exclusive. One or none of the values must be present.
 class ScriptLocation {
-    /*class GithubUrl {
-        val url:       String?  = null
-        val translate: Boolean? = true
-    }*/
-
-
     val content:        Content? = null
     val fileSystemPath: String?  = null
     val githubUrl:      String?  = null
-    val nexusUrl:       String?  = null // follows 307 redirects, see https://repository.sonatype.org/nexus-restlet1x-plugin/default/docs/path__artifact_maven_redirect.html
+    val httpUrl:        String?  = null
+    val nexus:          Nexus?   = null // follows 307 redirects, see https://repository.sonatype.org/nexus-restlet1x-plugin/default/docs/path__artifact_maven_redirect.html
 
     data class Content(var body: String, var version: String) { constructor():this("", "1.0.0") }
+    data class Nexus(val baseUrl: String, val repository: String, val group: String, val artifact: String,
+                     val version: String, val classifier: String?, val packaging: String?, val extension: String?)
 
     //val needsWorkDir get() = content == null && fileSystemPath == null
 
     init {
         // Ensure all are null, or only one is not null
-        when {
-            content        != null -> require(githubUrl == null && fileSystemPath == null && nexusUrl == null)
-            githubUrl      != null -> require(fileSystemPath == null && nexusUrl == null)
-            fileSystemPath != null -> require(nexusUrl == null)
-            else -> Unit  // Either the last one is not null, or all are null, we're good either way
-        }
+        if     ( content        != null ) require(githubUrl == null && fileSystemPath == null && httpUrl == null && nexus == null)
+        else if( githubUrl      != null ) require(fileSystemPath == null && httpUrl == null && nexus == null)
+        else if( fileSystemPath != null ) require(httpUrl == null && nexus == null)
+        else if( httpUrl        != null ) require(nexus == null)
+        else Unit  // Either the last one is not null, or all are null, we're good either way
     }
 
 }
@@ -179,8 +158,8 @@ data class Script(
 
             loc.fileSystemPath != null -> SenderOfLocalPath(loc.fileSystemPath)
             loc.githubUrl      != null -> SenderOfGitHub(loc.githubUrl)
-
-            loc.nexusUrl  != null -> throw StatusException(501, "Script '${this.name}': SenderOfNexusFile is not yet implemented")  // TODO
+            loc.httpUrl        != null -> SenderOfHttp(loc.httpUrl)
+            loc.nexus          != null -> SenderOfNexus(loc.nexus)
 
             else ->
                 throw StatusException(415, "Script '${this.name}': the Location has no known non-null properties. This shouldn't happen.")

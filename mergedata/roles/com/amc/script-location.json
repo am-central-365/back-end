@@ -9,6 +9,7 @@
      },
     "githubUrl":       "string",
     "fileSystemPath":  "string",
-    "nexusUrl":        "string"
+    "httpUrl":         "string",
+    "nexus":           { "baseUrl": "string!", "repository": "string!", "group": "string!", "artifact": "string!", "version": "string!", "classifier": "string", "packaging": "string", "extension": "string" }
   }
 }

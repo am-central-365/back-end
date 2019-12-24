@@ -2,16 +2,18 @@ package com.amcentral365.service
 
 import com.amcentral365.service.builtins.roles.ExecutionTarget
 import com.amcentral365.service.builtins.roles.Script
+import com.amcentral365.service.builtins.roles.ScriptLocation
 import com.google.common.base.Preconditions
 import mu.KotlinLogging
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.InputStream
-import java.lang.Exception
-import java.nio.file.Paths
+import java.net.HttpURLConnection
+import java.net.URL
 import java.security.SecureRandom
 import kotlin.math.abs
+
 
 private val logger = KotlinLogging.logger {}
 
@@ -86,6 +88,59 @@ class SenderOfInlineContent(private val content: String): TransferManager.Sender
     override fun getIterator(): Iterator<TransferManager.Item> = listOf(
             TransferManager.Item(pathStr = "", inputStream = ByteArrayInputStream(content.toByteArray(config.charSet)))
         ).iterator()
+}
+
+class SenderOfHttp(val url: String, val fileName: String? = null): TransferManager.Sender() {
+    override fun getIterator(): Iterator<TransferManager.Item> {
+        val uurl = URL(url)
+        val filename = this.fileName ?: File(uurl.path).toPath().fileName.toString()
+        val stream = this.openStreamFollowingRedirects(uurl)
+        val item = TransferManager.Item(pathStr = filename, inputStream = stream)
+        return listOf(item).iterator()
+    }
+
+    val redirectCodes = listOf(307, HttpURLConnection.HTTP_MOVED_PERM, HttpURLConnection.HTTP_MOVED_TEMP, HttpURLConnection.HTTP_SEE_OTHER)
+
+    private fun openStreamFollowingRedirects(url: URL): InputStream {
+        var currUrl = url
+        var cookies: String? = null
+        for(unused in 0..config.httpMaxRedirects) {
+            val conn = currUrl.openConnection()
+            conn.connectTimeout = config.httpConnectTimeoutMsec
+            conn.readTimeout    = config.httpReadTimeoutMsec
+            (conn as? HttpURLConnection)?.instanceFollowRedirects = false
+            if( cookies != null )
+                conn.setRequestProperty("Cookie", cookies)
+
+            if(conn is HttpURLConnection && conn.responseCode in this.redirectCodes) {
+                cookies = conn.getHeaderField("Set-Cookie");
+                val loc = conn.getHeaderField("Location")
+                currUrl = URL(currUrl, loc)
+                logger.info { "redirecting to $currUrl" }
+                continue
+            }
+
+            logger.info { "opened and streaming $currUrl" }
+            return conn.getInputStream()
+        }
+
+        throw StatusException(417, "the URL redirects more than --http-max-redirects (${config.httpMaxRedirects}) times: $url")
+    }
+}
+
+class SenderOfNexus(val loc: ScriptLocation.Nexus): TransferManager.Sender() {
+    override fun getIterator(): Iterator<TransferManager.Item> {
+        var urlStr = "${loc.baseUrl}/artifact/maven/redirect?r=${loc.repository}&g=${loc.group}&a=${loc.artifact}&v=${loc.version}"
+        if( !loc.classifier.isNullOrBlank() ) urlStr += "&c=${loc.classifier}"
+        if( !loc.packaging.isNullOrBlank() ) urlStr += "&p=${loc.packaging}"
+        if( !loc.extension.isNullOrBlank() ) urlStr += "&e=${loc.extension}"
+
+        val classifier = if( loc.classifier == null ) "" else "-" + loc.classifier
+        val filename = "${loc.artifact}-${loc.version}$classifier.${loc.packaging ?: "jar"}"
+
+        logger.info { "retrieving file $filename for Nexus URL $urlStr" }
+        return SenderOfHttp(urlStr, filename).getIterator()
+    }
 }
 
 class SenderOfLocalPath(pathStr: String): TransferManager.Sender() {

@@ -1,0 +1,80 @@
+[
+  {
+    "asset": { "name": "com.amc.script.test-copy-local-fs", "description": "Testing SenderOfLocalPath" },
+    "roles": [
+      {
+        "roleName": "com.amc.script",
+        "values": {
+          "location":   {"fileSystemPath": "func-tests"},
+          "scriptMain": { "interpreter":  ["/bin/ls", "-Rl"], "main": "." },
+          "scriptArgs": [],
+
+          "targetRoleName":   "com.amc.execution-target.linux",
+          "execTimeoutSec":   0,
+          "idleTimeoutSec":   10
+        }
+      }
+    ]
+  },
+
+  {
+    "asset": { "name": "com.amc.script.test-github-file", "description": "Testing SenderOfGitHub" },
+    "roles": [
+      {
+        "roleName": "com.amc.script",
+        "values": {
+          "location":   { "githubUrl": "https://github.com/am-central-365/scripts/tree/dev/am-central-365.com/test/with-dirs" },
+          "scriptMain": { "interpreter":  ["/bin/ls", "-Rl"], "main": "." },
+          "scriptArgs": [],
+
+          "targetRoleName":   "com.amc.execution-target.linux",
+          "execTimeoutSec":   0,
+          "idleTimeoutSec":   10
+        }
+      }
+    ]
+  },
+
+  {
+    "asset": { "name": "com.amc.script.test-http-file", "description": "Testing SenderOfHttp" },
+    "roles": [
+      {
+        "roleName": "com.amc.script",
+        "values": {
+          "location":   { "httpUrl": "https://repo1.maven.org/maven2/com/zaxxer/HikariCP/3.4.1/HikariCP-3.4.1.jar" },
+          "scriptMain": { "interpreter":  ["/bin/ls", "-Rl"], "main": "." },
+          "scriptArgs": [],
+
+          "targetRoleName":   "com.amc.execution-target.linux",
+          "execTimeoutSec":   0,
+          "idleTimeoutSec":   10
+        }
+      }
+    ]
+  },
+
+  {
+    "asset": { "name": "com.amc.script.test-nexus-file", "description": "Testing SenderOfNexus" },
+    "roles": [
+      {
+        "roleName": "com.amc.script",
+        "values": {
+          "location":   { "nexus": {
+            "baseUrl":    "https://repository.sonatype.org/service/local",
+            "repository": "public",
+            "group":      "org.mockito",
+            "artifact":   "mockito-core",
+            "version":    "1.8.5"
+          }},
+          "scriptMain": { "interpreter":  ["/bin/ls", "-Rl"], "main": "." },
+          "scriptArgs": [],
+
+          "targetRoleName":   "com.amc.execution-target.linux",
+          "execTimeoutSec":   0,
+          "idleTimeoutSec":   10
+        }
+      }
+    ]
+  }
+
+]
