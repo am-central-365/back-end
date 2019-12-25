@@ -120,7 +120,7 @@ class SenderOfHttp(val url: String, val fileName: String? = null): TransferManag
                 continue
             }
 
-            logger.info { "opened and streaming $currUrl" }
+            logger.info { "streaming from $currUrl" }
             return conn.getInputStream()
         }
 
@@ -128,6 +128,13 @@ class SenderOfHttp(val url: String, val fileName: String? = null): TransferManag
     }
 }
 
+/**
+ * An HTTP(s) get, but the URL is built using Sonar Nexus GAV style attributes
+ *
+ * See https://repository.sonatype.org/nexus-restlet1x-plugin/default/docs/path__artifact_maven_redirect.html
+ * Sample url:
+ *   https://repository.sonatype.org/service/local/artifact/maven/redirect?r=public&g=org.mockito&a=mockito-core&v=1.8.5
+ */
 class SenderOfNexus(val loc: ScriptLocation.Nexus): TransferManager.Sender() {
     override fun getIterator(): Iterator<TransferManager.Item> {
         var urlStr = "${loc.baseUrl}/artifact/maven/redirect?r=${loc.repository}&g=${loc.group}&a=${loc.artifact}&v=${loc.version}"
@@ -137,6 +144,7 @@ class SenderOfNexus(val loc: ScriptLocation.Nexus): TransferManager.Sender() {
 
         val classifier = if( loc.classifier == null ) "" else "-" + loc.classifier
         val filename = "${loc.artifact}-${loc.version}$classifier.${loc.packaging ?: "jar"}"
+        // TODO: where does loc.extension belong?
 
         logger.info { "retrieving file $filename for Nexus URL $urlStr" }
         return SenderOfHttp(urlStr, filename).getIterator()
