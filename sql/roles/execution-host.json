@@ -1,7 +1,0 @@
-{
-  "protocol":      ["!", "ssh", "localhost"],
-  "asUser":        "string",
-  "asCredentials": ["password", "keyfile"],
-  "asMethod":      ["!","sudo"],
-  "baseDir":       "string!"
-}

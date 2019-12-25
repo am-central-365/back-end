@@ -5,4 +5,14 @@ build
 out
 *.pyc
 build.gradle-integrationTest
+site/development/db-files
+
+sql/amcentral365-data.kts
+sql/core_tables-linkages.png
+sql/core_tables-roles.png
+sql/core_tables_create.sql
+sql/core_tables_create_wip.sql
+sql/core_tables_drop.sql
+sql/create_tables.sql
+sql/drop_tables.sql
 

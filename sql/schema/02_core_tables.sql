@@ -20,7 +20,7 @@ create table if not exists roles(
   ,   constraint role_pk primary key(name)
   , class        varchar(100) not null   /* Not used, but explains the role to humans. */
   , role_schema  json not null
-  , description  varchar(64000)
+  , description  mediumtext
   /* --- standard fields */
   , created_by   varchar(100)
   , created_ts   timestamp default current_timestamp not null
@@ -30,11 +30,11 @@ create table if not exists roles(
 
 
 create table if not exists assets(
-  asset_id binary(16) not null
+    asset_id binary(16) not null
   ,   constraint assets_pk primary key(asset_id)
   , name        varchar(100) not null
   ,   constraint assets_uk unique(name)
-  , description varchar(64000)
+  , description mediumtext
   /* --- standard fields */
   , created_by  varchar(100)
   , created_ts  timestamp default current_timestamp not null

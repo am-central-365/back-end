@@ -1,0 +1,23 @@
+# Use root/r as user/password credentials
+version: '3.1'
+
+services:
+  db:
+    image: mariadb:10.4-bionic
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: r
+      MYSQL_DATABASE: amcentral365
+      MYSQL_USER: amc
+      MYSQL_PASSWORD: a
+    ports:
+      - "3365:3306"
+    volumes:
+      - ./conf:/etc/mysql/conf.d:ro
+      - ./db-files:/var/lib/mysql
+      - ../../sql/schema:/docker-entrypoint-initdb.d  # auto-ran when the container is initialized
+
+  adminer:
+    image: adminer
+    ports:
+      - 8365:8080
