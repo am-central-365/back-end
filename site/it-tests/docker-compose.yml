@@ -1,0 +1,42 @@
+#
+# after the DB and the workers have stared, use:
+#  localhost:33650 amc/a to connect to the database
+#  localhost:33651 to access the worker API page
+#
+# to cleanup the database, run
+#    sudo rm -rf db-files`
+
+version: '3.7'
+
+services:
+  db:
+    image: mariadb:10.4-bionic
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: r
+      MYSQL_DATABASE: amcentral365
+      MYSQL_USER: amc
+      MYSQL_PASSWORD: a
+    ports:
+      - "33650:3306"
+    volumes:
+      - ../conf:/etc/mysql/conf.d:ro
+      - ../../sql/schema:/docker-entrypoint-initdb.d  # auto-ran when the container is initialized
+      - ./db-files:/var/lib/mysql
+
+#  amc-it-builder:
+#    build:
+#      context:    .
+#      dockerfile: amc-it-builder.dockerfile
+#    volumes:
+#      - ../..:/home/gradle/project
+#      - ~/.m2:/home/gradle/.m2
+
+  amc-it-worker:
+    build:
+      context:    .
+      dockerfile: amc-it-worker.dockerfile
+    volumes:
+      - ../..:/home/app/amcentral365
+    ports:
+      - 33651:24941

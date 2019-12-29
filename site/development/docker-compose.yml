@@ -13,9 +13,9 @@ services:
     ports:
       - "3365:3306"
     volumes:
-      - ./conf:/etc/mysql/conf.d:ro
-      - ./db-files:/var/lib/mysql
+      - ../conf:/etc/mysql/conf.d:ro
       - ../../sql/schema:/docker-entrypoint-initdb.d  # auto-ran when the container is initialized
+      - ./db-files:/var/lib/mysql
 
   adminer:
     image: adminer
