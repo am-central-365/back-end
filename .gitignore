@@ -6,6 +6,7 @@ out
 *.pyc
 build.gradle-integrationTest
 site/development/db-files
+site/it-tests/db-files/
 
 sql/amcentral365-data.kts
 sql/core_tables-linkages.png

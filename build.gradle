@@ -17,12 +17,6 @@ plugins {
     id 'org.jetbrains.dokka' version '0.10.0'
 }
 
-group   = GROUP_NAME
-version = VERSION_NAME
-archivesBaseName = ARTIFACT_BASE_NAME
-
-description = "AutomationCentral-365"
-
 sourceCompatibility = 1.8
 targetCompatibility = sourceCompatibility
 
@@ -53,6 +47,34 @@ test {
     }
 }
 
+// Integration tests ----
+sourceSets {
+    testIT {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+configurations {
+    testITImplementation.extendsFrom implementation
+    testITRuntimeOnly.extendsFrom runtimeOnly
+}
+task testITTask(type: Test) {
+    useJUnitPlatform()
+    description = 'Runs integration tests.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.testIT.output.classesDirs
+    classpath       = sourceSets.testIT.runtimeClasspath
+    shouldRunAfter test
+
+    testLogging {
+        events "passed", "skipped", "failed"
+        showStandardStreams = true
+    }
+}
+check.dependsOn testITTask
+// end of IT
+
 jar {   // the uber jar
     manifest {
         attributes "Main-Class": mainClass
@@ -79,9 +101,13 @@ dependencies {
     compile group: 'org.glassfish.external', name: 'jsch',                 version: '0.1.55'       // SSH2
   //compile group: 'org.eclipse.jgit',       name: 'org.eclipse.jgit',     version: '5.5.1.201910021850-r'  // Git
 
-    // Test dependencies
+    // Test dependencies: Unit
     testCompile group: 'org.junit.jupiter',    name: 'junit-jupiter-engine', version: junit5Version
     testCompile group: 'org.junit.jupiter',    name: 'junit-jupiter-api',    version: junit5Version
     testCompile group: 'org.junit.jupiter',    name: 'junit-jupiter-params', version: junit5Version
     testCompile group: 'io.mockk',             name: 'mockk',                version:'1.8.7'
+
+    // Test dependencies: Integration
+    testITImplementation group: 'org.junit.jupiter', name: 'junit-jupiter-api',    version: junit5Version
+    testITRuntimeOnly    group: 'org.junit.jupiter', name: 'junit-jupiter-engine', version: junit5Version
 }
