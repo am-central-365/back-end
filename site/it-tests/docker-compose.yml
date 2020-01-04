@@ -18,25 +18,43 @@ services:
       MYSQL_USER: amc
       MYSQL_PASSWORD: a
     ports:
-      - "33650:3306"
+      - "3306"
     volumes:
       - ../conf:/etc/mysql/conf.d:ro
       - ../../sql/schema:/docker-entrypoint-initdb.d  # auto-ran when the container is initialized
       - ./db-files:/var/lib/mysql
 
-#  amc-it-builder:
-#    build:
-#      context:    .
-#      dockerfile: amc-it-builder.dockerfile
-#    volumes:
-#      - ../..:/home/gradle/project
-#      - ~/.m2:/home/gradle/.m2
-
-  amc-it-worker:
+  worker:
     build:
       context:    .
-      dockerfile: amc-it-worker.dockerfile
+      dockerfile: worker.dockerfile
+    depends_on:
+      - db
     volumes:
       - ../..:/home/app/amcentral365
     ports:
-      - 33651:24941
+      - "24941"
+
+  target-1:
+    build:
+      context:    .
+      dockerfile: target.dockerfile
+    ports:
+      - "2201:22"
+  target-2:
+    build:
+      context:    .
+      dockerfile: target.dockerfile
+    ports:
+      - "2202:22"
+
+  builder:
+    build:
+      context:    .
+      dockerfile: builder.dockerfile
+    depends_on:
+      - db
+      - worker
+    volumes:
+      - ../..:/home/gradle/project
+      - ~/.m2:/home/gradle/.m2

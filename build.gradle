@@ -17,6 +17,12 @@ plugins {
     id 'org.jetbrains.dokka' version '0.10.0'
 }
 
+group   = GROUP_NAME
+version = VERSION_NAME
+archivesBaseName = ARTIFACT_BASE_NAME
+
+description = "AutomationCentral-365"
+
 sourceCompatibility = 1.8
 targetCompatibility = sourceCompatibility
 
