@@ -1,10 +1,11 @@
 root:
   get:
-    tags: [Execute]
-    summary: List executions
+    tags: [Task]
+    summary: List tasks
     produces: [application/json]
     parameters:
    #- { in: query, name: q,     schema: {type: string}, description: "JSON query as described in the docs"}
+    - { in: query, name: taskNameLike,   schema: {type: string}, description: "a SQL LIKE pattern to match against task name. Ex: 'clean%'"}
     - { in: query, name: scriptNameLike, schema: {type: string}, description: "a SQL LIKE pattern to match against script name. Ex: 'maintenance%'"}
     - { in: query, name: targetNameLike, schema: {type: string}, description: "a SQL LIKE pattern to match against target name. Ex: 'webserver%'"}
     - { in: query, name: skip,  schema: {type: integer, default: 0}, description: "Number of items to skip"}
@@ -12,10 +13,10 @@ root:
     responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
 
   post:
-    tags: [Execute]
-    summary: Execute a script synchronously
-    description: Executes a script for the specified target. The execution is synchronous, the call does not
-                 return until it is finished. While the target is a single asset, it could be a composite one,
+    tags: [Task]
+    summary: Submit a script for asynchronous execution
+    description: Schedules script execution on the specified target. The execution is asynchronous, the call returns
+                 as soon as the task is submitted. While the target is a single asset, it could be a composite one,
                  such as a cluster. It is up to the script to handle such targets properly.
 
     requestBody:
@@ -26,44 +27,14 @@ root:
           schema:
             type: object
             properties:
+              taskName:      {type: string, maximum: 100, required: true, description: "task name. Non-unique"}
               scriptKey:     {type: string, maximum: 100, required: true, description: "asset id or name of the script"}
               targetKey:     {type: string, maximum: 100, required: true, description: "asset id or name of the target"}
-              executeMethod: {type: string, maximum: 50, description: "how to run the script: locally or via ssh (default)"}
+              executorRole:  {type: string, schema: { $ref: '../amcentral365.yml#/components/schemas/executor_role'}, description: "Where to execute the script"}
+              scheduledTs:   {type: string, format: date-time, description: "when the task should be executed, leave empty for immediate execution. The exact time depends on the workers availability" }
+              description:   {type: string, description: "a free form task description" }
+              scriptArgs:    {type: string, description: "arguments passed to the task"}
              #channelKey: {type: string, maximum: 100, description: "asset id or name of the channel where the output is posted in real time"}
              #tags:        {type: array, items: {type: string, maximum: 100} }
-              comment: {type: string, maximum: 4000, description: "invocation notes, if any"}
 
     responses:   { allOf: [{$ref: '../amcentral365.yml#/components/responses/start_resource'}] }
-
-
-$execute:
-  get:
-    tags: [Execute]
-    summary: Get execute info
-    description: Get status, start/finish times, log and output URLs, etc
-    produces: [application/json]
-    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
-
-    parameters:
-    - { in: path, name: executeId, required: true, schema: {type: string, format: uuid}, description: "asset id of the execute"}
-
-$execute_log:
-  get:
-    tags: [Execute]
-    summary: Get execute log
-    produces: [text/plain]
-    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
-
-    parameters:
-    - { in: path, name: executeId, required: true, schema: {type: string, format: uuid}, description: "asset id of the execute"}
-
-
-$execute_output:
-  get:
-    tags: [Execute]
-    summary: Get output of the script
-    produces: [text/plain]
-    responses: { allOf: [{$ref: '../amcentral365.yml#/components/responses/read_resource'}] }
-
-    parameters:
-    - { in: path, name: executeId, required: true, schema: {type: string, format: uuid}, description: "asset id of the execute"}

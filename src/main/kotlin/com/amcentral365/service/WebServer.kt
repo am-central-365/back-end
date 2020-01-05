@@ -9,16 +9,17 @@ import kotlin.reflect.full.primaryConstructor
 import spark.Request
 import spark.Response
 
-import com.google.common.io.Resources
 import com.google.common.annotations.VisibleForTesting
 
 import com.amcentral365.pl4kotlin.Entity
 import com.amcentral365.pl4kotlin.SelectStatement
 import com.amcentral365.pl4kotlin.closeIfCan
-import com.amcentral365.service.api.Execute
 
+import com.amcentral365.service.api.Execute
+import com.amcentral365.service.api.Tasks
 import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.api.catalog.Roles
+
 import com.amcentral365.service.dao.Meta
 import com.amcentral365.service.dao.Role
 
@@ -85,6 +86,9 @@ class WebServer {
         spark.Spark.get ("$API_BASE/executes/:executeId",        fun(req, rsp) = Execute.getInfo(req, rsp))
         spark.Spark.get ("$API_BASE/executes/:executeId/log",    fun(req, rsp) = Execute.getLog(req, rsp))
         spark.Spark.get ("$API_BASE/executes/:executeId/output", fun(req, rsp) = Execute.getOutput(req, rsp))
+
+        spark.Spark.get ("$API_BASE/tasks",                   fun(req, rsp) = Tasks.list(req, rsp))
+        spark.Spark.post("$API_BASE/tasks",                   fun(req, rsp) = Tasks.submit(req, rsp))
     }
 
     private fun handleCORS() {

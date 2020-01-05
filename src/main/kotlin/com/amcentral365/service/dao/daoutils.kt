@@ -12,6 +12,9 @@ import com.amcentral365.service.api.catalog.Assets
 import com.amcentral365.service.builtins.RoleName
 import com.amcentral365.service.builtins.roles.AnAsset
 import com.amcentral365.service.schemaUtils
+import java.sql.Timestamp
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 
 inline fun <reified T> getAssetObjectForRole(assetId: UUID, roleName: String, conn: Connection): T? {
     val dao = AssetRoleValues(assetId, roleName)
@@ -61,3 +64,13 @@ fun uuidToBytes(uuid: UUID?): ByteArray? {
     bb.putLong(uuid.leastSignificantBits)
     return bb.array()
 }
+
+/**
+ * Converts string in (almost) RFC 3339 format to Timestamp
+ *
+ * rfc3339: https://tools.ietf.org/html/rfc3339#section-5.6
+ * there is one catch with parsing TZ -00:00, see
+ * https://stackoverflow.com/questions/6038136/how-do-i-parse-rfc-3339-datetimes-with-java
+ */
+fun stringToTs(string: String?): Timestamp? = string?.let { Timestamp.from(Instant.parse(string.trim())) }
+

@@ -87,11 +87,9 @@ components:
               cause:    { type: object,  description: Nested code_mesage_cause }
             required: [code, message]
 
-
-
     200_dml_ok:          { allOf: [{$ref: '#/components/responses/code_message'}], description: Success }
     200_read_ok:         { allOf: [{$ref: '#/components/responses/object_data'}],  description: Returns the object's data }
-    201_created:         { allOf: [{$ref: '#/components/responses/code_message'}], description: Created the resource }
+    201_created:         { allOf: [{$ref: '#/components/responses/code_message'}], description: Created/Submitted the resource }
     400_bad_input:       { allOf: [{$ref: '#/components/responses/code_message'}], description: Something is wrong with the input data, see the message }
     404_not_found:       { allOf: [{$ref: '#/components/responses/code_message'}], description: The requested resource was not found }
     406_not_acceptable:  { allOf: [{$ref: '#/components/responses/code_message'}], description: Validation failed for one of the input components }
@@ -130,19 +128,19 @@ components:
       500: { $ref: '#/components/responses/500_server_error' }
 
     start_resource:
-      201: { $ref: '#/components/responses/201_started' }
+      201: { $ref: '#/components/responses/201_created' }
       406: { $ref: '#/components/responses/406_not_acceptable' }
       400: { $ref: '#/components/responses/400_bad_input' }
       500: { $ref: '#/components/responses/500_server_error' }
 
+  schemas:
+    executor_role:
+      type: string
+      enum:
+        - com.amc.script-executor-amc
+        - com.amc.script-executor-ssh
 
 paths:
-  /devcall:
-   get:
-     summary: Used to invoke code under development. Remove it.
-     tags: [Other]
-     produces:  [text/plain]
-
   /publicKey:
    get:
      summary: Get amcentral365 public key as plain text
@@ -180,8 +178,7 @@ paths:
   /catalog/assets/{assetKey}/roles/{roleName}:
     $ref: 'api/catalog_assets.yml#$asset_role'
 
-
-  # ------------------- scripts and tasks
+  # ------------------- scripts: synchronous execution
   /executes:
     $ref: 'api/executes.yml#root'
 
@@ -194,48 +191,6 @@ paths:
   /executes/{executeId}/output:
     $ref: 'api/executes.yml#$execute_output'
 
-
-  # *********************************************** Random thoughts
-
-
-  /catalog/assets/$assetKey/roles/$roleName:
-   get:
-     summary: Not supported
-
-   post:
-     summary: Create or set all attributes for the asset and the role
-     description: All role attributes are replaced with the specified values.
-                  The parametrs format is the same as of the list returned by 'get'
-                  All attributes marked 'required' must be present. This call may
-                  be used for bulk attribute assignments and copying.
-
-   delete:
-     summary: Delete role associated with the asset.
-     description: All role attributes are removed as well.
-
-
-  /catalog/assets/$assetKey/roles/$roleName/attributes:
-   head:
-     summary: List names of all attributes currently associated with the role
-
-   get:
-     summary: Get values of all attributes currently associated with the role
-
-   # post/put:
-   #   could be used to add an attribute, but for that we should use
-   #   /catalog/assets/$assetId/roles/$roleName/attributes/$attrName
-   # delete:
-   #   is disabled becase passing an empty attr_name by accident would delete all attributes
-   #   and that is too unsafe. To delete all attributes, remove role from the asset.
-
-
-  /catalog/assets/{assetId}/roles/{roleName}/attributes/${draId}:
-   get:
-     summary: Get specific attribute value
-     description: All attributes marked as required in declared_role_attributes
-                  must be specified.
-   post:
-     summary: Create and set the attribute or update its value if it exists
-
-   delete:
-     summary: Delete the attribute. Required attributes can't be deleted.
+  # ------------------- tasks: asynchronous execution
+  /tasks:
+    $ref: 'api/tasks.yml#root'
